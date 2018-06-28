@@ -1,5 +1,13 @@
+data
+data/*
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+*fil
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
+*__pycache__/
 *.py[cod]
 *$py.class
 

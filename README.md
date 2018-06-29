@@ -1,5 +1,4 @@
 # setigen
-<<<<<<< HEAD
 Python library for generating and injecting artificial narrow-band signals into time-frequency data
 
 ## Tools
@@ -18,5 +17,3 @@ Injecting an artificial signal is as simple as adding it to the data. To fully d
 `setigen` provides utilities to help generate these functions. These all contribute to the final structure of the signal - the goal is to empower the user to generate artifical signals that are as simple or complex as one would like.
 =======
 Python library for generating and injecting artificial narrow-band signals into time-frequency data, as well as tools for working with filterbank data.
-
->>>>>>> 738b6fbcfb4cda099dda6e9d7f1522b3031542ba

@@ -6,16 +6,16 @@ from blimpy import read_header, Waterfall, Filterbank
 
 def split_fil(input_fn, output_dir, f_sample_num, f_shift=None):
     """
-    Creates a set of new filterbank files by 'splitting' an input filterbank
+    Creates a set of new filterbank files by 'splitting' an input filterbank \
     file according to the number of frequency samples
 
     Args:
         input_fn, filterbank file name with .fil extension
         output_dir, directory for new filterbank files
         f_sample_num, number of frequency samples per new filterbank file
-        f_shift, number of samples to shift when splitting filterbank. If None,
-            defaults to `f_shift=f_sample_num` so that there is no overlap
-            between new filterbank files
+        f_shift, number of samples to shift when splitting filterbank. If \
+            None, defaults to `f_shift=f_sample_num` so that there is no \
+            overlap between new filterbank files
 
     Return:
         List of new files
@@ -57,8 +57,8 @@ def split_data(data, f_sample_num=None, t_sample_num=None,
                      f_shift=None, t_shift=None,
                      f_trim=False, t_trim=False):
     """
-    Split NumPy arrays into a list of smaller arrays according to limits in
-    frequency and time. This doesn't reduce/combine data, it simply cuts the
+    Split NumPy arrays into a list of smaller arrays according to limits in \
+    frequency and time. This doesn't reduce/combine data, it simply cuts the \
     data into smaller chunks.
 
     Args:

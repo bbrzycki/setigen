@@ -31,3 +31,32 @@ def get_data(input_fn):
     """
     fil = Waterfall(input_fn)
     return np.squeeze(fil.data)
+
+def get_fs(input_fn):
+    """
+    Gets frequency values from filterbank file
+
+    Args:
+        input_fn, name of filterbank file
+
+    Return:
+        NumPy array with frequency values
+    """
+    fch1 = read_header(input_fn)[b'fch1']
+    df = read_header(input_fn)[b'foff']
+    fchans = read_header(input_fn)[b'nchans']
+    return np.arange(fch1, fch1 + fchans * df, df)
+
+def get_ts(input_fn):
+    """
+    Gets time values from filterbank file
+
+    Args:
+        input_fn, name of filterbank file
+
+    Return:
+        NumPy array with time values
+    """
+    tsamp = read_header(input_fn)[b'tsamp']
+    tchans = get_data(input_fn)[0]
+    return np.arange(0, tchans*tsamp, tsamp)

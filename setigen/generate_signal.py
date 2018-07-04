@@ -18,7 +18,7 @@ def generate(ts,
         t_profile, function in time that returns an intensity (scalar)
         f_profile, function in frequency that returns an intensity (scalar),
             relative to the signal frequency within a time sample
-        bp_profile, function in frequency that returns in intensity (scalar)
+        bp_profile, function in frequency that returns an intensity (scalar)
 
     Return:
         signal, two-dimensional NumPy array that only contains synthetic signal

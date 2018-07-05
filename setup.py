@@ -21,6 +21,7 @@ setuptools.setup(
        'numpy',
        'scipy',
        'blimpy',
+       'matplotlib',
        'sphinx_adc_theme'
     ],
     classifiers=(

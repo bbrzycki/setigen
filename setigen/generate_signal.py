@@ -63,7 +63,7 @@ def generate(ts,
     >>> plt.colorbar()
     >>> fig.savefig("image.png", bbox_inches='tight')
 
-    To run within a script, simply exclude the first line: `%matplotlib inline`.
+    To run within a script, simply exclude the first line: :code:`%matplotlib inline`.
 
     """
     ff, tt = np.meshgrid(fs, ts)

@@ -2,17 +2,21 @@ import numpy as np
 import sys
 
 def normalize(data, exclude=0.0):
-    """
-    Normalize data per frequency channel so that the noise level in data is \
+    """Normalize data per frequency channel so that the noise level in data is
     controlled. Excludes a fraction of brightest pixels to better isolate noise.
 
-    Args:
-        data, NumPy array with time-frequency data
-        exclude, fraction of brightest samples in each frequency bin to \
-            exclude in calculating mean and standard deviation
+    Parameters
+    ----------
+    data : ndarray
+        Time-frequency data
+    exclude : float, optional
+        Fraction of brightest samples in each frequency bin to exclude in
+        calculating mean and standard deviation
 
-    Return:
-        normalized_data, NumPy array
+    Returns
+    -------
+    normalized_data : ndarray
+        Normalized data
 
     """
     if exclude == 1.0:

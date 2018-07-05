@@ -5,14 +5,14 @@ import numpy as np
 from blimpy import read_header, Waterfall, Filterbank
 
 def maxfreq(input_fn):
-    """
-    Return central frequency of the highest-frequency bin in a .fil file.
+    """Return central frequency of the highest-frequency bin in a .fil file.
+
     """
     return read_header(input_fn)[b'fch1']
 
 def minfreq(input_fn):
-    """
-    Return central frequency of the lowest-frequency bin in a .fil file
+    """Return central frequency of the lowest-frequency bin in a .fil file.
+
     """
     fch1 = read_header(input_fn)[b'fch1']
     nchans = read_header(input_fn)[b'nchans']
@@ -20,27 +20,33 @@ def minfreq(input_fn):
     return fch1 + nchans * ch_bandwidth
 
 def get_data(input_fn):
-    """
-    Gets time-frequency data from filterbank file as a 2d NumPy array
+    """Gets time-frequency data from filterbank file as a 2d NumPy array.
 
-    Args:
-        input_fn, name of filterbank file
+    Parameters
+    ----------
+    input_fn : str
+        Name of filterbank file
 
-    Return:
-        NumPy array with time-frequency data
+    Returns
+    -------
+    data : ndarray
+        Time-frequency data
     """
     fil = Waterfall(input_fn)
     return np.squeeze(fil.data)
 
 def get_fs(input_fn):
-    """
-    Gets frequency values from filterbank file
+    """Gets frequency values from filterbank file.
 
-    Args:
-        input_fn, name of filterbank file
+    Parameters
+    ----------
+    input_fn : str
+        Name of filterbank file
 
-    Return:
-        NumPy array with frequency values
+    Returns
+    -------
+    fs : ndarray
+        Frequency values
     """
     fch1 = read_header(input_fn)[b'fch1']
     df = read_header(input_fn)[b'foff']
@@ -48,14 +54,17 @@ def get_fs(input_fn):
     return np.arange(fch1, fch1 + fchans * df, df)
 
 def get_ts(input_fn):
-    """
-    Gets time values from filterbank file
+    """Gets time values from filterbank file.
 
-    Args:
-        input_fn, name of filterbank file
+    Parameters
+    ----------
+    input_fn : str
+        Name of filterbank file
 
-    Return:
-        NumPy array with time values
+    Returns
+    -------
+    ts : ndarray
+        Time values
     """
     tsamp = read_header(input_fn)[b'tsamp']
     tchans = get_data(input_fn)[0]

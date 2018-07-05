@@ -18,7 +18,8 @@ setuptools.setup(
     },
     packages=setuptools.find_packages(),
     install_requires=[
-       'numpy'
+       'numpy',
+       'sphinx_adc_theme'
     ],
     classifiers=(
         'Programming Language :: Python :: 3',

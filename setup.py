@@ -19,6 +19,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
        'numpy',
+       'scipy',
        'blimpy',
        'sphinx_adc_theme'
     ],

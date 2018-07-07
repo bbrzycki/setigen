@@ -8,7 +8,7 @@ setuptools.setup(
     version='0.0.1',
     author='Bryan Brzycki',
     author_email='bbrzycki@berkeley.edu',
-    description='Generate SETI signal',
+    description='SETI radio signal generator',
     long_description='Python library for generating and injecting artificial narrow-band signals into time-frequency data',
     long_description_content_type='text/markdown',
     url='https://github.com/bbrzycki/setigen',

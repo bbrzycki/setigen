@@ -3,14 +3,31 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. |setigen| replace:: :mod:`setigen`
+.. |blimpy| replace:: :mod:`blimpy`
+
 Welcome to setigen's documentation!
 ===================================
 
+|setigen| is a Python library for generating and injecting artificial
+narrow-band signals into time-frequency data. |setigen| interfaces
+primarily with data saved in two-dimensional NumPy arrays or filterbank files
+(:code:`.fil` extension).
+
+|setigen| allows the user to generate synthetic signals in the
+time-frequency domain. Furthermore, the user may inject these synthetic signals
+into real observational data using tools that rely on the |blimpy| package
+(maintained by Breakthrough Listen based at UC Berkeley).
+
+Table of Contents
+=================
+
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
 
-
+   install
+   cookbook
+   setigen
 
 Indices and tables
 ==================

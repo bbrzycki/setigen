@@ -67,5 +67,5 @@ def get_ts(input_fn):
         Time values
     """
     tsamp = read_header(input_fn)[b'tsamp']
-    tchans = get_data(input_fn)[0]
+    tchans = get_data(input_fn).shape[0]
     return np.arange(0, tchans*tsamp, tsamp)

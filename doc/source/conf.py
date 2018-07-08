@@ -85,11 +85,11 @@ intersphinx_mapping = {'NumPy': ('http://docs.scipy.org/doc/numpy/', None),
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-# html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx_rtd_theme'
 
-import sphinx_adc_theme
-html_theme = "sphinx_adc_theme"
-html_theme_path = [sphinx_adc_theme.get_html_theme_path()]
+# import sphinx_adc_theme
+# html_theme = "sphinx_adc_theme"
+# html_theme_path = [sphinx_adc_theme.get_html_theme_path()]
 
 # import sphinx_nameko_theme
 # html_theme_path = [sphinx_nameko_theme.get_html_theme_path()]
@@ -114,7 +114,7 @@ html_static_path = ['_static']
 # default: ``['localtoc.html', 'relations.html', 'sourcelink.html',
 # 'searchbox.html']``.
 #
-html_sidebars = { '**': ['globaltoc.html', 'relations.html', 'sourcelink.html', 'searchbox.html'] }
+# html_sidebars = { '**': ['globaltoc.html', 'relations.html', 'sourcelink.html', 'searchbox.html'] }
 
 
 # -- Options for HTMLHelp output ---------------------------------------------

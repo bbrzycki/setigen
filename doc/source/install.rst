@@ -2,7 +2,9 @@
 Installation
 ============
 
-At the command line, execute::
+At the command line, execute:
+
+.. code-block:: bash
 
     git clone git@github.com:bbrzycki/setigen.git
     python setup.py install

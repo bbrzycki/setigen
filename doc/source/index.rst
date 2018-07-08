@@ -4,7 +4,9 @@
    contain the root `toctree` directive.
 
 .. |setigen| replace:: :mod:`setigen`
-.. |blimpy| replace:: :mod:`blimpy`
+.. |blimpy| replace:: ``blimpy``
+.. _blimpy: https://github.com/UCBerkeleySETI/blimpy
+
 
 Welcome to setigen's documentation!
 ===================================
@@ -16,7 +18,7 @@ primarily with data saved in two-dimensional NumPy arrays or filterbank files
 
 |setigen| allows the user to generate synthetic signals in the
 time-frequency domain. Furthermore, the user may inject these synthetic signals
-into real observational data using tools that rely on the |blimpy| package
+into real observational data using tools that rely on the |blimpy|_ package
 (maintained by Breakthrough Listen based at UC Berkeley).
 
 Table of Contents

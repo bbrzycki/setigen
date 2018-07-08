@@ -2,10 +2,8 @@
 Cookbook
 ========
 
-Examples
-========
-
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 4
 
    cookbook/generate
+   cookbook/filterbank

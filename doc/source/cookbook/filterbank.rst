@@ -17,6 +17,10 @@ To visualize filterbank data, we use ``blimpy.Waterfall``.
 Splitting filterbank files
 --------------------------
 
+<<<<<<< HEAD
 We can split a single filterbank file into a series of smaller filterbank files
 for different applications - searching through a more manageable frame size,
 machine learning with more dataframes, etc. 
+=======
+Text
+>>>>>>> c853ca68f29ea366dc3d906739b9f9204989e04d

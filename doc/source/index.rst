@@ -11,6 +11,10 @@
 Welcome to setigen's documentation!
 ===================================
 
+.. image:: triple_sine.png
+    :align: center
+    :scale: 75
+
 |setigen| is a Python library for generating and injecting artificial
 narrow-band signals into time-frequency data. |setigen| interfaces
 primarily with data saved in two-dimensional NumPy arrays or filterbank files

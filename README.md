@@ -1,13 +1,14 @@
 # setigen
 Python library for generating and injecting artificial narrow-band signals into time-frequency data, as well as tools for working with filterbank data.
 
-<div style="text-align:center;">
-  <p align="center">
-    <img src="doc/source/triple_sine.png" alt="Synthetic triple sine signal"
-    width="500" height="400"/>
-  </p>
-  *Synthetic signal generated using `setigen`: sine intensity profile and Gaussian frequency profile*
-</div>
+<p align="center">
+<img src="doc/source/triple_sine.png" alt="Synthetic triple sine signal"
+width="500" height="400"/>
+<br>
+<i>
+Synthetic signal generated using <code>setigen</code>: sine intensity profile and Gaussian frequency profile
+</i>
+</p>
 
 ## Tools
 The library contains tools that handle time-frequency data stored in NumPy arrays, as well as converting to and from filterbank files.

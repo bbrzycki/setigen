@@ -23,9 +23,9 @@ f_sample_num = 2**20
 input_fn = '/mnt_bls0/datax3/collate/AGBT17B_999_70/spliced_blc00010203040506o7o0111213141516o7o0212223242526o7o031323334353637_guppi_58090_40453_HIP43223_0021.gpuspec.0000.fil'
 output_dir = '/datax/users/bryanb/data/'
 
-# print('Begin splitting input Filterbank file')
+print('Begin splitting input Filterbank file')
 
-# split_fns = stg.split_fil(input_fn, output_dir, f_sample_num)
+split_fns = stg.split_fil(input_fn, output_dir, f_sample_num)
 
 ######
 

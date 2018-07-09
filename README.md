@@ -4,10 +4,6 @@ Python library for generating and injecting artificial narrow-band signals into 
 <p align="center">
 <img src="doc/source/triple_sine.png" alt="Synthetic triple sine signal"
 width="500" height="400"/>
-<br>
-<i>
-Synthetic signal generated using <code>setigen</code>: sine intensity profile and Gaussian frequency profile
-</i>
 </p>
 
 ## Tools

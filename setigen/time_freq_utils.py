@@ -1,6 +1,16 @@
 import numpy as np
 import sys
 
+def db(x):
+    """ Convert to dB """
+    return 10*np.log10(x)
+
+def gaussian_noise(data, mean, width):
+    # Match data dimensions
+    ts_len, fs_len = data.shape
+    noise = np.random.normal(mean, width, [ts_len, fs_len])
+    return noise
+
 def normalize(data, exclude=0.0):
     """Normalize data per frequency channel so that the noise level in data is
     controlled. Excludes a fraction of brightest pixels to better isolate noise.
@@ -35,3 +45,15 @@ def normalize(data, exclude=0.0):
 
 def normalize_by_max(data):
     return data / np.max(data)
+
+def inject_noise(data,
+                 modulate_signal = False,
+                 modulate_width = 0.1,
+                 background_noise = True,
+                 noise_width = 1):
+    new_data = data
+    if modulate_signal:
+        new_data *= gaussian_noise(data, 1, modulate_width)
+    if background_noise:
+        new_data += gaussian_noise(data, 0, noise_width)
+    return new_data

@@ -39,5 +39,5 @@ for fn in split_fns:
     find_seti_event = FinDoppler(fn, max_drift = 10.0, snr = 25.0, out_dir = 'data_dump/split_files/', obs_info=obs_info)
     find_seti_event.search()
     print('Finishing searching %s' % fn)
-    
+
 print('Finished searching everything!')

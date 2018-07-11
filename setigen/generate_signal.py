@@ -67,4 +67,5 @@ def generate(ts,
 
     """
     ff, tt = np.meshgrid(fs, ts)
-    return t_profile(tt) * f_profile(ff, path(tt)) * bp_profile(ff)
+    signal = t_profile(tt) * f_profile(ff, path(tt)) * bp_profile(ff)
+    return signal

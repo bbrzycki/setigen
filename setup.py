@@ -20,6 +20,7 @@ setuptools.setup(
     install_requires=[
        'numpy',
        'scipy',
+       'astropy',
        'blimpy',
        'matplotlib',
        # 'sphinx_adc_theme'

@@ -30,7 +30,7 @@ def periodic_gaussian_t_profile(period, phase, width, sigma, pnum = 1, amplitude
 
         intensity = 0
         for c in center:
-            intensity += stg.gaussian(t, c, width) * amplitude
+            intensity -= stg.gaussian(t, c, width) * amplitude
 
         intensity += level
         return intensity

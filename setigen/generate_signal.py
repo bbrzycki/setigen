@@ -1,4 +1,6 @@
 import numpy as np
+import scipy.integrate as integrate
+import scipy.special as special
 
 def generate(ts,
              fs,
@@ -66,6 +68,21 @@ def generate(ts,
     To run within a script, simply exclude the first line: :code:`%matplotlib inline`.
 
     """
-    ff, tt = np.meshgrid(fs, ts)
-    signal = t_profile(tt) * f_profile(ff, path(tt)) * bp_profile(ff)
+    # Assuming len(ts) >= 2
+    tsamp = ts[1] - ts[0]
+    ff, tt = np.meshgrid(fs, ts - tsamp / 2.)
+
+    int_ts_profile = []
+    for i in range(len(ts)):
+        val = integrate.quad(t_profile, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
+        int_ts_profile.append(val)
+    int_tt_profile = np.meshgrid(fs, int_ts_profile)[1]
+
+    int_ts_path = []
+    for i in range(len(ts)):
+        val = integrate.quad(path, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
+        int_ts_path.append(val)
+    int_tt_path = np.meshgrid(fs, int_ts_path)[1]
+
+    signal = int_tt_profile * f_profile(ff, int_tt_path) * bp_profile(ff)
     return signal

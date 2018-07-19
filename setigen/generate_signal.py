@@ -1,5 +1,5 @@
 import numpy as np
-import scipy.integrate as integrate
+import scipy.integrate as sciintegrate
 import scipy.special as special
 
 def generate(ts,
@@ -7,7 +7,9 @@ def generate(ts,
              path,
              t_profile,
              f_profile,
-             bp_profile):
+             bp_profile,
+             integrate = False,
+             samples = 10):
     """Generates synthetic signal.
 
     Computes synethic signal using given path in time-frequency domain and
@@ -72,17 +74,30 @@ def generate(ts,
     tsamp = ts[1] - ts[0]
     ff, tt = np.meshgrid(fs, ts - tsamp / 2.)
 
-    int_ts_profile = []
-    for i in range(len(ts)):
-        val = integrate.quad(t_profile, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
-        int_ts_profile.append(val)
-    int_tt_profile = np.meshgrid(fs, int_ts_profile)[1]
+    # int_ts_profile = []
+    # for i in range(len(ts)):
+    #     val = integrate.quad(t_profile, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
+    #     int_ts_profile.append(val)
+    # int_tt_profile = np.meshgrid(fs, int_ts_profile)[1]
+
+    if integrate:
+        new_ts = np.arange(0, ts[-1] + tsamp, tsamp / samples)
+        y = t_profile(new_ts)
+        new_y = []
+        for i in range(len(ts)):
+            tot = 0
+            for j in range(samples*i, samples*(i+1)):
+                tot += y[j]
+            new_y.append(tot / samples)
+        tt_profile = np.meshgrid(fs, new_y)[1]
+    else:
+        tt_profile = t_profile(tt)
 
     int_ts_path = []
     for i in range(len(ts)):
-        val = integrate.quad(path, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
+        val = sciintegrate.quad(path, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
         int_ts_path.append(val)
     int_tt_path = np.meshgrid(fs, int_ts_path)[1]
 
-    signal = int_tt_profile * f_profile(ff, int_tt_path) * bp_profile(ff)
+    signal = tt_profile * f_profile(ff, int_tt_path) * bp_profile(ff)
     return signal

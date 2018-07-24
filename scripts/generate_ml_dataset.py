@@ -28,7 +28,25 @@ tsamp = ts[1] - ts[0]
 fs = stg.get_fs(input_fn)
 df = fs[1] - fs[0]
 
-max_drift_rate * (len(ts) * tsamp) / df
+index_range = int(np.floor(np.abs(max_drift_rate * (len(ts) * tsamp) / df)))
+print(index_range)
+
+fchans = len(fs)
+print(fchans)
+min_range = index_range
+max_range = index_range
+while fchans % min_range != 0:
+    min_range -= 1
+while fchans % max_range != 0:
+    max_range += 1
+print('Min: %s' % min_range)
+print('Max: %s' % max_range)
+
+if index_range - min_range < max_range - index_range:
+    index_range = min_range
+else:
+    index_range = max_range
+
 
 
 print('Begin splitting input Filterbank file')

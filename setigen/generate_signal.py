@@ -83,6 +83,8 @@ def generate(ts,
     if integrate:
         new_ts = np.arange(0, ts[-1] + tsamp, tsamp / samples)
         y = t_profile(new_ts)
+        if type(y) != np.ndarray:
+            y = np.repeat(y, len(new_ts))
         new_y = []
         for i in range(len(ts)):
             tot = 0

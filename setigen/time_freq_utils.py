@@ -63,9 +63,8 @@ def inject_noise(data,
                  modulate_width = 0.1,
                  background_noise = True,
                  noise_sigma = 1):
-    new_data = data
     if modulate_signal:
-        new_data *= gaussian_noise(data, 1, modulate_width)
+        new_data = data * gaussian_noise(data, 1, modulate_width)
     if background_noise:
-        new_data += gaussian_noise(data, 0, noise_sigma)
+        new_data = new_data + gaussian_noise(data, 0, noise_sigma)
     return new_data

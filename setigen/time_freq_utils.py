@@ -46,7 +46,7 @@ def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
             end = f_len
         else:
             end = i + cols + 1
-        noise_data = np.sort(data[:,start:end].flatten())[0:int(np.ceil(t_len*(1 - exclude)))]
+        noise_data = np.sort(data[:,start:end].flatten())[0:int(np.ceil(t_len * (end - start)(1 - exclude)))]
         if use_median:
             mean[i] = np.median(noise_data)
             std[i] = median_absolute_deviation(noise_data)

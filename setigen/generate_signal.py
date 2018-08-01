@@ -31,6 +31,11 @@ def generate(ts,
     bp_profile : function
         Bandpass profile: function in frequency that returns an intensity
         (scalar)
+    integrate : bool, optional
+        Option to integrate t_profile in the time direction
+    samples : int, optional
+        Number of bins to integrate t_profile in the time direction, using
+        Riemann sums
 
     Returns
     -------

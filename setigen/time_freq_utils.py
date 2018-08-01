@@ -4,9 +4,11 @@ import sys
 
 def db(x):
     """ Convert to dB """
-    return 10*np.log10(x)
+    return 10 * np.log10(x)
 
 def gaussian_noise(data, mean, sigma):
+    """Create an array of Gaussian noise with the same dimensions as an input
+    data array"""
     # Match data dimensions
     ts_len, fs_len = data.shape
     noise = np.random.normal(mean, sigma, [ts_len, fs_len])
@@ -14,15 +16,27 @@ def gaussian_noise(data, mean, sigma):
 
 def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     """Normalize data per frequency channel so that the noise level in data is
-    controlled. Excludes a fraction of brightest pixels to better isolate noise.
+    controlled.
+
+    Uses a sliding window to calculate mean and standard deviation
+    to preserve non-drifted signals. Excludes a fraction of brightest pixels to
+    better isolate noise.
 
     Parameters
     ----------
     data : ndarray
         Time-frequency data
+    cols : int
+        Number of columns on either side of the current frequency bin. The width
+        of the sliding window is thus 2 * cols + 1
     exclude : float, optional
         Fraction of brightest samples in each frequency bin to exclude in
         calculating mean and standard deviation
+    to_db : bool, optional
+        Convert values to decibel equivalents *before* normalization
+    use_median : bool, optional
+        Use median and median absolute deviation instead of mean and standard
+        deviation
 
     Returns
     -------
@@ -56,6 +70,7 @@ def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     return np.nan_to_num((data - mean) / std)
 
 def normalize_by_max(data):
+    """Simple normalization by dividing out by the brightest pixel"""
     return data / np.max(data)
 
 def inject_noise(data,
@@ -63,6 +78,32 @@ def inject_noise(data,
                  modulate_width = 0.1,
                  background_noise = True,
                  noise_sigma = 1):
+    """Normalize data per frequency channel so that the noise level in data is
+    controlled.
+
+    Uses a sliding window to calculate mean and standard deviation
+    to preserve non-drifted signals. Excludes a fraction of brightest pixels to
+    better isolate noise.
+
+    Parameters
+    ----------
+    data : ndarray
+        Time-frequency data
+    modulate_signal : bool, optional
+        Modulate signal itself with Gaussian noise (multiplicative)
+    modulate_width : float, optional
+        Standard deviation of signal modulation
+    background_noise : bool, optional
+        Add gaussian noise to entire image (additive)
+    noise_sigma : float, optional
+        Standard deviation of background Gaussian noise
+
+    Returns
+    -------
+    noisy_data : ndarray
+        Data with injected noise
+
+    """
     new_data = data
     if modulate_signal:
         new_data = new_data * gaussian_noise(data, 1, modulate_width)

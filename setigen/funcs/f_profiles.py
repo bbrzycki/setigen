@@ -3,7 +3,7 @@ import func_utils
 
 def box_f_profile(width = 0.00001):
     def f_profile(f, f_center):
-        return (np.abs(f-f_center) < width).astype(int)
+        return (np.abs(f-f_center) < width / 2.).astype(int)
     return f_profile
 
 def gaussian_f_profile(width = 0.00001):

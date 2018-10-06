@@ -16,7 +16,7 @@ def gaussian_noise(data, mean, sigma):
 
 def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     """Normalize data per frequency channel so that the noise level in data is
-    controlled.
+    controlled; using mean or median filter.
 
     Uses a sliding window to calculate mean and standard deviation
     to preserve non-drifted signals. Excludes a fraction of brightest pixels to

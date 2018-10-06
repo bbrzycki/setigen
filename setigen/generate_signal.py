@@ -79,12 +79,6 @@ def generate(ts,
     tsamp = ts[1] - ts[0]
     ff, tt = np.meshgrid(fs, ts - tsamp / 2.)
 
-    # int_ts_profile = []
-    # for i in range(len(ts)):
-    #     val = integrate.quad(t_profile, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
-    #     int_ts_profile.append(val)
-    # int_tt_profile = np.meshgrid(fs, int_ts_profile)[1]
-
     if integrate:
         new_ts = np.arange(0, ts[-1] + tsamp, tsamp / samples)
         y = t_profile(new_ts)

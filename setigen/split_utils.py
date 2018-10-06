@@ -24,7 +24,7 @@ def split_fil(input_fn, output_dir, f_sample_num, f_shift=None):
     Returns
     -------
     split_fns : list of str
-        List of new files
+        List of new filenames
     """
     if output_dir[-1] != '/':
         output_dir = output_dir + '/'

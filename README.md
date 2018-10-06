@@ -1,4 +1,5 @@
-# setigen [![PyPI version](https://badge.fury.io/py/setigen.svg)](https://badge.fury.io/py/setigen) [![Build Status](https://travis-ci.org/bbrzycki/setigen.svg?branch=master)](https://travis-ci.org/bbrzycki/setigen)
+# setigen [![PyPI version](https://badge.fury.io/py/setigen.svg)](https://badge.fury.io/py/setigen) [![Build Status](https://travis-ci.org/bbrzycki/setigen.svg?branch=master)](https://travis-ci.org/bbrzycki/setigen) [![Documentation Status](https://readthedocs.org/projects/setigen/badge/?version=latest)](https://setigen.readthedocs.io/en/latest/?badge=latest)
+
 Python library for generating and injecting artificial narrow-band signals into time-frequency data, as well as tools for working with filterbank data.
 
 <p align="center">

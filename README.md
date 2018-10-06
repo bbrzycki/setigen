@@ -1,4 +1,4 @@
-# setigen
+# setigen [![Build Status](https://travis-ci.org/bbrzycki/setigen.svg?branch=master)](https://travis-ci.org/bbrzycki/setigen)
 Python library for generating and injecting artificial narrow-band signals into time-frequency data, as well as tools for working with filterbank data.
 
 <p align="center">

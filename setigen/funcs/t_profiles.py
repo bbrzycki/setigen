@@ -1,14 +1,24 @@
+import sys
 import numpy as np
 import func_utils
 
+
 def constant_t_profile(level=1):
     def t_profile(t):
-        return level
+        if type(t) is np.ndarray:
+            shape = t.shape
+        elif type(t) is list:
+            shape = len(t)
+        else:
+            shape = 1
+        return np.full(shape, level)
     return t_profile
+
 
 def sine_t_profile(period, phase = 0, amplitude=1, level=1):
     t_profile = lambda t: amplitude * np.sin(2 * np.pi * (t + phase) / period) + level
     return t_profile
+
 
 def periodic_gaussian_t_profile(period, phase, sigma, pulse_dir, width, pnum = 1, amplitude = 1, level = 0):
     # pulse_dir can be 'up', 'down', 'rand'

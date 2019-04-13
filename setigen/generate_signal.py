@@ -8,8 +8,9 @@ def generate(ts,
              t_profile,
              f_profile,
              bp_profile,
-             integrate = False,
-             samples = 10):
+             integrate_time=False,
+             samples=10,
+             average_f_pos=False):
     """Generates synthetic signal.
 
     Computes synethic signal using given path in time-frequency domain and
@@ -31,11 +32,14 @@ def generate(ts,
     bp_profile : function
         Bandpass profile: function in frequency that returns an intensity
         (scalar)
-    integrate : bool, optional
+    integrate_time : bool, optional
         Option to integrate t_profile in the time direction
     samples : int, optional
         Number of bins to integrate t_profile in the time direction, using
         Riemann sums
+    average_f_pos : bool, optional
+        Option to average path along frequency to get better position in t-f
+        space
 
     Returns
     -------
@@ -79,7 +83,8 @@ def generate(ts,
     tsamp = ts[1] - ts[0]
     ff, tt = np.meshgrid(fs, ts - tsamp / 2.)
 
-    if integrate:
+    # Integrate in time direction to capture temporal variations more accurately
+    if integrate_time:
         new_ts = np.arange(0, ts[-1] + tsamp, tsamp / samples)
         y = t_profile(new_ts)
         if type(y) != np.ndarray:
@@ -94,11 +99,16 @@ def generate(ts,
     else:
         tt_profile = t_profile(tt)
 
-    int_ts_path = []
-    for i in range(len(ts)):
-        val = sciintegrate.quad(path, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
-        int_ts_path.append(val)
-    int_tt_path = np.meshgrid(fs, int_ts_path)[1]
+    # TODO: optimize with vectorization and array operations.
+    # Average using integration to get a better position in frequency direction
+    if average_f_pos:
+        int_ts_path = []
+        for i in range(len(ts)):
+            val = sciintegrate.quad(path, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
+            int_ts_path.append(val)
+    else:
+        int_ts_path = path(ts)
+    path_f_pos = np.meshgrid(fs, int_ts_path)[1]
 
-    signal = tt_profile * f_profile(ff, int_tt_path) * bp_profile(ff)
+    signal = tt_profile * f_profile(ff, path_f_pos) * bp_profile(ff)
     return signal

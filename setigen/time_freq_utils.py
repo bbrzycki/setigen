@@ -9,17 +9,27 @@ def db(x):
 
 
 def choose_from_dist(dist, shape):
+    """Load random values from a loaded NumPy array in the specified shape"""
     return dist[np.random.randint(0, len(dist), shape)]
 
+
 def make_normal(means_dist, stds_dist, mins_dist, shape):
+    """
+    Grab means, standard deviations, and minimums from the loaded distributions
+    (each NumPy arrays) in the shape provided.
+    """
     means = choose_from_dist(means_dist, shape)
     stds = choose_from_dist(stds_dist, shape)
     mins = choose_from_dist(mins_dist, shape)
-    means = np.maximum(means, stds)
+    # means = np.maximum(means, stds)
     return means, stds, mins
 
 
 def gaussian_frame_from_dist(means_dist, stds_dist, mins_dist, shape):
+    """
+    Make a Gaussian noise frame from given distributions for
+    the mean, standard deviation, and minimums for data in the shape provided.
+    """
     mean, std, minimum = make_normal(means_dist, stds_dist, mins_dist, 1)
     return np.maximum(np.random.normal(mean, std, shape), minimum), mean, std, minimum
 

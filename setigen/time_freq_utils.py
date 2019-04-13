@@ -2,17 +2,27 @@ import numpy as np
 from astropy.stats import median_absolute_deviation
 import sys
 
+
 def db(x):
     """ Convert to dB """
     return 10 * np.log10(x)
 
-def gaussian_noise(data, mean, sigma):
-    """Create an array of Gaussian noise with the same dimensions as an input
-    data array"""
-    # Match data dimensions
-    ts_len, fs_len = data.shape
-    noise = np.random.normal(mean, sigma, [ts_len, fs_len])
-    return noise
+
+def choose_from_dist(dist, shape):
+    return dist[np.random.randint(0, len(dist), shape)]
+
+def make_normal(means_dist, stds_dist, mins_dist, shape):
+    means = choose_from_dist(means_dist, shape)
+    stds = choose_from_dist(stds_dist, shape)
+    mins = choose_from_dist(mins_dist, shape)
+    means = np.maximum(means, stds)
+    return means, stds, mins
+
+
+def gaussian_frame_from_dist(means_dist, stds_dist, mins_dist, shape):
+    mean, std, minimum = make_normal(means_dist, stds_dist, mins_dist, 1)
+    return np.maximum(np.random.normal(mean, std, shape), minimum), mean, std, minimum
+
 
 def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     """Normalize data per frequency channel so that the noise level in data is
@@ -69,9 +79,11 @@ def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
             std[i] = np.std(noise_data)
     return np.nan_to_num((data - mean) / std)
 
+
 def normalize_by_max(data):
     """Simple normalization by dividing out by the brightest pixel"""
     return data / np.max(data)
+
 
 def inject_noise(data,
                  modulate_signal = False,
@@ -104,9 +116,10 @@ def inject_noise(data,
         Data with injected noise
 
     """
+    ts_len, fs_len = data.shape
     new_data = data
     if modulate_signal:
-        new_data = new_data * gaussian_noise(data, 1, modulate_width)
+        new_data = new_data * np.random.normal(1, modulate_width, [ts_len, fs_len])
     if background_noise:
-        new_data = new_data + gaussian_noise(data, 0, noise_sigma)
+        new_data = new_data + np.random.normal(0, noise_sigma, [ts_len, fs_len])
     return new_data

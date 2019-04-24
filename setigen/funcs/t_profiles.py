@@ -20,7 +20,7 @@ def sine_t_profile(period, phase = 0, amplitude=1, level=1):
     return t_profile
 
 
-def periodic_gaussian_t_profile(period, phase, sigma, pulse_dir, width, pnum = 1, amplitude = 1, level = 0):
+def periodic_gaussian_t_profile(period, phase, sigma, pulse_dir, width, pnum=1, amplitude=1, level=0):
     # pulse_dir can be 'up', 'down', 'rand'
     # width is width of individual pulses, sigma is variation in period
     def t_profile(t):

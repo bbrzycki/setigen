@@ -17,6 +17,7 @@ def maxfreq(input):
         sys.exit('Invalid input file!')
     return fch1
 
+
 def minfreq(input):
     """Return central frequency of the lowest-frequency bin in a .fil file.
 
@@ -32,6 +33,7 @@ def minfreq(input):
     else:
         sys.exit('Invalid input file!')
     return fch1 + nchans * ch_bandwidth
+
 
 def get_data(input):
     """Gets time-frequency data from filterbank file as a 2d NumPy array.
@@ -53,6 +55,7 @@ def get_data(input):
     else:
         sys.exit('Invalid input file!')
     return np.squeeze(fil.data)
+
 
 def get_fs(input):
     """Gets frequency values from filterbank file.

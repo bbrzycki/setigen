@@ -8,3 +8,5 @@ from time_freq_utils import *
 from generate_signal import *
 
 from funcs import *
+
+from frame import Frame

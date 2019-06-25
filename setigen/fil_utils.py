@@ -47,6 +47,8 @@ def get_data(input):
     -------
     data : ndarray
         Time-frequency data
+        
+    Note: when multiple Stokes parameters are supported, this will have to be expanded.
     """
     if type(input) == str:
         fil = Waterfall(input)
@@ -81,6 +83,7 @@ def get_fs(input):
     else:
         sys.exit('Invalid input file!')
     return np.arange(fch1, fch1 + fchans * df, df)
+
 
 def get_ts(input):
     """Gets time values from filterbank file.

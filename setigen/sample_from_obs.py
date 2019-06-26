@@ -7,14 +7,14 @@ def sample_from_array(array):
 
 
 def sample_gaussian_params(x_mean_array, x_std_array, x_min_array=None):
-    x_means = sample_from_array(x_mean_array)
-    x_stds = sample_from_array(x_std_array)
+    x_mean = sample_from_array(x_mean_array)
+    x_std = sample_from_array(x_std_array)
     
     # Somewhat arbitrary decision to ensure that the mean is at least the standard deviation
-    x_means = np.maximum(means, stds)
+    x_mean = np.maximum(x_mean, x_std)
     
-    if x_min_array:
-        x_mins = sample_from_array(x_min_array)
-        return x_means, x_stds, x_mins
+    if x_min_array is not None:
+        x_min = sample_from_array(x_min_array)
+        return x_mean, x_std, x_min
     
-    return x_means, x_stds
+    return x_mean, x_std

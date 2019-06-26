@@ -1,3 +1,4 @@
+import os.path
 import numpy as np
 import scipy.integrate as sciintegrate
 import scipy.special as special
@@ -32,7 +33,7 @@ class Frame(object):
             self.tchans = int(unit_utils.get_value(tchans, u.pixel))
             self.dt = unit_utils.get_value(dt, u.s)
             
-            if data:
+            if data is not None:
                 assert data.shape == (self.tchans, self.fchans)
                 self.data = data
             else:
@@ -82,17 +83,34 @@ class Frame(object):
         
     
     def add_noise_obs(self,
-                      x_mean_array,
-                      x_std_array,
+                      x_mean_array=None,
+                      x_std_array=None,
                       x_min_array=None):
-        if x_min_array:
-            noise = distributions.truncated_gaussian(x_mean_array,
-                                                     x_std_array,
-                                                     x_min_array,
+        """
+        If no arrays are specified to sample Gaussian parameters from, noise samples will be drawn from saved GBT C-Band observations at (dt, df) = (1.4 s, 1.4 Hz) resolution, from frames of shape (tchans, fchans) = (32, 1024). These sample noise parameters consists of 126500 samples for mean, std, and min of each observation.
+        """
+        if (x_mean_array is None and 
+            x_std_array is None and 
+            x_min_array is None):
+            my_path = os.path.abspath(os.path.dirname(__file__))
+            path = os.path.join(my_path, 'assets/sample_noise_params.npy')
+            sample_noise_params = np.load(path)
+            x_mean_array = sample_noise_params[:, 0]
+            x_std_array = sample_noise_params[:, 1]
+            x_min_array = sample_noise_params[:, 2]
+        if x_min_array is not None:
+            x_mean, x_std, x_min = sample_from_obs.sample_gaussian_params(x_mean_array,
+                                                                          x_std_array,
+                                                                          x_min_array)
+            noise = distributions.truncated_gaussian(x_mean,
+                                                     x_std,
+                                                     x_min,
                                                      self.data.shape)
         else:
-            noise = distributions.gaussian(x_mean_array,
-                                           x_std_array,
+            x_mean, x_std = sample_from_obs.sample_gaussian_params(x_mean_array,
+                                                                   x_std_array)
+            noise = distributions.gaussian(x_mean,
+                                           x_std,
                                            self.data.shape)
         self.data += noise
         return noise

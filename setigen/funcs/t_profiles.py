@@ -10,7 +10,6 @@ def constant_t_profile(level=1):
     def t_profile(t):
         if type(t) in [np.ndarray, list]:
             shape = np.array(t).shape
-            print(shape)
         else:
             return level
         return np.full(shape, level)

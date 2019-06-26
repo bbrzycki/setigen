@@ -1,8 +1,12 @@
 import numpy as np
 import scipy.integrate as sciintegrate
 import scipy.special as special
+from astropy import units as u
 
-from fil_utils import get_ts, get_fs, get_data
+import fil_utils
+import distributions
+import sample_from_obs
+import unit_utils
 
 
 class Frame(object):
@@ -18,40 +22,80 @@ class Frame(object):
                  fch1=None,
                  data=None,
                  fil=None):
-        if fchans and tchans and df and dt and fch1:
+        if not None in [fchans, tchans, df, dt, fch1]:
             # Need to address this and come up with a meaningful header
             self.header = None
-            self.fchans = fchans
-            self.tchans = tchans
-            self.df = df
-            self.dt = dt
-            self.fch1 = fch1
-            self.fs = np.arange(fch1, fch1 + fchans * df, df)
-            self.ts = np.arange(0, tchans * dt, dt)
+            self.fchans = int(unit_utils.get_value(fchans, u.pixel))
+            self.df = unit_utils.get_value(df, u.Hz)
+            self.fch1 = unit_utils.get_value(fch1, u.Hz)
+            
+            self.tchans = int(unit_utils.get_value(tchans, u.pixel))
+            self.dt = unit_utils.get_value(dt, u.s)
+            
             if data:
-                assert data.shape == (tchans, fchans)
+                assert data.shape == (self.tchans, self.fchans)
                 self.data = data
             else:
-                self.data = np.zeros((tchans, fchans))
+                self.data = np.zeros((self.tchans, self.fchans))
         elif fil:
+            self.header = fil.header
             self.fchans = fil.header[b'nchans']
-            self.df = fil.header[b'foff']
-            self.fch1 = fil.header[b'fch1']
-            self.fs = np.arange(self.fch1, self.fch1 + self.fchans * self.df, self.df)
+            self.df = unit_utils.get_value(fil.header[b'foff'], u.Hz)
+            self.fch1 = unit_utils.cast_value(fil.header[b'fch1'], u.MHz).to(u.Hz).value
             
             # When multiple Stokes parameters are supported, this will have to be expanded.
-            self.data = get_data(fil)
+            self.data = fil_utils.get_data(fil)
             
-            self.ts = get_ts(fil)
-            self.tchans = len(self.ts)
-            self.dt = self.ts[1] - self.ts[0]
-            self.header = fil.header
+            self.tchans = self.data.shape[0]
+            self.dt = unit_utils.get_value(self.ts[1] - self.ts[0], u.s)
+            
         else:
             raise ValueError('Frame must be provided dimensions or an existing filterbank file.')
+            
+        # Shared creation of ranges
+        
+        self.fs = unit_utils.get_value(np.arange(self.fch1, 
+                                                 self.fch1 + self.fchans * self.df, 
+                                                 self.df), 
+                                       u.Hz)
+        self.ts = unit_utils.get_value(np.arange(0, 
+                                                 self.tchans * self.dt,
+                                                 self.dt),
+                                       u.s)
+
+    
+    def add_noise(self, 
+                  x_mean,
+                  x_std,
+                  x_min=None):
+        if x_min:
+            noise = distributions.truncated_gaussian(x_mean, 
+                                                     x_std,
+                                                     x_min, 
+                                                     self.data.shape)
+        else:
+            noise = distributions.gaussian(x_mean,
+                                           x_std, 
+                                           self.data.shape)
+        self.data += noise
+        return noise
         
     
-    def add_noise(self):
-        pass
+    def add_noise_obs(self,
+                      x_mean_array,
+                      x_std_array,
+                      x_min_array=None):
+        if x_min_array:
+            noise = distributions.truncated_gaussian(x_mean_array,
+                                                     x_std_array,
+                                                     x_min_array,
+                                                     self.data.shape)
+        else:
+            noise = distributions.gaussian(x_mean_array,
+                                           x_std_array,
+                                           self.data.shape)
+        self.data += noise
+        return noise
     
     
     def add_signal(self,
@@ -166,3 +210,18 @@ class Frame(object):
     def load_fil(self):
         pass
     
+    
+    def save_npy(self, file):
+        np.save(file, self.data)
+    
+    
+    def load_npy(self, file):
+        self.data = np.load(file)
+    
+    
+    def save_frame_info(self):
+        pass
+    
+    
+    def load_frame_info(self):
+        pass

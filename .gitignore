@@ -3,6 +3,7 @@ data/*
 .ipynb_checkpoints/
 *.ipynb_checkpoints/
 # *fil
+*png
 
 
 # Byte-compiled / optimized / DLL files

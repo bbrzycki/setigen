@@ -1,28 +1,43 @@
 import sys
 import numpy as np
-import func_utils
+from astropy import units as u
+
+from setigen import unit_utils
+from setigen.funcs import func_utils
 
 
 def constant_t_profile(level=1):
     def t_profile(t):
-        if type(t) is np.ndarray:
-            shape = t.shape
-        elif type(t) is list:
-            shape = len(t)
+        if type(t) in [np.ndarray, list]:
+            shape = np.array(t).shape
+            print(shape)
         else:
-            shape = 1
+            return level
         return np.full(shape, level)
     return t_profile
 
 
-def sine_t_profile(period, phase = 0, amplitude=1, level=1):
+def sine_t_profile(period, phase=0, amplitude=1, level=1):
+    period = unit_utils.get_value(period, u.s)
+    
     t_profile = lambda t: amplitude * np.sin(2 * np.pi * (t + phase) / period) + level
     return t_profile
 
 
-def periodic_gaussian_t_profile(period, phase, sigma, pulse_dir, width, pnum=1, amplitude=1, level=0):
-    # pulse_dir can be 'up', 'down', 'rand'
-    # width is width of individual pulses, sigma is variation in period
+def periodic_gaussian_t_profile(period, 
+                                phase,
+                                pulse_offset_sigma,
+                                pulse_width, 
+                                pulse_direction='rand', 
+                                pnum=1,
+                                amplitude=1,
+                                level=0):
+    # pulse_direction can be 'up', 'down', 'rand'
+    # pulse_offset_sigma is the variation in the pulse period, pulse_width is the width of individual pulses; both are modeled as Guassians
+    period = unit_utils.get_value(period, u.s)
+    pulse_offset_sigma = unit_utils.get_value(pulse_offset_sigma, u.s)
+    pulse_width = unit_utils.get_value(pulse_width, u.s)
+    
     def t_profile(t):
         center_ks = np.round((t + phase) / period - 1 / 4.)
         if pnum % 2 == 1:
@@ -36,15 +51,15 @@ def periodic_gaussian_t_profile(period, phase, sigma, pulse_dir, width, pnum=1, 
         # Calculate unique offsets per pulse and add to centers of Gaussians
         unique_centers = np.unique(center_ks)
 
-        offset_dict = dict(zip(unique_centers, np.random.normal(0, sigma, unique_centers.shape)))
+        offset_dict = dict(zip(unique_centers, np.random.normal(0, pulse_offset_sigma, unique_centers.shape)))
         get_offsets = np.vectorize(lambda x: offset_dict[x])
 
         sign_list = []
         for c in unique_centers:
             x = np.random.uniform(0, 1)
-            if pulse_dir == 'up' or pulse_dir == 'rand' and x < 0.5:
+            if pulse_direction == 'up' or pulse_direction == 'rand' and x < 0.5:
                 sign_list.append(1)
-            elif pulse_dir == 'down' or pulse_dir == 'rand':
+            elif pulse_direction == 'down' or pulse_direction == 'rand':
                 sign_list.append(-1)
             else:
                 sys.exit('Invalid pulse direction!')
@@ -56,7 +71,7 @@ def periodic_gaussian_t_profile(period, phase, sigma, pulse_dir, width, pnum=1, 
 
         intensity = 0
         for c, sign in center_signs:
-            intensity += sign * amplitude * func_utils.gaussian(t, c, width)
+            intensity += sign * amplitude * func_utils.gaussian(t, c, pulse_width)
 
         intensity += level
         relu = np.vectorize(lambda x: max(0,x))

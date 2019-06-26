@@ -1,9 +1,5 @@
-import sys
-import os
-sys.path.append(os.path.dirname(__file__))
-
-from paths import *
-from t_profiles import *
-from f_profiles import *
-from bp_profiles import *
-from scint_profiles import *
+from setigen.funcs.paths import *
+from setigen.funcs.t_profiles import *
+from setigen.funcs.f_profiles import *
+from setigen.funcs.bp_profiles import *
+from setigen.funcs.scint_profiles import *

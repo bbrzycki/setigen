@@ -1,9 +1,7 @@
 import numpy as np
 from scipy.stats import norm
-try:
-    from . import func_utils
-except ImportError:
-    import func_utils
+
+from setigen.funcs import func_utils
 
 
 def autocorrelation(x, length=20):

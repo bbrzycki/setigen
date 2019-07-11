@@ -4,10 +4,12 @@ import scipy.integrate as sciintegrate
 import scipy.special as special
 from astropy import units as u
 
-import fil_utils
-import distributions
-import sample_from_obs
-import unit_utils
+from blimpy import Waterfall
+
+from . import fil_utils
+from . import distributions
+from . import sample_from_obs
+from . import unit_utils
 
 
 class Frame(object):
@@ -24,6 +26,8 @@ class Frame(object):
                  data=None,
                  fil=None):
         if not None in [fchans, tchans, df, dt, fch1]:
+            self.fil = None
+            
             # Need to address this and come up with a meaningful header
             self.header = None
             self.fchans = int(unit_utils.get_value(fchans, u.pixel))
@@ -33,12 +37,15 @@ class Frame(object):
             self.tchans = int(unit_utils.get_value(tchans, u.pixel))
             self.dt = unit_utils.get_value(dt, u.s)
             
+            self.shape = (self.tchans, self.fchans)
+            
             if data is not None:
-                assert data.shape == (self.tchans, self.fchans)
+                assert data.shape == self.shape
                 self.data = data
             else:
-                self.data = np.zeros((self.tchans, self.fchans))
+                self.data = np.zeros(self.shape)
         elif fil:
+            self.fil = fil
             self.header = fil.header
             self.fchans = fil.header[b'nchans']
             self.df = unit_utils.get_value(fil.header[b'foff'], u.Hz)
@@ -50,11 +57,11 @@ class Frame(object):
             self.tchans = self.data.shape[0]
             self.dt = unit_utils.get_value(self.ts[1] - self.ts[0], u.s)
             
+            self.shape = (self.tchans, self.fchans)
         else:
             raise ValueError('Frame must be provided dimensions or an existing filterbank file.')
             
         # Shared creation of ranges
-        
         self.fs = unit_utils.get_value(np.arange(self.fch1, 
                                                  self.fch1 + self.fchans * self.df, 
                                                  self.df), 
@@ -63,6 +70,44 @@ class Frame(object):
                                                  self.tchans * self.dt,
                                                  self.dt),
                                        u.s)
+        
+        # No matter what, self.data will be populated at this point.
+        self.get_frame_stats(exclude=0.01, save_stats=True)
+        
+        
+    def clear_data(self):
+        self.data = np.zeros(self.shape)
+        
+        
+    def get_mean(self, exclude=0):
+        flat_data = self.data.flatten()
+        excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
+        return np.mean(excluded_flat_data)
+    
+    
+    def get_std(self, exclude=0):
+        flat_data = self.data.flatten()
+        excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
+        return np.std(excluded_flat_data)
+    
+    
+    def get_min(self, exclude=0):
+        flat_data = self.data.flatten()
+        excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
+        return np.min(excluded_flat_data)
+        
+
+    def get_frame_stats(self, exclude=0.01, save_stats=False):
+        total_mean = self.get_mean()
+        total_std = self.get_std()
+        total_min = self.get_min()
+        noise_mean = self.get_mean(exclude)
+        noise_std = self.get_std(exclude)
+        noise_min = self.get_min(exclude)
+        if save_stats:
+            self.mean, self.std, self.min = total_mean, total_std, total_min
+            self.noise_mean, self.noise_std, self.noise_min = noise_mean, noise_std, noise_min
+        return (total_mean, total_std, total_min), (noise_mean, noise_std, noise_min)
 
     
     def add_noise(self, 
@@ -79,13 +124,15 @@ class Frame(object):
                                            x_std, 
                                            self.data.shape)
         self.data += noise
+        self.get_frame_stats(save_stats=True)
+        
         return noise
         
     
-    def add_noise_obs(self,
-                      x_mean_array=None,
-                      x_std_array=None,
-                      x_min_array=None):
+    def add_noise_from_obs(self,
+                           x_mean_array=None,
+                           x_std_array=None,
+                           x_min_array=None):
         """
         If no arrays are specified to sample Gaussian parameters from, noise samples will be drawn from saved GBT C-Band observations at (dt, df) = (1.4 s, 1.4 Hz) resolution, from frames of shape (tchans, fchans) = (32, 1024). These sample noise parameters consists of 126500 samples for mean, std, and min of each observation.
         """
@@ -113,6 +160,8 @@ class Frame(object):
                                            x_std,
                                            self.data.shape)
         self.data += noise
+        self.get_frame_stats(save_stats=True)
+        
         return noise
     
     
@@ -166,10 +215,10 @@ class Frame(object):
         >>> dt = tsamp = 18.25361108
         >>> fch1 = 6095.214842353016
         >>> frame = stg.Frame(fchans, tchans, df, dt, fch1)
-        >>> signal = frame.add_signal(stg.constant_path(f_start = frame.fs[200], drift_rate = -0.000002),
-                                      stg.constant_t_profile(level = 1),
-                                      stg.box_f_profile(width = 0.00001),
-                                      stg.constant_bp_profile(level = 1))
+        >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], drift_rate=-0.000002),
+                                      stg.constant_t_profile(level=1),
+                                      stg.box_f_profile(width=0.00001),
+                                      stg.constant_bp_profile(level=1))
 
         The synthetic signal can then be visualized and saved within a Jupyter
         notebook using
@@ -221,25 +270,73 @@ class Frame(object):
         return signal
     
     
-    def save_fil(self):
-        pass
+    def compute_intensity(self, snr):
+        '''Calculate intensity from SNR'''
+        if self.noise_std == 0:
+            raise ValueError('You must add noise in the image to specify SNR!')
+        return snr * self.noise_std / np.sqrt(self.tchans)
     
     
-    def load_fil(self):
-        pass
+    def compute_SNR(self, intensity):
+        '''Calculate SNR from intensity'''
+        if self.noise_std == 0:
+            raise ValueError('You must add noise in the image to return SNR!')
+        return intensity * np.sqrt(self.tchans) / self.noise_std
     
     
-    def save_npy(self, file):
+    def get_info(self):
+        return vars(self)
+    
+    
+    def set_df(self, df):
+        self.df = df
+        self.fs = unit_utils.get_value(np.arange(self.fch1, 
+                                                 self.fch1 + self.fchans * self.df, 
+                                                 self.df), 
+                                       u.Hz)
+        
+    def set_dt(self, dt):
+        self.dt = dt
+        self.ts = unit_utils.get_value(np.arange(0, 
+                                                 self.tchans * self.dt, 
+                                                 self.dt), 
+                                       u.s)
+    
+    
+    def set_data(self, data):
+        self.data = data
+        self.shape = data.shape
+        self.tchans, self.fchans = self.shape
+        self.fs = unit_utils.get_value(np.arange(self.fch1, 
+                                                 self.fch1 + self.fchans * self.df, 
+                                                 self.df), 
+                                       u.Hz)
+        self.ts = unit_utils.get_value(np.arange(0, 
+                                                 self.tchans * self.dt, 
+                                                 self.dt), 
+                                       u.s)
+        
+    def save_fil(self, filename):
+        '''IMPORTANT: this does not overwrite fil metadata, only the data'''
+        if self.fil is None:
+            my_path = os.path.abspath(os.path.dirname(__file__))
+            path = os.path.join(my_path, 'assets/sample.fil')
+            self.fil = Waterfall(path)
+        self.fil.data = self.data
+        self.fil.write_to_fil(filename)
+    
+    
+    def load_fil(self, fil):
+        '''IMPORTANT: this does not import fil metadata, only the data'''
+        self.fil = fil
+        self.set_data(fil_utils.get_data(fil))
+    
+    
+    def save_data(self, file):
+        '''file can be a filename or a file handle of a npy file'''
         np.save(file, self.data)
     
     
-    def load_npy(self, file):
-        self.data = np.load(file)
-    
-    
-    def save_frame_info(self):
-        pass
-    
-    
-    def load_frame_info(self):
-        pass
+    def load_data(self, file):
+        '''file can be a filename or a file handle of a npy file'''
+        self.set_data(np.load(file))

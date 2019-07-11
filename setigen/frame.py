@@ -239,7 +239,7 @@ class Frame(object):
         >>> tchans = 32
         >>> df = -2.7939677238464355*u.Hz
         >>> dt = tsamp = 18.25361108*u.s
-        >>> fch1 = 6095.214842353016*u.Hz
+        >>> fch1 = 6095.214842353016*u.MHz
         >>> frame = stg.Frame(fchans, tchans, df, dt, fch1)
         >>> noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
         >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], drift_rate=-2*u.Hz/u.s),

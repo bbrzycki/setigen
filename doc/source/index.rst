@@ -11,7 +11,7 @@
 Welcome to setigen's documentation!
 ===================================
 
-.. image:: triple_sine.png
+.. image:: flashy_synthetic.png
     :align: center
     :scale: 75
 

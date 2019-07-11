@@ -15,32 +15,32 @@ drift-rate signal.
 
 .. code-block:: python
 
-    import setigen as stg
+    from astropy import units as u
     import numpy as np
+    
+    import setigen as stg
 
     # Define time and frequency arrays, essentially labels for the 2D data array
-    tsamp = 18.25361108
-    fch1 = 6095.214842353016
-    df = -2.7939677238464355e-06
     fchans = 1024
     tchans = 16
-    fs = np.arange(fch1, fch1 + fchans * df, df)
-    ts = np.arange(0, tchans * tsamp, tsamp)
-
+    df = -2.7939677238464355*u.Hz
+    dt = 18.25361108*u.s
+    fch1 = 6095.214842353016*u.MHz
+    
     # Generate the signal
-    signal = stg.generate(ts,
-                          fs,
-                          stg.constant_path(f_start = fs[200], drift_rate = -0.000002),
-                          stg.constant_t_profile(level = 1),
-                          stg.box_f_profile(width = 0.00001),
-                          stg.constant_bp_profile(level = 1))
+    frame = stg.Frame(fchans, tchans, df, dt, fch1)
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+                                                drift_rate=-2*u.Hz/u.s),
+                              stg.constant_t_profile(level=1),
+                              stg.box_f_profile(width=20*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
 :code:`signal` is a 2D NumPy array with the resulting time-frequency data. To
 visualize this, we use :func:`matplotlib.pyplot.imshow`::
 
     import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
@@ -82,18 +82,20 @@ repetition, each example script will assume the same basic setup:
 
 .. code-block:: python
 
-    import setigen as stg
+    from astropy import units as u
     import numpy as np
-    import matplotlib.pyplot as plt
+    
+    import setigen as stg
 
     # Define time and frequency arrays, essentially labels for the 2D data array
-    tsamp = 18.25361108
-    fch1 = 6095.214842353016
-    df = -2.7939677238464355e-06
     fchans = 1024
     tchans = 16
-    fs = np.arange(fch1, fch1 + fchans * df, df)
-    ts = np.arange(0, tchans * tsamp, tsamp)
+    df = -2.7939677238464355*u.Hz
+    dt = 18.25361108*u.s
+    fch1 = 6095.214842353016*u.MHz
+    
+    # Generate the signal
+    frame = stg.Frame(fchans, tchans, df, dt, fch1)
 
 :code:`paths`
 ^^^^^^^^^^^^^
@@ -108,15 +110,14 @@ the units of your time and frequency arrays):
 
 .. code-block:: python
 
-    signal = stg.generate(ts,
-                          fs,
-                          stg.constant_path(f_start = fs[200], drift_rate = -0.000002),
-                          stg.constant_t_profile(level = 1),
-                          stg.box_f_profile(width = 0.00001),
-                          stg.constant_bp_profile(level = 1))
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+                                                drift_rate=-2*u.Hz/u.s),
+                              stg.constant_t_profile(level=1),
+                              stg.box_f_profile(width=20*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
-    fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
@@ -130,16 +131,16 @@ and amplitude, using :func:`~setigen.funcs.paths.sine_path`.
 
 .. code-block:: python
 
-    signal = stg.generate(ts,
-                          fs,
-                          stg.sine_path(f_start = fs[200], drift_rate = -0.000002,
-                                        period = 100, amplitude = 0.0001),
-                          stg.constant_t_profile(level = 1),
-                          stg.box_f_profile(width = 0.00001),
-                          stg.constant_bp_profile(level = 1))
+    signal = frame.add_signal(stg.sine_path(f_start=frame.fs[200], 
+                                            drift_rate = -2*u.Hz/u.s,
+                                            period=100*u.s,
+                                            amplitude=100*u.Hz),
+                              stg.constant_t_profile(level=1),
+                              stg.box_f_profile(width=20*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
-    fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("sine_signal.png", bbox_inches='tight')
 
@@ -153,16 +154,14 @@ This path is a very simple quadratic with respect to time, using
 
 .. code-block:: python
 
-    signal = stg.generate(ts,
-                          fs,
-                          stg.squared_path(f_start = fs[200],
-                                           drift_rate = -0.00000001),
-                          stg.constant_t_profile(level = 1),
-                          stg.box_f_profile(width = 0.00001),
-                          stg.constant_bp_profile(level = 1))
+    signal = frame.add_signal(stg.squared_path(f_start=frame.fs[200], 
+                                               drift_rate=-0.01*u.Hz/u.s),
+                              stg.constant_t_profile(level=1),
+                              stg.box_f_profile(width=20*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
-    fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("squared_signal.png", bbox_inches='tight')
 
@@ -180,15 +179,14 @@ intensity level:
 
 .. code-block:: python
 
-    signal = stg.generate(ts,
-                          fs,
-                          stg.constant_path(f_start = fs[200], drift_rate = -0.000002),
-                          stg.constant_t_profile(level = 1),
-                          stg.box_f_profile(width = 0.00001),
-                          stg.constant_bp_profile(level = 1))
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+                                            drift_rate=-2*u.Hz/u.s),
+                          stg.constant_t_profile(level=1),
+                          stg.box_f_profile(width=20*u.Hz),
+                          stg.constant_bp_profile(level=1))
 
-    fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
@@ -207,15 +205,16 @@ Here's an example with equal level and amplitude:
 
 .. code-block:: python
 
-    signal = stg.generate(ts,
-                          fs,
-                          stg.constant_path(f_start = fs[200], drift_rate = -0.000002),
-                          stg.sine_t_profile(period = 100, amplitude = 1, level = 1),
-                          stg.box_f_profile(width = 0.00001),
-                          stg.constant_bp_profile(level = 1))
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+                                                drift_rate=-2*u.Hz/u.s),
+                              stg.sine_t_profile(period=100*u.s, 
+                                                 amplitude=1, 
+                                                 level=1),
+                              stg.box_f_profile(width=20*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
-    fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("sine_intensity_1_1.png", bbox_inches='tight')
 
@@ -225,15 +224,16 @@ And here's an example with the level a bit higher than the amplitude:
 
 .. code-block:: python
 
-    signal = stg.generate(ts,
-                          fs,
-                          stg.constant_path(f_start = fs[200], drift_rate = -0.000002),
-                          stg.sine_t_profile(period = 100, amplitude = 1, level = 3),
-                          stg.box_f_profile(width = 0.00001),
-                          stg.constant_bp_profile(level = 1))
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+                                                drift_rate=-2*u.Hz/u.s),
+                              stg.sine_t_profile(period=100*u.s, 
+                                                 amplitude=1, 
+                                                 level=3),
+                              stg.box_f_profile(width=20*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
-    fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("sine_intensity_1_3.png", bbox_inches='tight')
 
@@ -251,15 +251,14 @@ signal:
 
 .. code-block:: python
 
-    signal = stg.generate(ts,
-                          fs,
-                          stg.constant_path(f_start = fs[200], drift_rate = -0.000002),
-                          stg.constant_t_profile(level = 1),
-                          stg.box_f_profile(width = 0.00001),
-                          stg.constant_bp_profile(level = 1))
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+                                                drift_rate=-2*u.Hz/u.s),
+                              stg.constant_t_profile(level=1),
+                              stg.box_f_profile(width=20*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
-    fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
@@ -274,16 +273,15 @@ the width of the signal:
 
 .. code-block:: python
 
-    signal = stg.generate(ts,
-                      fs,
-                      stg.constant_path(f_start = fs[200], drift_rate = -0.000002),
-                      stg.constant_t_profile(level = 1),
-                      stg.gaussian_f_profile(width = 0.00002),
-                      stg.constant_bp_profile(level = 2))
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+                                                drift_rate=-2*u.Hz/u.s),
+                              stg.constant_t_profile(level=1),
+                              stg.gaussian_f_profile(width=20*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
 
-    fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("gaussian_profile.png", bbox_inches='tight')
 
@@ -298,16 +296,14 @@ smaller signals on either side.
 
 .. code-block:: python
 
-    signal = stg.generate(ts,
-                      fs,
-                      stg.constant_path(f_start = fs[200], drift_rate = -0.000002),
-                      stg.constant_t_profile(level = 1),
-                      stg.multiple_gaussian_f_profile(width = 0.00002),
-                      stg.constant_bp_profile(level = 2))
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+                                                drift_rate=-2*u.Hz/u.s),
+                              stg.constant_t_profile(level=1),
+                              stg.multiple_gaussian_f_profile(width=20*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
-
-    fig = plt.figure(figsize=(10,6))
-    plt.imshow(signal, aspect='auto')
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("multiple_gaussian_profile.png", bbox_inches='tight')
 

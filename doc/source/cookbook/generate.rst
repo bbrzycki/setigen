@@ -1,16 +1,16 @@
 Generating synthetic signals
 ============================
 
-Generating a basic signal
+Adding a basic signal
 -------------------------
 
-The main method that generates signals is :func:`~setigen.generate_signal.generate`.
+The main method that generates signals is :func:`~setigen.Frame.add_signal` (or :func:`~setigen.generate_signal.generate` in legacy).
 We need to pass in an array of times, frequencies, and functions that describe
 the shape of the signal over time, over frequency within individual time samples,
 and over a bandpass of frequencies. :mod:`setigen` comes prepackaged with common
 functions (:mod:`setigen.funcs`), but you can write your own!
 
-The most basic signal that you can generate is a constant-intensity, constant
+The most basic signal that you can generate is a constant intensity, constant
 drift-rate signal.
 
 .. code-block:: python

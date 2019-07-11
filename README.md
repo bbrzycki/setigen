@@ -4,13 +4,10 @@ Python library for generating and injecting artificial narrow-band signals into 
 
 <p align="center">
 <img src="doc/source/flashy_synthetic.png" alt="Synthetic sine modulated signal + synthetic RFI signal"
-width="500" height="400"/>
+width="700" height="450"/>
 </p>
 
-## Tools
-The library contains tools that handle time-frequency data stored in NumPy arrays, as well as converting to and from filterbank files.
-
-## Layout
+## Guiding Principles
 
 Injecting an artificial signal is as simple as adding it to the data. To fully describe an artificial signal, we need the following:
 
@@ -24,7 +21,8 @@ Injecting an artificial signal is as simple as adding it to the data. To fully d
 
 ## Minimal Working Example
 
-Here's an example using astropy units to express frame parameters:
+Here's an example of synthetic signal generation, using `astropy.units` to express frame parameters:
+
 ```
 from astropy import units as u
 sys.path.append("../")
@@ -55,5 +53,5 @@ This first adds Gaussian noise to the frame, and adds a constant intensity signa
 
 <p align="center">
 <img src="doc/source/example.png" alt="Example synthetic frame"
-width="500" height="400"/>
+width="700" height="450"/>
 </p>

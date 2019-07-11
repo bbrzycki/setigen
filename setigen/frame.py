@@ -152,7 +152,8 @@ class Frame(object):
     def add_noise_from_obs(self,
                            x_mean_array=None,
                            x_std_array=None,
-                           x_min_array=None):
+                           x_min_array=None,
+                           share_index=True):
         """
         If no arrays are specified to sample Gaussian parameters from, noise samples will be drawn from saved GBT C-Band observations at (dt, df) = (1.4 s, 1.4 Hz) resolution, from frames of shape (tchans, fchans) = (32, 1024). These sample noise parameters consists of 126500 samples for mean, std, and min of each observation.
         """
@@ -162,23 +163,41 @@ class Frame(object):
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample_noise_params.npy')
             sample_noise_params = np.load(path)
-            x_mean_array = sample_noise_params[:, 0]
-            x_std_array = sample_noise_params[:, 1]
-            x_min_array = sample_noise_params[:, 2]
+            
+            obs_df = 1.3969838619232178
+            obs_dt = 1.4316557653333333
+            scale_factor = abs(self.dt / obs_dt * self.df / obs_df)
+            
+            x_mean_array = sample_noise_params[:, 0] * scale_factor
+            x_std_array = sample_noise_params[:, 1] * np.sqrt(scale_factor)
+            x_min_array = sample_noise_params[:, 2] * scale_factor
+            
         if x_min_array is not None:
-            x_mean, x_std, x_min = sample_from_obs.sample_gaussian_params(x_mean_array,
-                                                                          x_std_array,
-                                                                          x_min_array)
+            if share_index:
+                assert len(x_mean_array) == len(x_std_array) == len(x_min_array)
+                i = np.random.randint(len(x_mean_array))
+                x_mean, x_std, x_min = x_mean_array[i], x_std_array[i], x_min_array[i]
+            else:
+                x_mean, x_std, x_min = sample_from_obs.sample_gaussian_params(x_mean_array,
+                                                                              x_std_array,
+                                                                              x_min_array)
             noise = distributions.truncated_gaussian(x_mean,
                                                      x_std,
                                                      x_min,
                                                      self.data.shape)
         else:
-            x_mean, x_std = sample_from_obs.sample_gaussian_params(x_mean_array,
-                                                                   x_std_array)
+            if share_index:
+                assert len(x_mean_array) == len(x_std_array)
+                i = np.random.randint(len(x_mean_array))
+                x_mean, x_std = x_mean_array[i], x_std_array[i]
+            else:
+                x_mean, x_std = sample_from_obs.sample_gaussian_params(x_mean_array,
+                                                                       x_std_array)
+                
             noise = distributions.gaussian(x_mean,
                                            x_std,
                                            self.data.shape)
+            
         self.data += noise
         
         set_to_param = (self.mean == self.std == self.min == 0)

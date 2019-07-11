@@ -48,7 +48,9 @@ This may be useful depending on the use case; you might not want negative intens
 Adding Gaussian noise based on real observations
 ------------------------------------------------
 
-We can also generate synthetic noise whose parameters are sampled from real observations. Specifically, we can select the mean, standard deviation, and minimum from distributions of parameters estimated from observations. If no distributions are specified explicitly, noise parameters are sampled by default from pre-loaded distributions in :mod:`setigen`. These were estimated from GBT observations on frames with (dt, df) = (1.4 s, 1.4 Hz) and (tchans, fchans) = (32, 1024). 
+We can also generate synthetic noise whose parameters are sampled from real observations. Specifically, we can select the mean, standard deviation, and minimum from distributions of parameters estimated from observations. 
+
+If no distributions are specified explicitly, noise parameters are sampled by default from pre-loaded distributions in :mod:`setigen`. These were estimated from GBT C-Band observations on frames with (dt, df) = (1.4 s, 1.4 Hz) and (tchans, fchans) = (32, 1024). Note that these pre-loaded observations only serve as approximations and real observation vary depending on the noise temperature + frequency band. To be safe, generate your own parameters distributions from observational data! A suite for facilitating this will be coming to :mod:`setigen` soon.
 
 Without specifying distributions:
 

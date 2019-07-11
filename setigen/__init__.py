@@ -1,10 +1,18 @@
-import sys
-import os
-sys.path.append(os.path.dirname(__file__))
+from setigen.assets import *
+from setigen.funcs import *
 
-from fil_utils import *
-from split_utils import *
-from time_freq_utils import *
-from generate_signal import *
+from setigen.distributions import *
+from setigen.fil_utils import *
+from setigen.frame import Frame
+from setigen.generate_signal import *
+from setigen.sample_from_obs import *
+from setigen.split_utils import *
+from setigen.time_freq_utils import *
+from setigen.unit_utils import *
 
-from funcs import *
+
+
+
+
+
+

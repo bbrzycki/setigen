@@ -72,49 +72,64 @@ class Frame(object):
                                        u.s)
         
         # No matter what, self.data will be populated at this point.
-        self.get_frame_stats(exclude=0.01, save_stats=True)
+        self._update_total_frame_stats()
+        self._update_noise_frame_stats(exclude=0.1)
         
         
-    def clear_data(self):
+    def zero_data(self):
         self.data = np.zeros(self.shape)
         
         
-    def get_mean(self, exclude=0):
+    def _get_mean(self, exclude=0):
         flat_data = self.data.flatten()
         excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
         return np.mean(excluded_flat_data)
     
     
-    def get_std(self, exclude=0):
+    def _get_std(self, exclude=0):
         flat_data = self.data.flatten()
         excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
         return np.std(excluded_flat_data)
     
     
-    def get_min(self, exclude=0):
+    def _get_min(self, exclude=0):
         flat_data = self.data.flatten()
         excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
         return np.min(excluded_flat_data)
+    
+    
+    def _compute_frame_stats(self, exclude=0):
+        flat_data = self.data.flatten()
+        excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
         
-
-    def get_frame_stats(self, exclude=0.01, save_stats=False):
-        total_mean = self.get_mean()
-        total_std = self.get_std()
-        total_min = self.get_min()
-        noise_mean = self.get_mean(exclude)
-        noise_std = self.get_std(exclude)
-        noise_min = self.get_min(exclude)
-        if save_stats:
-            self.mean, self.std, self.min = total_mean, total_std, total_min
-            self.noise_mean, self.noise_std, self.noise_min = noise_mean, noise_std, noise_min
-        return (total_mean, total_std, total_min), (noise_mean, noise_std, noise_min)
-
+        frame_mean = np.mean(excluded_flat_data)
+        frame_std = np.std(excluded_flat_data)
+        frame_min = np.min(excluded_flat_data)
+        
+        return frame_mean, frame_std, frame_min
+    
+    
+    def get_total_stats(self):
+        return self.mean, self.std, self.min
+    
+    
+    def get_noise_stats(self):
+        return self.noise_mean, self.noise_std, self.noise_min
+    
+    
+    def _update_total_frame_stats(self):
+        self.mean, self.std, self.min = self._compute_frame_stats()
+        
+        
+    def _update_noise_frame_stats(self, exclude=0.1):
+        self.noise_mean, self.noise_std, self.noise_min = self._compute_frame_stats(exclude=exclude)
+        
     
     def add_noise(self, 
                   x_mean,
                   x_std,
                   x_min=None):
-        if x_min:
+        if x_min is not None:
             noise = distributions.truncated_gaussian(x_mean, 
                                                      x_std,
                                                      x_min, 
@@ -124,7 +139,12 @@ class Frame(object):
                                            x_std, 
                                            self.data.shape)
         self.data += noise
-        self.get_frame_stats(save_stats=True)
+        
+        set_to_param = (self.mean == self.std == self.min == 0)
+        self._update_total_frame_stats()
+        self._update_noise_frame_stats(exclude=0.1)
+        if set_to_param:
+            self.noise_mean, self.noise_std = x_mean, x_std
         
         return noise
         
@@ -160,7 +180,12 @@ class Frame(object):
                                            x_std,
                                            self.data.shape)
         self.data += noise
-        self.get_frame_stats(save_stats=True)
+        
+        set_to_param = (self.mean == self.std == self.min == 0)
+        self._update_total_frame_stats()
+        self._update_noise_frame_stats(exclude=0.1)
+        if set_to_param:
+            self.noise_mean, self.noise_std = x_mean, x_std
         
         return noise
     
@@ -206,27 +231,28 @@ class Frame(object):
 
         Examples
         --------
-        A simple example that creates a linear Doppler-drifted signal:
+        Here's an example that creates a linear Doppler-drifted signal with Gaussian noise with sampled parameters:
 
+        >>> from astropy import units as u
         >>> import setigen as stg
         >>> fchans = 1024
         >>> tchans = 32
-        >>> df = -2.7939677238464355e-06
-        >>> dt = tsamp = 18.25361108
-        >>> fch1 = 6095.214842353016
+        >>> df = -2.7939677238464355*u.Hz
+        >>> dt = tsamp = 18.25361108*u.s
+        >>> fch1 = 6095.214842353016*u.Hz
         >>> frame = stg.Frame(fchans, tchans, df, dt, fch1)
-        >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], drift_rate=-0.000002),
-                                      stg.constant_t_profile(level=1),
-                                      stg.box_f_profile(width=0.00001),
+        >>> noise = frame.add_noise_from_obs()
+        >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], drift_rate=-2*u.Hz/u.s),
+                                      stg.constant_t_profile(level=frame.compute_intensity(snr=30)),
+                                      stg.gaussian_f_profile(width=20*u.Hz),
                                       stg.constant_bp_profile(level=1))
 
-        The synthetic signal can then be visualized and saved within a Jupyter
-        notebook using
+        Saving the noise and signals individually may be useful depending on the application, but the combined data can be accessed via frame.get_data(). The synthetic signal can then be visualized and saved within a Jupyter notebook using:
 
         >>> %matplotlib inline
         >>> import matplotlib.pyplot as plt
         >>> fig = plt.figure(figsize=(10,6))
-        >>> plt.imshow(signal, aspect='auto')
+        >>> plt.imshow(frame.get_data(), aspect='auto')
         >>> plt.colorbar()
         >>> plt.savefig("image.png", bbox_inches='tight')
         >>> plt.show()
@@ -267,6 +293,9 @@ class Frame(object):
         signal = tt_profile * f_profile(ff, path_f_pos) * bp_profile(ff)
         
         self.data += signal
+        
+        self._update_total_frame_stats()
+        
         return signal
     
     
@@ -286,6 +315,10 @@ class Frame(object):
     
     def get_info(self):
         return vars(self)
+    
+    
+    def get_data(self):
+        return self.data
     
     
     def set_df(self, df):

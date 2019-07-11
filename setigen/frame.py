@@ -10,6 +10,7 @@ from . import fil_utils
 from . import distributions
 from . import sample_from_obs
 from . import unit_utils
+from . import stats
 
 
 class Frame(object):
@@ -78,35 +79,6 @@ class Frame(object):
         
     def zero_data(self):
         self.data = np.zeros(self.shape)
-        
-        
-    def _get_mean(self, exclude=0):
-        flat_data = self.data.flatten()
-        excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
-        return np.mean(excluded_flat_data)
-    
-    
-    def _get_std(self, exclude=0):
-        flat_data = self.data.flatten()
-        excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
-        return np.std(excluded_flat_data)
-    
-    
-    def _get_min(self, exclude=0):
-        flat_data = self.data.flatten()
-        excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
-        return np.min(excluded_flat_data)
-    
-    
-    def _compute_frame_stats(self, exclude=0):
-        flat_data = self.data.flatten()
-        excluded_flat_data = np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
-        
-        frame_mean = np.mean(excluded_flat_data)
-        frame_std = np.std(excluded_flat_data)
-        frame_min = np.min(excluded_flat_data)
-        
-        return frame_mean, frame_std, frame_min
     
     
     def get_total_stats(self):
@@ -118,11 +90,11 @@ class Frame(object):
     
     
     def _update_total_frame_stats(self):
-        self.mean, self.std, self.min = self._compute_frame_stats()
+        self.mean, self.std, self.min = stats.compute_frame_stats(self.data)
         
         
     def _update_noise_frame_stats(self, exclude=0.1):
-        self.noise_mean, self.noise_std, self.noise_min = self._compute_frame_stats(exclude=exclude)
+        self.noise_mean, self.noise_std, self.noise_min = stats.compute_frame_stats(self.data, exclude=exclude)
         
     
     def add_noise(self, 

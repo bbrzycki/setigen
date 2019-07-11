@@ -239,9 +239,9 @@ class Frame(object):
         >>> tchans = 32
         >>> df = -2.7939677238464355*u.Hz
         >>> dt = tsamp = 18.25361108*u.s
-        >>> fch1 = 6095.214842353016*u.Hz
+        >>> fch1 = 6095.214842353016*u.MHz
         >>> frame = stg.Frame(fchans, tchans, df, dt, fch1)
-        >>> noise = frame.add_noise_from_obs()
+        >>> noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
         >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], drift_rate=-2*u.Hz/u.s),
                                       stg.constant_t_profile(level=frame.compute_intensity(snr=30)),
                                       stg.gaussian_f_profile(width=20*u.Hz),
@@ -251,10 +251,12 @@ class Frame(object):
 
         >>> %matplotlib inline
         >>> import matplotlib.pyplot as plt
-        >>> fig = plt.figure(figsize=(10,6))
+        >>> fig = plt.figure(figsize=(10, 6))
         >>> plt.imshow(frame.get_data(), aspect='auto')
+        >>> plt.xlabel('Frequency')
+        >>> plt.ylabel('Time')
         >>> plt.colorbar()
-        >>> plt.savefig("image.png", bbox_inches='tight')
+        >>> plt.savefig('image.png', bbox_inches='tight')
         >>> plt.show()
 
         To run within a script, simply exclude the first line: :code:`%matplotlib inline`.
@@ -317,7 +319,9 @@ class Frame(object):
         return vars(self)
     
     
-    def get_data(self):
+    def get_data(self, db=False):
+        if db:
+            return 10 * np.log10(self.data)
         return self.data
     
     

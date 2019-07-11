@@ -40,9 +40,9 @@ def choppy_rfi_path(f_start, drift_rate, spread, spread_type='uniform'):
     
     def path(t):
         if spread_type == 'uniform':
-            f_offset = np.random.uniform(-spread / 2., spread / 2.)
+            f_offset = np.random.uniform(-spread / 2., spread / 2., t.shape)
         elif spread_type == 'gaussian':
-            f_offset = np.random.normal(0, spread)
+            f_offset = np.random.normal(0, spread, t.shape)
         else:
             sys.exit('%s is not a valid spread type!' % spread_type)
         return f_start + drift_rate * t + f_offset

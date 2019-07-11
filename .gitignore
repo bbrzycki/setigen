@@ -2,8 +2,8 @@ data
 data/*
 .ipynb_checkpoints/
 *.ipynb_checkpoints/
-# *fil
-*png
+jupyter-notebooks/*.fil
+*.png
 
 
 # Byte-compiled / optimized / DLL files

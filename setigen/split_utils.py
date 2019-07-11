@@ -4,21 +4,66 @@ import errno
 import numpy as np
 from blimpy import read_header, Waterfall, Filterbank
 
-def split_fil(input_fn, output_dir, f_sample_num, f_shift=None):
-    """Creates a set of new filterbank files by 'splitting' an input filterbank
+
+def split_fil_generator(fil_fn, f_window, f_shift=None):
+    """
+    Creates a generator that returns smaller Waterfall objects by 'splitting' an input filterbank
     file according to the number of frequency samples.
 
     Parameters
     ----------
-    input_fn : str
+    fil_fn : str
         Filterbank filename with .fil extension
-    output_dir : str
-        Directory for new filterbank files
-    f_sample_num : int
+    f_window : int
         Number of frequency samples per new filterbank file
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
-        None, defaults to `f_shift=f_sample_num` so that there is no
+        None, defaults to `f_shift=f_window` so that there is no
+        overlap between new filterbank files
+
+    Yields:
+    -------
+    split : Waterfall
+        A blimpy Waterfall object containing a smaller section of the data
+    """
+
+    fch1 = read_header(fil_fn)[b'fch1']
+    nchans = read_header(fil_fn)[b'nchans']
+    df = read_header(fil_fn)[b'foff']
+
+    if f_shift is None:
+        f_shift = f_window
+
+    # Note that df is negative!
+    f_start = fch1 + f_window * df
+    f_stop = fch1
+
+    # Iterates down frequencies, starting from highest
+    index = 0
+    while f_start >= fch1 + nchans * df:
+        split_fil = Waterfall(fil_fn, f_start=f_start, f_stop=f_stop)
+        yield split_fil
+        
+        f_start += f_shift * df
+        f_stop += f_shift * df
+        
+        
+def split_fil(fil_fn, output_dir, f_window, f_shift=None):
+    """
+    Creates a set of new filterbank files by 'splitting' an input filterbank
+    file according to the number of frequency samples.
+
+    Parameters
+    ----------
+    fil_fn : str
+        Filterbank filename with .fil extension
+    output_dir : str
+        Directory for new filterbank files
+    f_window : int
+        Number of frequency samples per new filterbank file
+    f_shift : int, optional
+        Number of samples to shift when splitting filterbank. If
+        None, defaults to `f_shift=f_window` so that there is no
         overlap between new filterbank files
 
     Returns
@@ -34,35 +79,26 @@ def split_fil(input_fn, output_dir, f_sample_num, f_shift=None):
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-
-    fch1 = read_header(input_fn)[b'fch1']
-    nchans = read_header(input_fn)[b'nchans']
-    ch_bandwidth = read_header(input_fn)[b'foff']
-
-    if f_shift is None:
-        f_shift = f_sample_num
-
-    f_start = fch1
-    f_stop = fch1 + f_sample_num * ch_bandwidth
+            
+    split_generator = split_fil_generator(fil_fn, 
+                                          f_window, 
+                                          f_shift=f_shift)
 
     # Iterates down frequencies, starting from highest
     split_fns = []
-    index = 0
-    while f_stop >= fch1 + nchans * ch_bandwidth:
-        output_fn = output_dir + '%s_%04d.fil' % (f_sample_num, index)
-        split = Waterfall(input_fn, f_start=f_start, f_stop=f_stop)
-        split.write_to_fil(output_fn)
-        f_start += f_shift * ch_bandwidth
-        f_stop += f_shift * ch_bandwidth
-        index += 1
+    for i, split_fil in enumerate(split_generator):
+        output_fn = output_dir + '%s_%04d.fil' % (f_window, i)
+        split_fil.write_to_fil(output_fn)
         split_fns.append(output_fn)
         print('Saved %s' % output_fn)
     return split_fns
+        
 
-def split_data(data, f_sample_num=None, t_sample_num=None,
-                     f_shift=None, t_shift=None,
-                     f_trim=False, t_trim=False):
-    """Splits NumPy arrays into a list of smaller arrays according to limits in
+def split_array(data, f_sample_num=None, t_sample_num=None,
+                f_shift=None, t_shift=None,
+                f_trim=False, t_trim=False):
+    """
+    Splits NumPy arrays into a list of smaller arrays according to limits in
     frequency and time. This doesn't reduce/combine data, it simply cuts the
     data into smaller chunks.
 

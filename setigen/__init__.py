@@ -7,6 +7,7 @@ from setigen.frame import Frame
 from setigen.generate_signal import *
 from setigen.sample_from_obs import *
 from setigen.split_utils import *
+from setigen.stats import *
 from setigen.time_freq_utils import *
 from setigen.unit_utils import *
 

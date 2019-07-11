@@ -35,7 +35,7 @@ def minfreq(input):
     return fch1 + nchans * ch_bandwidth
 
 
-def get_data(input):
+def get_data(input, db=False):
     """Gets time-frequency data from filterbank file as a 2d NumPy array.
 
     Parameters
@@ -56,6 +56,8 @@ def get_data(input):
         fil = input
     else:
         sys.exit('Invalid input file!')
+    if db:
+        return 10 * np.log10(np.squeeze(fil.data))
     return np.squeeze(fil.data)
 
 

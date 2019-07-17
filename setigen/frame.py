@@ -56,7 +56,7 @@ class Frame(object):
             self.data = fil_utils.get_data(fil)
             
             self.tchans = self.data.shape[0]
-            self.dt = unit_utils.get_value(self.ts[1] - self.ts[0], u.s)
+            self.dt = unit_utils.get_value(fil.header[b'tsamp'], u.s)
             
             self.shape = (self.tchans, self.fchans)
         else:

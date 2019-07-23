@@ -5,7 +5,7 @@ def cast_value(value, unit):
     if type(value) == u.Quantity:
         return value.to(unit)
     return value * unit
-    
+
 
 def get_value(value, unit=None):
     if type(value) == u.Quantity:

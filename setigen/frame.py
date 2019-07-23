@@ -1,7 +1,6 @@
 import os.path
 import numpy as np
 import scipy.integrate as sciintegrate
-import scipy.special as special
 from astropy import units as u
 
 from blimpy import Waterfall
@@ -26,7 +25,7 @@ class Frame(object):
                  fch1=None,
                  data=None,
                  fil=None):
-        if not None in [fchans, tchans, df, dt, fch1]:
+        if None not in [fchans, tchans, df, dt, fch1]:
             self.fil = None
 
             # Need to address this and come up with a meaningful header
@@ -51,10 +50,13 @@ class Frame(object):
             self.fchans = fil.header[b'nchans']
 
             # Frequency values are saved in MHz in fil files
-            self.df = unit_utils.cast_value(fil.header[b'foff'], u.MHz).to(u.Hz).value
-            self.fch1 = unit_utils.cast_value(fil.header[b'fch1'], u.MHz).to(u.Hz).value
+            self.df = unit_utils.cast_value(fil.header[b'foff'],
+                                            u.MHz).to(u.Hz).value
+            self.fch1 = unit_utils.cast_value(fil.header[b'fch1'],
+                                              u.MHz).to(u.Hz).value
 
-            # When multiple Stokes parameters are supported, this will have to be expanded.
+            # When multiple Stokes parameters are supported, this will have to
+            # be expanded.
             self.data = fil_utils.get_data(fil)
 
             self.tchans = self.data.shape[0]
@@ -62,7 +64,8 @@ class Frame(object):
 
             self.shape = (self.tchans, self.fchans)
         else:
-            raise ValueError('Frame must be provided dimensions or an existing filterbank file.')
+            raise ValueError('Frame must be provided dimensions or an \
+                              existing filterbank file.')
 
         # Shared creation of ranges
         self.fs = unit_utils.get_value(np.arange(self.fch1,
@@ -78,26 +81,20 @@ class Frame(object):
         self._update_total_frame_stats()
         self._update_noise_frame_stats(exclude=0.1)
 
-
     def zero_data(self):
         self.data = np.zeros(self.shape)
-
 
     def get_total_stats(self):
         return self.mean, self.std, self.min
 
-
     def get_noise_stats(self):
         return self.noise_mean, self.noise_std, self.noise_min
-
 
     def _update_total_frame_stats(self):
         self.mean, self.std, self.min = stats.compute_frame_stats(self.data)
 
-
     def _update_noise_frame_stats(self, exclude=0.1):
         self.noise_mean, self.noise_std, self.noise_min = stats.compute_frame_stats(self.data, exclude=exclude)
-
 
     def add_noise(self,
                   x_mean,
@@ -122,18 +119,21 @@ class Frame(object):
 
         return noise
 
-
     def add_noise_from_obs(self,
                            x_mean_array=None,
                            x_std_array=None,
                            x_min_array=None,
                            share_index=True):
         """
-        If no arrays are specified to sample Gaussian parameters from, noise samples will be drawn from saved GBT C-Band observations at (dt, df) = (1.4 s, 1.4 Hz) resolution, from frames of shape (tchans, fchans) = (32, 1024). These sample noise parameters consists of 126500 samples for mean, std, and min of each observation.
+        If no arrays are specified to sample Gaussian parameters from, noise
+        samples will be drawn from saved GBT C-Band observations at
+        (dt, df) = (1.4 s, 1.4 Hz) resolution, from frames of shape
+        (tchans, fchans) = (32, 1024). These sample noise parameters consists
+        of 126500 samples for mean, std, and min of each observation.
         """
-        if (x_mean_array is None and
-            x_std_array is None and
-            x_min_array is None):
+        if (x_mean_array is None
+            and x_std_array is None
+                and x_min_array is None):
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample_noise_params.npy')
             sample_noise_params = np.load(path)
@@ -148,13 +148,18 @@ class Frame(object):
 
         if x_min_array is not None:
             if share_index:
-                assert len(x_mean_array) == len(x_std_array) == len(x_min_array)
+                assert (len(x_mean_array)
+                        == len(x_std_array)
+                        == len(x_min_array))
                 i = np.random.randint(len(x_mean_array))
-                x_mean, x_std, x_min = x_mean_array[i], x_std_array[i], x_min_array[i]
+                x_mean, x_std, x_min = (x_mean_array[i],
+                                        x_std_array[i],
+                                        x_min_array[i])
             else:
-                x_mean, x_std, x_min = sample_from_obs.sample_gaussian_params(x_mean_array,
-                                                                              x_std_array,
-                                                                              x_min_array)
+                x_mean, x_std, x_min = sample_from_obs \
+                                       .sample_gaussian_params(x_mean_array,
+                                                               x_std_array,
+                                                               x_min_array)
             noise = distributions.truncated_gaussian(x_mean,
                                                      x_std,
                                                      x_min,
@@ -165,8 +170,9 @@ class Frame(object):
                 i = np.random.randint(len(x_mean_array))
                 x_mean, x_std = x_mean_array[i], x_std_array[i]
             else:
-                x_mean, x_std = sample_from_obs.sample_gaussian_params(x_mean_array,
-                                                                       x_std_array)
+                x_mean, x_std = sample_from_obs \
+                                .sample_gaussian_params(x_mean_array,
+                                                        x_std_array)
 
             noise = distributions.gaussian(x_mean,
                                            x_std,
@@ -181,7 +187,6 @@ class Frame(object):
             self.noise_mean, self.noise_std = x_mean, x_std
 
         return noise
-
 
     def add_signal(self,
                    path,
@@ -214,8 +219,8 @@ class Frame(object):
             Number of bins to integrate t_profile in the time direction, using
             Riemann sums
         average_f_pos : bool, optional
-            Option to average path along frequency to get better position in t-f
-            space
+            Option to average path along frequency to get better position in
+            t-f space
 
         Returns
         -------
@@ -224,7 +229,8 @@ class Frame(object):
 
         Examples
         --------
-        Here's an example that creates a linear Doppler-drifted signal with Gaussian noise with sampled parameters:
+        Here's an example that creates a linear Doppler-drifted signal with
+        Gaussian noise with sampled parameters:
 
         >>> from astropy import units as u
         >>> import setigen as stg
@@ -235,12 +241,16 @@ class Frame(object):
         >>> fch1 = 6095.214842353016*u.MHz
         >>> frame = stg.Frame(fchans, tchans, df, dt, fch1)
         >>> noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
-        >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], drift_rate=-2*u.Hz/u.s),
+        >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+                                                        drift_rate=-2*u.Hz/u.s),
                                       stg.constant_t_profile(level=frame.compute_intensity(snr=30)),
                                       stg.gaussian_f_profile(width=20*u.Hz),
                                       stg.constant_bp_profile(level=1))
 
-        Saving the noise and signals individually may be useful depending on the application, but the combined data can be accessed via frame.get_data(). The synthetic signal can then be visualized and saved within a Jupyter notebook using:
+        Saving the noise and signals individually may be useful depending on
+        the application, but the combined data can be accessed via
+        frame.get_data(). The synthetic signal can then be visualized and
+        saved within a Jupyter notebook using:
 
         >>> %matplotlib inline
         >>> import matplotlib.pyplot as plt
@@ -252,13 +262,15 @@ class Frame(object):
         >>> plt.savefig('image.png', bbox_inches='tight')
         >>> plt.show()
 
-        To run within a script, simply exclude the first line: :code:`%matplotlib inline`.
+        To run within a script, simply exclude the first line:
+        :code:`%matplotlib inline`.
 
         """
         # Assuming len(ts) >= 2
         ff, tt = np.meshgrid(self.fs, self.ts - self.dt / 2.)
 
-        # Integrate in time direction to capture temporal variations more accurately
+        # Integrate in time direction to capture temporal variations more
+        # accurately
         if integrate_time:
             new_ts = np.arange(0, self.ts[-1] + self.dt, self.dt / samples)
             y = t_profile(new_ts)
@@ -275,11 +287,15 @@ class Frame(object):
             tt_profile = t_profile(tt)
 
         # TODO: optimize with vectorization and array operations.
-        # Average using integration to get a better position in frequency direction
+        # Average using integration to get a better position in frequency
+        # direction
         if average_f_pos:
             int_ts_path = []
             for i in range(len(self.ts)):
-                val = sciintegrate.quad(path, self.ts[i], self.ts[i] + self.dt, limit=10)[0] / self.tsamp
+                val = sciintegrate.quad(path,
+                                        self.ts[i],
+                                        self.ts[i] + self.dt,
+                                        limit=10)[0] / self.tsamp
                 int_ts_path.append(val)
         else:
             int_ts_path = path(self.ts)
@@ -293,13 +309,11 @@ class Frame(object):
 
         return signal
 
-
     def compute_intensity(self, snr):
         '''Calculate intensity from SNR'''
         if self.noise_std == 0:
             raise ValueError('You must add noise in the image to specify SNR!')
         return snr * self.noise_std / np.sqrt(self.tchans)
-
 
     def compute_SNR(self, intensity):
         '''Calculate SNR from intensity'''
@@ -307,16 +321,13 @@ class Frame(object):
             raise ValueError('You must add noise in the image to return SNR!')
         return intensity * np.sqrt(self.tchans) / self.noise_std
 
-
     def get_info(self):
         return vars(self)
-
 
     def get_data(self, db=False):
         if db:
             return 10 * np.log10(self.data)
         return self.data
-
 
     def set_df(self, df):
         self.df = df
@@ -331,7 +342,6 @@ class Frame(object):
                                                  self.tchans * self.dt,
                                                  self.dt),
                                        u.s)
-
 
     def set_data(self, data):
         self.data = data
@@ -355,17 +365,14 @@ class Frame(object):
         self.fil.data = self.data
         self.fil.write_to_fil(filename)
 
-
     def load_fil(self, fil):
         '''IMPORTANT: this does not import fil metadata, only the data'''
         self.fil = fil
         self.set_data(fil_utils.get_data(fil))
 
-
     def save_data(self, file):
         '''file can be a filename or a file handle of a npy file'''
         np.save(file, self.data)
-
 
     def load_data(self, file):
         '''file can be a filename or a file handle of a npy file'''

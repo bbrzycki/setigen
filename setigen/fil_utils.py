@@ -1,8 +1,6 @@
 import sys
-import os
-import errno
 import numpy as np
-from blimpy import read_header, Waterfall, Filterbank
+from blimpy import read_header, Waterfall
 
 
 def maxfreq(input):
@@ -47,8 +45,9 @@ def get_data(input, db=False):
     -------
     data : ndarray
         Time-frequency data
-        
-    Note: when multiple Stokes parameters are supported, this will have to be expanded.
+
+    Note: when multiple Stokes parameters are supported, this will have to
+    be expanded.
     """
     if type(input) == str:
         fil = Waterfall(input)
@@ -116,7 +115,7 @@ def get_ts(input):
         else:
             fch1 = input.header[b'fch1']
             df = input.header[b'foff']
-        fil0 = Waterfall(input, f_start = fch1, f_stop = fch1 + df)
+        fil0 = Waterfall(input, f_start=fch1, f_stop=fch1 + df)
         try:
             tchans = get_data(fil0).shape[0]
         except Exception as e:

@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.integrate as sciintegrate
-import scipy.special as special
+
 
 def generate(ts,
              fs,
@@ -61,7 +61,8 @@ def generate(ts,
     >>> ts = np.arange(0, tchans * tsamp, tsamp)
     >>> signal = stg.generate(ts,
                               fs,
-                              stg.constant_path(f_start = fs[200], drift_rate = -0.000002),
+                              stg.constant_path(f_start = fs[200],
+                                                drift_rate = -0.000002),
                               stg.constant_t_profile(level = 1),
                               stg.box_f_profile(width = 0.00001),
                               stg.constant_bp_profile(level = 1))
@@ -76,14 +77,16 @@ def generate(ts,
     >>> plt.colorbar()
     >>> fig.savefig("image.png", bbox_inches='tight')
 
-    To run within a script, simply exclude the first line: :code:`%matplotlib inline`.
+    To run within a script, simply exclude the first line:
+    :code:`%matplotlib inline`.
 
     """
     # Assuming len(ts) >= 2
     tsamp = ts[1] - ts[0]
     ff, tt = np.meshgrid(fs, ts - tsamp / 2.)
 
-    # Integrate in time direction to capture temporal variations more accurately
+    # Integrate in time direction to capture temporal variations more
+    # accurately
     if integrate_time:
         new_ts = np.arange(0, ts[-1] + tsamp, tsamp / samples)
         y = t_profile(new_ts)
@@ -104,7 +107,10 @@ def generate(ts,
     if average_f_pos:
         int_ts_path = []
         for i in range(len(ts)):
-            val = sciintegrate.quad(path, ts[i], ts[i] + tsamp, limit=10)[0] / tsamp
+            val = sciintegrate.quad(path,
+                                    ts[i],
+                                    ts[i] + tsamp,
+                                    limit=10)[0] / tsamp
             int_ts_path.append(val)
     else:
         int_ts_path = path(ts)

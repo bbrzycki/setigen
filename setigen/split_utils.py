@@ -2,13 +2,13 @@ import sys
 import os
 import errno
 import numpy as np
-from blimpy import read_header, Waterfall, Filterbank
+from blimpy import read_header, Waterfall
 
 
 def split_fil_generator(fil_fn, f_window, f_shift=None):
     """
-    Creates a generator that returns smaller Waterfall objects by 'splitting' an input filterbank
-    file according to the number of frequency samples.
+    Creates a generator that returns smaller Waterfall objects by 'splitting'
+    an input filterbank file according to the number of frequency samples.
 
     Parameters
     ----------
@@ -39,15 +39,14 @@ def split_fil_generator(fil_fn, f_window, f_shift=None):
     f_stop = fch1
 
     # Iterates down frequencies, starting from highest
-    index = 0
     while f_start >= fch1 + nchans * df:
         split_fil = Waterfall(fil_fn, f_start=f_start, f_stop=f_stop)
         yield split_fil
-        
+
         f_start += f_shift * df
         f_stop += f_shift * df
-        
-        
+
+
 def split_fil(fil_fn, output_dir, f_window, f_shift=None):
     """
     Creates a set of new filterbank files by 'splitting' an input filterbank
@@ -79,9 +78,9 @@ def split_fil(fil_fn, output_dir, f_window, f_shift=None):
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-            
-    split_generator = split_fil_generator(fil_fn, 
-                                          f_window, 
+
+    split_generator = split_fil_generator(fil_fn,
+                                          f_window,
                                           f_shift=f_shift)
 
     # Iterates down frequencies, starting from highest
@@ -92,7 +91,7 @@ def split_fil(fil_fn, output_dir, f_window, f_shift=None):
         split_fns.append(output_fn)
         print('Saved %s' % output_fn)
     return split_fns
-        
+
 
 def split_array(data, f_sample_num=None, t_sample_num=None,
                 f_shift=None, t_shift=None,
@@ -140,7 +139,7 @@ def split_array(data, f_sample_num=None, t_sample_num=None,
     y_stop = min(t_sample_num, height)
     x_start = 0
     x_stop = min(f_sample_num, width)
-    split_data.append(data[y_start:y_stop,x_start:x_stop])
+    split_data.append(data[y_start:y_stop, x_start:x_stop])
     y_in_bound = (y_stop < height)
     x_in_bound = (x_stop < width)
 
@@ -151,7 +150,7 @@ def split_array(data, f_sample_num=None, t_sample_num=None,
         while x_in_bound:
             x_start = x_start + f_shift
             x_stop = min(x_stop + f_shift, width)
-            split_data.append(data[y_start:y_stop,x_start:x_stop])
+            split_data.append(data[y_start:y_stop, x_start:x_stop])
             x_in_bound = (x_stop < width)
 
         # Break when both y and x are out of bounds
@@ -163,13 +162,15 @@ def split_array(data, f_sample_num=None, t_sample_num=None,
         y_stop = min(y_stop + t_shift, height)
         x_start = 0
         x_stop = min(f_sample_num, width)
-        split_data.append(data[y_start:y_stop,x_start:x_stop])
+        split_data.append(data[y_start:y_stop, x_start:x_stop])
         y_in_bound = (y_stop < height)
         x_in_bound = (x_stop < width)
 
     # Filter out frames that aren't the same specied size
     if t_trim:
-        split_data = list(filter(lambda A: A.shape[0] == t_sample_num, split_data))
+        split_data = list(filter(lambda A: A.shape[0] == t_sample_num,
+                                 split_data))
     if f_trim:
-        split_data = list(filter(lambda A: A.shape[1] == f_sample_num, split_data))
+        split_data = list(filter(lambda A: A.shape[1] == f_sample_num,
+                                 split_data))
     return split_data

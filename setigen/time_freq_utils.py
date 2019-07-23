@@ -1,6 +1,5 @@
 import numpy as np
 from astropy.stats import median_absolute_deviation
-import sys
 
 
 def db(x):
@@ -31,7 +30,8 @@ def gaussian_frame_from_dist(means_dist, stds_dist, mins_dist, shape):
     the mean, standard deviation, and minimums for data in the shape provided.
     """
     mean, std, minimum = make_normal(means_dist, stds_dist, mins_dist, 1)
-    return np.maximum(np.random.normal(mean, std, shape), minimum), mean, std, minimum
+    return np.maximum(np.random.normal(mean, std, shape),
+                      minimum), mean, std, minimum
 
 
 def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
@@ -47,8 +47,8 @@ def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     data : ndarray
         Time-frequency data
     cols : int
-        Number of columns on either side of the current frequency bin. The width
-        of the sliding window is thus 2 * cols + 1
+        Number of columns on either side of the current frequency bin. The
+        width of the sliding window is thus 2 * cols + 1
     exclude : float, optional
         Fraction of brightest samples in each frequency bin to exclude in
         calculating mean and standard deviation
@@ -80,13 +80,14 @@ def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
             end = f_len
         else:
             end = i + cols + 1
-        noise_data = np.sort(data[:,start:end].flatten())[0:int(np.ceil(t_len * (end - start) * (1 - exclude)))]
+        temp = np.sort(data[:, start:end].flatten())
+        noise = temp[0:int(np.ceil(t_len * (end - start) * (1 - exclude)))]
         if use_median:
-            mean[i] = np.median(noise_data)
-            std[i] = median_absolute_deviation(noise_data)
+            mean[i] = np.median(noise)
+            std[i] = median_absolute_deviation(noise)
         else:
-            mean[i] = np.mean(noise_data)
-            std[i] = np.std(noise_data)
+            mean[i] = np.mean(noise)
+            std[i] = np.std(noise)
     return np.nan_to_num((data - mean) / std)
 
 
@@ -96,10 +97,10 @@ def normalize_by_max(data):
 
 
 def inject_noise(data,
-                 modulate_signal = False,
-                 modulate_width = 0.1,
-                 background_noise = True,
-                 noise_sigma = 1):
+                 modulate_signal=False,
+                 modulate_width=0.1,
+                 background_noise=True,
+                 noise_sigma=1):
     """Normalize data per frequency channel so that the noise level in data is
     controlled.
 
@@ -129,7 +130,11 @@ def inject_noise(data,
     ts_len, fs_len = data.shape
     new_data = data
     if modulate_signal:
-        new_data = new_data * np.random.normal(1, modulate_width, [ts_len, fs_len])
+        new_data = new_data * np.random.normal(1,
+                                               modulate_width,
+                                               [ts_len, fs_len])
     if background_noise:
-        new_data = new_data + np.random.normal(0, noise_sigma, [ts_len, fs_len])
+        new_data = new_data + np.random.normal(0,
+                                               noise_sigma,
+                                               [ts_len, fs_len])
     return new_data

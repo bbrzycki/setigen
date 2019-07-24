@@ -130,6 +130,10 @@ class Frame(object):
         (dt, df) = (1.4 s, 1.4 Hz) resolution, from frames of shape
         (tchans, fchans) = (32, 1024). These sample noise parameters consists
         of 126500 samples for mean, std, and min of each observation.
+
+        Note: this method will attempt to scale the noise parameters to match
+        self.dt and self.df. This assumes that the observation data products
+        are *not* normalized by the FFT length used to contstruct them.
         """
         if (x_mean_array is None
             and x_std_array is None
@@ -138,12 +142,14 @@ class Frame(object):
             path = os.path.join(my_path, 'assets/sample_noise_params.npy')
             sample_noise_params = np.load(path)
 
-            obs_df = 1.3969838619232178
+            # Accounts for scaling from FFT length and time/freq resolutions
+            # Turns out that fft_length * df is constant,
+            # e.g. 1500 / 512 / fft_length = df
             obs_dt = 1.4316557653333333
-            scale_factor = abs(self.dt / obs_dt * self.df / obs_df)
+            scale_factor = self.dt / obs_dt
 
             x_mean_array = sample_noise_params[:, 0] * scale_factor
-            x_std_array = sample_noise_params[:, 1] * np.sqrt(scale_factor)
+            x_std_array = sample_noise_params[:, 1] * scale_factor
             x_min_array = sample_noise_params[:, 2] * scale_factor
 
         if x_min_array is not None:

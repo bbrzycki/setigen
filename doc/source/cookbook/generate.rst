@@ -17,7 +17,7 @@ drift-rate signal.
 
     from astropy import units as u
     import numpy as np
-    
+
     import setigen as stg
 
     # Define time and frequency arrays, essentially labels for the 2D data array
@@ -26,10 +26,10 @@ drift-rate signal.
     df = -2.7939677238464355*u.Hz
     dt = 18.25361108*u.s
     fch1 = 6095.214842353016*u.MHz
-    
+
     # Generate the signal
     frame = stg.Frame(fchans, tchans, df, dt, fch1)
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                                 drift_rate=-2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.box_f_profile(width=20*u.Hz),
@@ -84,7 +84,7 @@ repetition, each example script will assume the same basic setup:
 
     from astropy import units as u
     import numpy as np
-    
+
     import setigen as stg
 
     # Define time and frequency arrays, essentially labels for the 2D data array
@@ -93,7 +93,7 @@ repetition, each example script will assume the same basic setup:
     df = -2.7939677238464355*u.Hz
     dt = 18.25361108*u.s
     fch1 = 6095.214842353016*u.MHz
-    
+
     # Generate the signal
     frame = stg.Frame(fchans, tchans, df, dt, fch1)
 
@@ -110,7 +110,7 @@ the units of your time and frequency arrays):
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                                 drift_rate=-2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.box_f_profile(width=20*u.Hz),
@@ -131,7 +131,7 @@ and amplitude, using :func:`~setigen.funcs.paths.sine_path`.
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.sine_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.sine_path(f_start=frame.fs[200],
                                             drift_rate = -2*u.Hz/u.s,
                                             period=100*u.s,
                                             amplitude=100*u.Hz),
@@ -154,7 +154,7 @@ This path is a very simple quadratic with respect to time, using
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.squared_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.squared_path(f_start=frame.fs[200],
                                                drift_rate=-0.01*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.box_f_profile(width=20*u.Hz),
@@ -179,7 +179,7 @@ intensity level:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                             drift_rate=-2*u.Hz/u.s),
                           stg.constant_t_profile(level=1),
                           stg.box_f_profile(width=20*u.Hz),
@@ -205,10 +205,10 @@ Here's an example with equal level and amplitude:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                                 drift_rate=-2*u.Hz/u.s),
-                              stg.sine_t_profile(period=100*u.s, 
-                                                 amplitude=1, 
+                              stg.sine_t_profile(period=100*u.s,
+                                                 amplitude=1,
                                                  level=1),
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
@@ -224,10 +224,10 @@ And here's an example with the level a bit higher than the amplitude:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                                 drift_rate=-2*u.Hz/u.s),
-                              stg.sine_t_profile(period=100*u.s, 
-                                                 amplitude=1, 
+                              stg.sine_t_profile(period=100*u.s,
+                                                 amplitude=1,
                                                  level=3),
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
@@ -251,10 +251,10 @@ signal:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                                 drift_rate=-2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
-                              stg.box_f_profile(width=20*u.Hz),
+                              stg.box_f_profile(width=40*u.Hz),
                               stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
@@ -262,7 +262,7 @@ signal:
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
-.. image:: basic_signal.png
+.. image:: box_profile.png
 
 Gaussian intensity profile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -273,10 +273,10 @@ the width of the signal:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                                 drift_rate=-2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
-                              stg.gaussian_f_profile(width=20*u.Hz),
+                              stg.gaussian_f_profile(width=40*u.Hz),
                               stg.constant_bp_profile(level=1))
 
 
@@ -296,10 +296,10 @@ smaller signals on either side.
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200], 
+    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                                 drift_rate=-2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
-                              stg.multiple_gaussian_f_profile(width=20*u.Hz),
+                              stg.multiple_gaussian_f_profile(width=40*u.Hz),
                               stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))

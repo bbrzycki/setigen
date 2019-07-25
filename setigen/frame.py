@@ -12,6 +12,11 @@ from . import sample_from_obs
 from . import unit_utils
 from . import stats
 
+from .funcs import paths
+from .funcs import t_profiles
+from .funcs import f_profiles
+from .funcs import bp_profiles
+
 
 class Frame(object):
     '''
@@ -32,7 +37,7 @@ class Frame(object):
             # Need to address this and come up with a meaningful header
             self.header = None
             self.fchans = int(unit_utils.get_value(fchans, u.pixel))
-            self.df = unit_utils.get_value(df, u.Hz)
+            self.df = unit_utils.get_value(abs(df), u.Hz)
             self.fch1 = unit_utils.get_value(fch1, u.Hz)
 
             self.tchans = int(unit_utils.get_value(tchans, u.pixel))
@@ -57,7 +62,7 @@ class Frame(object):
             self.fchans = self.fil.header[b'nchans']
 
             # Frequency values are saved in MHz in fil files
-            self.df = unit_utils.cast_value(self.fil.header[b'foff'],
+            self.df = unit_utils.cast_value(abs(self.fil.header[b'foff']),
                                             u.MHz).to(u.Hz).value
             self.fch1 = unit_utils.cast_value(self.fil.header[b'fch1'],
                                               u.MHz).to(u.Hz).value
@@ -75,12 +80,26 @@ class Frame(object):
                               existing filterbank file.')
 
         # Shared creation of ranges
+        self.fmax = self.fch1
         self._update_fs()
         self._update_ts()
 
         # No matter what, self.data will be populated at this point.
         self._update_total_frame_stats()
         self._update_noise_frame_stats(exclude=0.1)
+
+    def _update_fs(self):
+        self.fmin = self.fmax - self.fchans * self.df
+        self.fs = unit_utils.get_value(np.arange(self.fmin,
+                                                 self.fmin + self.fchans * self.df,
+                                                 self.df),
+                                       u.Hz)
+
+    def _update_ts(self):
+        self.ts = unit_utils.get_value(np.arange(0,
+                                                 self.tchans * self.dt,
+                                                 self.dt),
+                                       u.s)
 
     def zero_data(self):
         self.data = np.zeros(self.shape)
@@ -200,6 +219,7 @@ class Frame(object):
                    t_profile,
                    f_profile,
                    bp_profile,
+                   bounding_f_range=None,
                    integrate_time=False,
                    samples=10,
                    average_f_pos=False):
@@ -220,6 +240,9 @@ class Frame(object):
         bp_profile : function
             Bandpass profile: function in frequency that returns an intensity
             (scalar)
+        bounding_f_range : tuple
+            Tuple (bounding_min, bounding_max) that constrains the computation
+            of the signal to only a range in frequencies
         integrate_time : bool, optional
             Option to integrate t_profile in the time direction
         samples : int, optional
@@ -273,23 +296,24 @@ class Frame(object):
         :code:`%matplotlib inline`.
 
         """
-        # Assuming len(ts) >= 2
-        ff, tt = np.meshgrid(self.fs, self.ts - self.dt / 2.)
+        if bounding_f_range is None:
+            bounding_min, bounding_max = 0, self.fchans
+        else:
+            bounding_min, bounding_max = bounding_f_range
+        effective_fs = self.fs[bounding_min:bounding_max]
+        ff, tt = np.meshgrid(effective_fs, self.ts)
 
         # Integrate in time direction to capture temporal variations more
         # accurately
         if integrate_time:
-            new_ts = np.arange(0, self.ts[-1] + self.dt, self.dt / samples)
+            new_ts = np.linspace(0, self.tchans * self.dt, self.dt / samples)
             y = t_profile(new_ts)
             if type(y) != np.ndarray:
-                y = np.repeat(y, len(new_ts))
+                y = np.repeat(y, self.tchans * samples)
             new_y = []
-            for i in range(len(self.ts)):
-                tot = 0
-                for j in range(samples*i, samples*(i+1)):
-                    tot += y[j]
-                new_y.append(tot / samples)
-            tt_profile = np.meshgrid(self.fs, new_y)[1]
+            for i in range(self.tchans):
+                new_y.append(np.sum(y[samples*i:samples*(i+1)]) / samples)
+            tt_profile = np.meshgrid(effective_fs, new_y)[1]
         else:
             tt_profile = t_profile(tt)
 
@@ -298,7 +322,7 @@ class Frame(object):
         # direction
         if average_f_pos:
             int_ts_path = []
-            for i in range(len(self.ts)):
+            for i in range(self.tchans):
                 val = sciintegrate.quad(path,
                                         self.ts[i],
                                         self.ts[i] + self.dt,
@@ -306,15 +330,58 @@ class Frame(object):
                 int_ts_path.append(val)
         else:
             int_ts_path = path(self.ts)
-        path_f_pos = np.meshgrid(self.fs, int_ts_path)[1]
+        path_f_pos = np.meshgrid(effective_fs, int_ts_path)[1]
 
         signal = tt_profile * f_profile(ff, path_f_pos) * bp_profile(ff)
 
-        self.data += signal
+        self.data[:, bounding_min:bounding_max] += signal
 
         self._update_total_frame_stats()
 
         return signal
+
+    def add_constant_signal(self,
+                            f_start,
+                            drift_rate,
+                            level,
+                            width,
+                            t_profile=None,
+                            f_profile_type='gaussian'):
+        f_start = unit_utils.get_value(f_start, u.Hz)
+        drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
+        width = unit_utils.get_value(width, u.Hz)
+
+        start_index = int(np.round((f_start - self.fmin) / self.df))
+        if drift_rate < 0:
+            width_offset = -width / self.df
+        else:
+            width_offset = width / self.df
+        drift_offset = self.dt * (self.tchans - 1) * drift_rate / self.df
+
+        bounding_start = start_index + int(np.floor(-width_offset))
+        bounding_stop = start_index + int(np.ceil(drift_offset + width_offset))
+
+        bounding_min = max(min(bounding_start, bounding_stop), 0)
+        bounding_max = min(max(bounding_start, bounding_stop), self.fchans)
+
+        if f_profile_type == 'gaussian':
+            f_profile = f_profiles.gaussian_f_profile(width)
+        elif f_profile_type == 'box':
+            f_profile = f_profiles.box_f_profile(width)
+        else:
+            raise ValueError('Unsupported f_profile for constant signal!')
+
+        if t_profile is None:
+            t_profile = t_profiles.constant_t_profile(level)
+        else:
+            t_profile = t_profile
+
+        self.add_signal(path=paths.constant_path(f_start, drift_rate),
+                        t_profile=t_profile,
+                        f_profile=f_profile,
+                        bp_profile=bp_profiles.constant_bp_profile(level=1),
+                        bounding_f_range=(bounding_min, bounding_max))
+
 
     def compute_intensity(self, snr):
         '''Calculate intensity from SNR'''
@@ -336,24 +403,12 @@ class Frame(object):
             return 10 * np.log10(self.data)
         return self.data
 
-    def _update_fs(self):
-        self.fs = unit_utils.get_value(np.arange(self.fch1,
-                                                 self.fch1 + self.fchans * self.df,
-                                                 self.df),
-                                       u.Hz)
-
-    def _update_ts(self):
-        self.ts = unit_utils.get_value(np.arange(0,
-                                                 self.tchans * self.dt,
-                                                 self.dt),
-                                       u.s)
-
     def set_df(self, df):
-        self.df = df
+        self.df = unit_utils.get_value(abs(df), u.Hz)
         self._update_fs()
 
     def set_dt(self, dt):
-        self.dt = dt
+        self.dt = unit_utils.get_value(dt, u.s)
         self._update_ts()
 
     def set_data(self, data):
@@ -370,7 +425,10 @@ class Frame(object):
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
             self.fil = Waterfall(path)
-        self.fil.data = self.data[:, np.newaxis, :]
+
+        # Have to manually flip in the frequency direction + add an extra
+        # dimension for polarization to work with Waterfall
+        self.fil.data = self.data[:, np.newaxis, ::-1]
 
     def save_fil(self, filename):
         self._update_fil()

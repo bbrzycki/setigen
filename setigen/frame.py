@@ -69,7 +69,7 @@ class Frame(object):
 
             # When multiple Stokes parameters are supported, this will have to
             # be expanded.
-            self.data = fil_utils.get_data(self.fil)
+            self.data = fil_utils.get_data(self.fil)[:, ::-1]
 
             self.tchans = self.data.shape[0]
             self.dt = unit_utils.get_value(self.fil.header[b'tsamp'], u.s)

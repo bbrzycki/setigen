@@ -214,6 +214,9 @@ class Frame(object):
 
         return noise
 
+    def freq_to_index(self, freq):
+        return int(np.round((freq - self.fmin) / self.df))
+
     def add_signal(self,
                    path,
                    t_profile,
@@ -299,7 +302,8 @@ class Frame(object):
         if bounding_f_range is None:
             bounding_min, bounding_max = 0, self.fchans
         else:
-            bounding_min, bounding_max = bounding_f_range
+            bounding_min, bounding_max = [self.freq_to_index(freq)
+                                          for freq in bounding_f_range]
         effective_fs = self.fs[bounding_min:bounding_max]
         ff, tt = np.meshgrid(effective_fs, self.ts)
 
@@ -351,6 +355,7 @@ class Frame(object):
         width = unit_utils.get_value(width, u.Hz)
 
         start_index = int(np.round((f_start - self.fmin) / self.df))
+
         if drift_rate < 0:
             width_offset = -width / self.df
         else:
@@ -374,7 +379,7 @@ class Frame(object):
                         t_profile=t_profiles.constant_t_profile(level),
                         f_profile=f_profile,
                         bp_profile=bp_profiles.constant_bp_profile(level=1),
-                        bounding_f_range=(bounding_min, bounding_max))
+                        bounding_f_range=(self.fs[bounding_min], self.fs[bounding_max]))
 
     def compute_intensity(self, snr):
         '''Calculate intensity from SNR'''

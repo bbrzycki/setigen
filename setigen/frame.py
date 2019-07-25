@@ -345,7 +345,6 @@ class Frame(object):
                             drift_rate,
                             level,
                             width,
-                            t_profile=None,
                             f_profile_type='gaussian'):
         f_start = unit_utils.get_value(f_start, u.Hz)
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
@@ -371,17 +370,11 @@ class Frame(object):
         else:
             raise ValueError('Unsupported f_profile for constant signal!')
 
-        if t_profile is None:
-            t_profile = t_profiles.constant_t_profile(level)
-        else:
-            t_profile = t_profile
-
         self.add_signal(path=paths.constant_path(f_start, drift_rate),
-                        t_profile=t_profile,
+                        t_profile=t_profiles.constant_t_profile(level),
                         f_profile=f_profile,
                         bp_profile=bp_profiles.constant_bp_profile(level=1),
                         bounding_f_range=(bounding_min, bounding_max))
-
 
     def compute_intensity(self, snr):
         '''Calculate intensity from SNR'''

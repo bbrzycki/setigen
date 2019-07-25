@@ -3,43 +3,43 @@ import numpy as np
 from blimpy import read_header, Waterfall
 
 
-def maxfreq(input):
+def maxfreq(fil):
     """Return central frequency of the highest-frequency bin in a .fil file.
 
     """
-    if type(input) == str:
-        fch1 = read_header(input)[b'fch1']
-    elif type(input) == Waterfall:
-        fch1 = input.header[b'fch1']
+    if type(fil) == str:
+        fch1 = read_header(fil)[b'fch1']
+    elif type(fil) == Waterfall:
+        fch1 = fil.header[b'fch1']
     else:
-        sys.exit('Invalid input file!')
+        sys.exit('Invalid fil file!')
     return fch1
 
 
-def minfreq(input):
+def minfreq(fil):
     """Return central frequency of the lowest-frequency bin in a .fil file.
 
     """
-    if type(input) == str:
-        fch1 = read_header(input)[b'fch1']
-        nchans = read_header(input)[b'nchans']
-        ch_bandwidth = read_header(input)[b'foff']
-    elif type(input) == Waterfall:
-        fch1 = input.header[b'fch1']
-        nchans = input.header[b'nchans']
-        ch_bandwidth = input.header[b'foff']
+    if type(fil) == str:
+        fch1 = read_header(fil)[b'fch1']
+        nchans = read_header(fil)[b'nchans']
+        ch_bandwidth = read_header(fil)[b'foff']
+    elif type(fil) == Waterfall:
+        fch1 = fil.header[b'fch1']
+        nchans = fil.header[b'nchans']
+        ch_bandwidth = fil.header[b'foff']
     else:
-        sys.exit('Invalid input file!')
+        sys.exit('Invalid fil file!')
     return fch1 + nchans * ch_bandwidth
 
 
-def get_data(input, db=False):
+def get_data(fil, db=False):
     """Gets time-frequency data from filterbank file as a 2d NumPy array.
 
     Parameters
     ----------
-    input : str
-        Name of filterbank file
+    fil : str or Waterfall
+        Name of filterbank file or Waterfall object
 
     Returns
     -------
@@ -49,73 +49,73 @@ def get_data(input, db=False):
     Note: when multiple Stokes parameters are supported, this will have to
     be expanded.
     """
-    if type(input) == str:
-        fil = Waterfall(input)
-    elif type(input) == Waterfall:
-        fil = input
+    if type(fil) == str:
+        fil = Waterfall(fil)
+    elif type(fil) == Waterfall:
+        pass
     else:
-        sys.exit('Invalid input file!')
+        sys.exit('Invalid fil file!')
     if db:
         return 10 * np.log10(np.squeeze(fil.data))
     return np.squeeze(fil.data)
 
 
-def get_fs(input):
+def get_fs(fil):
     """Gets frequency values from filterbank file.
 
     Parameters
     ----------
-    input : str
-        Name of filterbank file
+    fil : str or Waterfall
+        Name of filterbank file or Waterfall object
 
     Returns
     -------
     fs : ndarray
         Frequency values
     """
-    if type(input) == str:
-        fch1 = read_header(input)[b'fch1']
-        df = read_header(input)[b'foff']
-        fchans = read_header(input)[b'nchans']
-    elif type(input) == Waterfall:
-        fch1 = input.header[b'fch1']
-        df = input.header[b'foff']
-        fchans = input.header[b'nchans']
+    if type(fil) == str:
+        fch1 = read_header(fil)[b'fch1']
+        df = read_header(fil)[b'foff']
+        fchans = read_header(fil)[b'nchans']
+    elif type(fil) == Waterfall:
+        fch1 = fil.header[b'fch1']
+        df = fil.header[b'foff']
+        fchans = fil.header[b'nchans']
     else:
-        sys.exit('Invalid input file!')
+        sys.exit('Invalid fil file!')
     return np.arange(fch1, fch1 + fchans * df, df)
 
 
-def get_ts(input):
+def get_ts(fil):
     """Gets time values from filterbank file.
 
     Parameters
     ----------
-    input : str
-        Name of filterbank file
+    fil : str or Waterfall
+        Name of filterbank file or Waterfall object
 
     Returns
     -------
     ts : ndarray
         Time values
     """
-    if type(input) == str:
-        tsamp = read_header(input)[b'tsamp']
-    elif type(input) == Waterfall:
-        tsamp = input.header[b'tsamp']
+    if type(fil) == str:
+        tsamp = read_header(fil)[b'tsamp']
+    elif type(fil) == Waterfall:
+        tsamp = fil.header[b'tsamp']
     else:
-        sys.exit('Invalid input file!')
+        sys.exit('Invalid fil file!')
 
     try:
-        tchans = get_data(input).shape[0]
+        tchans = get_data(fil).shape[0]
     except Exception as e:
-        if type(input) == str:
-            fch1 = read_header(input)[b'fch1']
-            df = read_header(input)[b'foff']
+        if type(fil) == str:
+            fch1 = read_header(fil)[b'fch1']
+            df = read_header(fil)[b'foff']
         else:
-            fch1 = input.header[b'fch1']
-            df = input.header[b'foff']
-        fil0 = Waterfall(input, f_start=fch1, f_stop=fch1 + df)
+            fch1 = fil.header[b'fch1']
+            df = fil.header[b'foff']
+        fil0 = Waterfall(fil, f_start=fch1, f_stop=fch1 + df)
         try:
             tchans = get_data(fil0).shape[0]
         except Exception as e:

@@ -1,3 +1,4 @@
+import sys
 import os.path
 import numpy as np
 import scipy.integrate as sciintegrate
@@ -45,22 +46,28 @@ class Frame(object):
             else:
                 self.data = np.zeros(self.shape)
         elif fil:
-            self.fil = fil
-            self.header = fil.header
-            self.fchans = fil.header[b'nchans']
+            # Load fil via filename or Waterfall object
+            if type(fil) is str:
+                self.fil = Waterfall(fil)
+            elif type(fil) == Waterfall:
+                self.fil = fil
+            else:
+                sys.exit('Invalid fil file!')
+            self.header = self.fil.header
+            self.fchans = self.fil.header[b'nchans']
 
             # Frequency values are saved in MHz in fil files
-            self.df = unit_utils.cast_value(fil.header[b'foff'],
+            self.df = unit_utils.cast_value(self.fil.header[b'foff'],
                                             u.MHz).to(u.Hz).value
-            self.fch1 = unit_utils.cast_value(fil.header[b'fch1'],
+            self.fch1 = unit_utils.cast_value(self.fil.header[b'fch1'],
                                               u.MHz).to(u.Hz).value
 
             # When multiple Stokes parameters are supported, this will have to
             # be expanded.
-            self.data = fil_utils.get_data(fil)
+            self.data = fil_utils.get_data(self.fil)
 
             self.tchans = self.data.shape[0]
-            self.dt = unit_utils.get_value(fil.header[b'tsamp'], u.s)
+            self.dt = unit_utils.get_value(self.fil.header[b'tsamp'], u.s)
 
             self.shape = (self.tchans, self.fchans)
         else:
@@ -68,14 +75,8 @@ class Frame(object):
                               existing filterbank file.')
 
         # Shared creation of ranges
-        self.fs = unit_utils.get_value(np.arange(self.fch1,
-                                                 self.fch1 + self.fchans * self.df,
-                                                 self.df),
-                                       u.Hz)
-        self.ts = unit_utils.get_value(np.arange(0,
-                                                 self.tchans * self.dt,
-                                                 self.dt),
-                                       u.s)
+        self._update_fs()
+        self._update_ts()
 
         # No matter what, self.data will be populated at this point.
         self._update_total_frame_stats()
@@ -335,46 +336,49 @@ class Frame(object):
             return 10 * np.log10(self.data)
         return self.data
 
-    def set_df(self, df):
-        self.df = df
+    def _update_fs(self):
         self.fs = unit_utils.get_value(np.arange(self.fch1,
                                                  self.fch1 + self.fchans * self.df,
                                                  self.df),
                                        u.Hz)
 
-    def set_dt(self, dt):
-        self.dt = dt
+    def _update_ts(self):
         self.ts = unit_utils.get_value(np.arange(0,
                                                  self.tchans * self.dt,
                                                  self.dt),
                                        u.s)
+
+    def set_df(self, df):
+        self.df = df
+        self._update_fs()
+
+    def set_dt(self, dt):
+        self.dt = dt
+        self._update_ts()
 
     def set_data(self, data):
         self.data = data
         self.shape = data.shape
         self.tchans, self.fchans = self.shape
-        self.fs = unit_utils.get_value(np.arange(self.fch1,
-                                                 self.fch1 + self.fchans * self.df,
-                                                 self.df),
-                                       u.Hz)
-        self.ts = unit_utils.get_value(np.arange(0,
-                                                 self.tchans * self.dt,
-                                                 self.dt),
-                                       u.s)
+        self._update_fs()
+        self._update_ts()
 
-    def save_fil(self, filename):
-        '''IMPORTANT: this does not overwrite fil metadata, only the data'''
+    # Note: currently none of these fil methods edit fil metadata
+    def _update_fil(self):
+        # Set fil with sample data; (1.4 Hz, 1.4 s) res
         if self.fil is None:
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
             self.fil = Waterfall(path)
-        self.fil.data = self.data
+        self.fil.data = self.data[:, np.newaxis, :]
+
+    def save_fil(self, filename):
+        self._update_fil()
         self.fil.write_to_fil(filename)
 
-    def load_fil(self, fil):
-        '''IMPORTANT: this does not import fil metadata, only the data'''
-        self.fil = fil
-        self.set_data(fil_utils.get_data(fil))
+    def save_hdf5(self, filename):
+        self._update_fil()
+        self.fil.write_to_hdf5(filename)
 
     def save_data(self, file):
         '''file can be a filename or a file handle of a npy file'''

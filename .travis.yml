@@ -2,10 +2,7 @@ language: python
 python:
     - "2.7"
     - "3.6"
-before_install:
-    - pip install git+https://github.com/h5py/h5py
-    - pip install git+https://github.com/kiyo-masui/bitshuffle
 install:
-    - python setup.py install
+    - pip install -r requirements.txt
 script:
     - pytest

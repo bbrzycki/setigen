@@ -4,9 +4,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 import os
-import sys
 from astropy import units as u
-sys.path.append("./")
 import setigen as stg
 
 

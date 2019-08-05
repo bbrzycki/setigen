@@ -6,6 +6,7 @@ from numpy.testing import assert_allclose
 import os
 from astropy import units as u
 import setigen as stg
+import blimpy as bl
 
 
 @pytest.fixture()
@@ -40,6 +41,38 @@ def test_setup_no_data(frame_setup_no_data):
     assert frame.mean == frame.noise_mean == 0
     assert frame.std == frame.noise_std == 0
     assert frame.min == frame.noise_min == 0
+
+
+def test_fil_io(frame_setup_no_data):
+    frame = copy.deepcopy(frame_setup_no_data)
+
+    fil_fn = 'temp.fil'
+    frame.save_fil(fil_fn)
+
+    temp_frame = stg.Frame(fil=fil_fn)
+    assert_allclose(temp_frame.get_data(), frame.get_data())
+
+    fil = bl.Waterfall(fil_fn)
+    temp_frame = stg.Frame(fil=fil)
+    assert_allclose(temp_frame.get_data(), frame.get_data())
+
+    os.remove(fil_fn)
+
+
+def test_h5_io(frame_setup_no_data):
+    frame = copy.deepcopy(frame_setup_no_data)
+
+    fil_fn = 'temp.h5'
+    frame.save_hdf5(fil_fn)
+
+    temp_frame = stg.Frame(fil=fil_fn)
+    assert_allclose(temp_frame.get_data(), frame.get_data())
+
+    fil = bl.Waterfall(fil_fn)
+    temp_frame = stg.Frame(fil=fil)
+    assert_allclose(temp_frame.get_data(), frame.get_data())
+
+    os.remove(fil_fn)
 
 
 def test_constant_signal_from_add_signal(frame_setup_no_data,

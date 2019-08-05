@@ -342,7 +342,10 @@ class Frame(object):
 
         self._update_total_frame_stats()
 
-        return signal
+        signal_frame = np.zeros(self.shape)
+        signal_frame[:, bounding_min:bounding_max] = signal
+
+        return signal_frame
 
     def add_constant_signal(self,
                             f_start,
@@ -357,9 +360,9 @@ class Frame(object):
         start_index = int(np.round((f_start - self.fmin) / self.df))
 
         if drift_rate < 0:
-            width_offset = -width / self.df
+            width_offset = -2 * width / self.df
         else:
-            width_offset = width / self.df
+            width_offset = 2 * width / self.df
         drift_offset = self.dt * (self.tchans - 1) * drift_rate / self.df
 
         bounding_start = start_index + int(np.floor(-width_offset))
@@ -375,11 +378,11 @@ class Frame(object):
         else:
             raise ValueError('Unsupported f_profile for constant signal!')
 
-        self.add_signal(path=paths.constant_path(f_start, drift_rate),
-                        t_profile=t_profiles.constant_t_profile(level),
-                        f_profile=f_profile,
-                        bp_profile=bp_profiles.constant_bp_profile(level=1),
-                        bounding_f_range=(self.fs[bounding_min], self.fs[bounding_max]))
+        return self.add_signal(path=paths.constant_path(f_start, drift_rate),
+                               t_profile=t_profiles.constant_t_profile(level),
+                               f_profile=f_profile,
+                               bp_profile=bp_profiles.constant_bp_profile(level=1),
+                               bounding_f_range=(self.fs[bounding_min], self.fs[bounding_max]))
 
     def compute_intensity(self, snr):
         '''Calculate intensity from SNR'''

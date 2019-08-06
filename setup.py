@@ -25,6 +25,8 @@ setuptools.setup(
        'matplotlib',
        # 'sphinx_adc_theme'
     ],
+    dependency_links=['https://github.com/h5py/h5py',
+                      'https://github.com/kiyo-masui/bitshuffle'],
     classifiers=(
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',

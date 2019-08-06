@@ -3,7 +3,7 @@
 Python library for generating and injecting artificial narrow-band signals into time-frequency data, as well as tools for working with filterbank data.
 
 <p align="center">
-<img src="doc/source/flashy_synthetic.png" alt="Synthetic sine modulated signal + synthetic RFI signal"
+<img src="docs/source/flashy_synthetic.png" alt="Synthetic sine modulated signal + synthetic RFI signal"
 width="700" height="450"/>
 </p>
 
@@ -51,6 +51,6 @@ plt.show()
 This first adds Gaussian noise to the frame, and adds a constant intensity signal at 30 SNR (relative to the background noise). The result is:
 
 <p align="center">
-<img src="doc/source/example.png" alt="Example synthetic frame"
+<img src="docs/source/example.png" alt="Example synthetic frame"
 width="700" height="450"/>
 </p>

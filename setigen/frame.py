@@ -3,6 +3,7 @@ import os.path
 import numpy as np
 import scipy.integrate as sciintegrate
 from astropy import units as u
+from astropy.stats import sigma_clip
 
 from blimpy import Waterfall
 
@@ -10,7 +11,6 @@ from . import fil_utils
 from . import distributions
 from . import sample_from_obs
 from . import unit_utils
-from . import stats
 
 from .funcs import paths
 from .funcs import t_profiles
@@ -85,8 +85,7 @@ class Frame(object):
         self._update_ts()
 
         # No matter what, self.data will be populated at this point.
-        self._update_total_frame_stats()
-        self._update_noise_frame_stats(exclude=0.1)
+        self._update_noise_frame_stats()
 
     def _update_fs(self):
         self.fmin = self.fmax - self.fchans * self.df
@@ -103,19 +102,27 @@ class Frame(object):
 
     def zero_data(self):
         self.data = np.zeros(self.shape)
-
+        self.noise_mean = self.noise_std = 0
+        
+    def mean(self):
+        return np.mean(self.data)
+    
+    def std(self):
+        return np.std(self.data)
+        
     def get_total_stats(self):
-        return self.mean, self.std, self.min
+        return self.mean(), self.std()
 
     def get_noise_stats(self):
-        return self.noise_mean, self.noise_std, self.noise_min
-
-    def _update_total_frame_stats(self):
-        self.mean, self.std, self.min = stats.compute_frame_stats(self.data)
-
+        return self.noise_mean, self.noise_std
+        
     def _update_noise_frame_stats(self, exclude=0.1):
-        self.noise_mean, self.noise_std, self.noise_min = stats.compute_frame_stats(self.data, exclude=exclude)
-
+        clipped_data = sigma_clip(self.data, 
+                                  sigma=3, 
+                                  maxiters=5, 
+                                  masked=False)
+        self.noise_mean, self.noise_std = np.mean(clipped_data), np.std(clipped_data)
+        
     def add_noise(self,
                   x_mean,
                   x_std,
@@ -131,11 +138,11 @@ class Frame(object):
                                            self.data.shape)
         self.data += noise
 
-        set_to_param = (self.mean == self.std == self.min == 0)
-        self._update_total_frame_stats()
-        self._update_noise_frame_stats(exclude=0.1)
+        set_to_param = (self.noise_mean == self.noise_std == 0)
         if set_to_param:
             self.noise_mean, self.noise_std = x_mean, x_std
+        else:
+            self._update_noise_frame_stats()
 
         return noise
 
@@ -206,11 +213,11 @@ class Frame(object):
 
         self.data += noise
 
-        set_to_param = (self.mean == self.std == self.min == 0)
-        self._update_total_frame_stats()
-        self._update_noise_frame_stats(exclude=0.1)
+        set_to_param = (self.noise_mean == self.noise_std == 0)
         if set_to_param:
             self.noise_mean, self.noise_std = x_mean, x_std
+        else:
+            self._update_noise_frame_stats()
 
         return noise
 
@@ -339,8 +346,6 @@ class Frame(object):
         signal = tt_profile * f_profile(ff, path_f_pos) * bp_profile(ff)
 
         self.data[:, bounding_min:bounding_max] += signal
-
-        self._update_total_frame_stats()
 
         signal_frame = np.zeros(self.shape)
         signal_frame[:, bounding_min:bounding_max] = signal

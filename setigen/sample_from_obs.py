@@ -1,4 +1,5 @@
 import numpy as np
+from astropy.stats import sigma_clip
 
 from . import fil_utils
 from . import split_utils
@@ -54,11 +55,14 @@ def get_parameter_distributions(fil_fn, f_window, f_shift=None, exclude=0):
     x_std_array = []
     x_min_array = []
     for split_fil in split_generator:
-        x_mean, x_std, x_min = stats.compute_frame_stats(fil_utils.get_data(split_fil),
-                                                         exclude=exclude)
-        x_mean_array.append(x_mean)
-        x_std_array.append(x_std)
-        x_min_array.append(x_min)
+        clipped_data = sigma_clip(fil_utils.get_data(split_fil), 
+                                  sigma=3,
+                                  maxiters=5, 
+                                  masked=False)
+        x_mean_array.append(np.mean(clipped_data))
+        x_std_array.append(np.std(clipped_data))
+        x_min_array.append(np.min(clipped_data))
+        
     x_mean_array = np.array(x_mean_array)
     x_std_array = np.array(x_std_array)
     x_min_array = np.array(x_min_array)

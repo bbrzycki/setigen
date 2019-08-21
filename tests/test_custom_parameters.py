@@ -38,9 +38,8 @@ def test_setup_no_data(frame_setup_no_data):
     assert frame.fmin == pytest.approx(6095211981.330067)
 
     assert_allclose(frame.data, np.zeros((32, 1024)))
-    assert frame.mean == frame.noise_mean == 0
-    assert frame.std == frame.noise_std == 0
-    assert frame.min == frame.noise_min == 0
+    assert frame.mean() == frame.noise_mean == 0
+    assert frame.std() == frame.noise_std == 0
 
 
 def test_fil_io(frame_setup_no_data):

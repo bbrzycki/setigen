@@ -103,26 +103,26 @@ class Frame(object):
     def zero_data(self):
         self.data = np.zeros(self.shape)
         self.noise_mean = self.noise_std = 0
-        
+
     def mean(self):
         return np.mean(self.data)
-    
+
     def std(self):
         return np.std(self.data)
-        
+
     def get_total_stats(self):
         return self.mean(), self.std()
 
     def get_noise_stats(self):
         return self.noise_mean, self.noise_std
-        
-    def _update_noise_frame_stats(self, exclude=0.1):
-        clipped_data = sigma_clip(self.data, 
-                                  sigma=3, 
-                                  maxiters=5, 
+
+    def _update_noise_frame_stats(self):
+        clipped_data = sigma_clip(self.data,
+                                  sigma=3,
+                                  maxiters=5,
                                   masked=False)
         self.noise_mean, self.noise_std = np.mean(clipped_data), np.std(clipped_data)
-        
+
     def add_noise(self,
                   x_mean,
                   x_std,
@@ -232,7 +232,7 @@ class Frame(object):
                    bounding_f_range=None,
                    integrate_time=False,
                    samples=10,
-                   average_f_pos=False):
+                   mean_f_position=False):
         """Generates synthetic signal.
 
         Adds a synethic signal using given path in time-frequency domain and
@@ -258,7 +258,7 @@ class Frame(object):
         samples : int, optional
             Number of bins to integrate t_profile in the time direction, using
             Riemann sums
-        average_f_pos : bool, optional
+        mean_f_position : bool, optional
             Option to average path along frequency to get better position in
             t-f space
 
@@ -331,7 +331,7 @@ class Frame(object):
         # TODO: optimize with vectorization and array operations.
         # Average using integration to get a better position in frequency
         # direction
-        if average_f_pos:
+        if mean_f_position:
             int_ts_path = []
             for i in range(self.tchans):
                 val = sciintegrate.quad(path,

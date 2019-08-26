@@ -5,7 +5,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='setigen',
-    version='1.0.1',
+    version='1.1.0',
     author='Bryan Brzycki',
     author_email='bbrzycki@berkeley.edu',
     description='SETI radio signal generator',
@@ -18,12 +18,12 @@ setuptools.setup(
     },
     packages=setuptools.find_packages(),
     install_requires=[
-       'numpy',
-       'scipy',
-       'astropy',
-       'blimpy',
-       'matplotlib',
-       # 'sphinx_adc_theme'
+       'numpy==1.16.4',
+       'scipy==1.3.0',
+       'astropy==3.2.1',
+       'blimpy==1.3.5',
+       'matplotlib==3.0.3',
+       'sphinx-rtd-theme==0.4.3'
     ],
     dependency_links=['https://github.com/h5py/h5py',
                       'https://github.com/kiyo-masui/bitshuffle'],

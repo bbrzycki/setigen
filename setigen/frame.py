@@ -303,8 +303,8 @@ class Frame(object):
                    bp_profile,
                    bounding_f_range=None,
                    integrate_time=False,
-                   samples=10,
-                   mean_f_position=False):
+                   mean_f_position=False,
+                   time_subsamples=10):
         """
         Generates synthetic signal.
 
@@ -313,16 +313,22 @@ class Frame(object):
 
         Parameters
         ----------
-        path : function
-            Function in time that returns frequencies
-        t_profile : function
-            Time profile: function in time that returns an intensity (scalar)
+        path : function, np.ndarray, list, float
+            Function in time that returns frequencies, or provided array or
+            single value of frequencies for the center of the signal at each
+            time sample
+        t_profile : function, np.ndarray, list, float
+            Time profile: function in time that returns an intensity (scalar),
+            or provided array or single value of intensities at each time
+            sample
         f_profile : function
             Frequency profile: function in frequency that returns an intensity
-            (scalar), relative to the signal frequency within a time sample
-        bp_profile : function
-            Bandpass profile: function in frequency that returns an intensity
-            (scalar)
+            (scalar), relative to the signal frequency within a time sample.
+            Note that unlike the other parameters, this must be a function
+        bp_profile : function, np.ndarray, list, float
+            Bandpass profile: function in frequency that returns a relative
+            intensity (scalar, between 0 and 1), or provided array or single
+            value of relative intensities at each frequency sample
         bounding_f_range : tuple
             Tuple (bounding_min, bounding_max) that constrains the computation
             of the signal to only a range in frequencies
@@ -331,15 +337,15 @@ class Frame(object):
             this option only makes sense if the provided t_profile can be
             evaluated at the sub time sample level (e.g. as opposed to
             returning an array of intensities of length `tchans`).
-        samples : int, optional
-            Number of bins to integrate t_profile in the time direction, using
-            Riemann sums
         mean_f_position : bool, optional
             Option to average path along frequency to get a more accurate
             position in t-f space. Note that this option only makes sense if
             the provided path can be evaluated at the sub frequency sample
             level (e.g. as opposed to returning a pre-computed array of
             frequencies of length `tchans`).
+        time_subsamples : int, optional
+            Number of bins for integration in the time direction, using
+            Riemann sums
 
         Returns
         -------
@@ -390,38 +396,81 @@ class Frame(object):
         else:
             bounding_min, bounding_max = [self.freq_to_index(freq)
                                           for freq in bounding_f_range]
-        effective_fs = self.fs[bounding_min:bounding_max]
-        ff, tt = np.meshgrid(effective_fs, self.ts)
+        restricted_fs = self.fs[bounding_min:bounding_max]
+        ff, tt = np.meshgrid(restricted_fs, self.ts)
 
-        # Integrate in time direction to capture temporal variations more
-        # accurately
-        if integrate_time:
-            new_ts = np.linspace(0, self.tchans * self.dt, self.dt / samples)
-            y = t_profile(new_ts)
-            if type(y) != np.ndarray:
-                y = np.repeat(y, self.tchans * samples)
-            new_y = []
-            for i in range(self.tchans):
-                new_y.append(np.sum(y[samples*i:samples*(i+1)]) / samples)
-            tt_profile = np.meshgrid(effective_fs, new_y)[1]
+        # Handle t_profile
+        if callable(t_profile):
+            # Integrate in time direction to capture temporal variations more
+            # accurately
+            if integrate_time:
+                new_ts = np.linspace(0,
+                                     self.tchans * self.dt,
+                                     self.tchans * time_subsamples)
+                y = t_profile(new_ts)
+                if type(y) != np.ndarray:
+                    y = np.repeat(y, self.tchans * time_subsamples)
+                integrated_y = np.mean(np.reshape(y, (self.tchans,
+                                                      time_subsamples)),
+                                       axis=1)
+                t_profile = integrated_y
+            else:
+                t_profile = t_profile(self.ts)
+        elif type(t_profile) in [list, np.ndarray]:
+            t_profile = np.array(t_profile)
+            if t_profile.shape != self.ts.shape:
+                raise ValueError('Shape of t_profile array is {0} != {1}.'
+                                 .format(t_profile.shape, self.ts.shape))
+        elif type(t_profile) in [int, float]:
+            t_profile = np.full(self.tchans, t_profile)
         else:
-            tt_profile = t_profile(tt)
+            raise TypeError('t_profile is not a function, array, or float.')
+        t_profile_tt = np.meshgrid(restricted_fs, t_profile)[1]
 
-        # Average using integration to get a better position in frequency
-        # direction
-        if mean_f_position:
-            int_ts_path = []
-            for i in range(self.tchans):
-                val = sciintegrate.quad(path,
-                                        self.ts[i],
-                                        self.ts[i] + self.dt,
-                                        limit=10)[0] / self.tsamp
-                int_ts_path.append(val)
+        # Handle path
+        if callable(path):
+            # Average using integration to get a better position in frequency
+            # direction
+            if mean_f_position:
+                new_ts = np.linspace(0,
+                                     self.tchans * self.dt,
+                                     self.tchans * time_subsamples)
+                f = path(new_ts)
+                if type(f) != np.ndarray:
+                    f = np.repeat(f, self.tchans * time_subsamples)
+                integrated_f = np.mean(np.reshape(f, (self.tchans,
+                                                      time_subsamples)),
+                                       axis=1)
+                path = integrated_f
+            else:
+                path = path(self.ts)
+        elif type(path) in [list, np.ndarray]:
+            path = np.array(path)
+            if path.shape != self.ts.shape:
+                raise ValueError('Shape of path array is {0} != {1}.'
+                                 .format(path.shape, self.ts.shape))
+        elif type(path) in [int, float]:
+            path = np.full(self.tchans, path)
         else:
-            int_ts_path = path(self.ts)
-        path_f_pos = np.meshgrid(effective_fs, int_ts_path)[1]
+            raise TypeError('path is not a function, array, or float.')
+        path_tt = np.meshgrid(restricted_fs, path)[1]
 
-        signal = tt_profile * f_profile(ff, path_f_pos) * bp_profile(ff)
+        # Handle bandpass profile
+        if callable(bp_profile):
+            bp_profile = bp_profile(restricted_fs)
+        elif type(bp_profile) in [list, np.ndarray]:
+            bp_profile = np.array(bp_profile)
+            if bp_profile.shape != restricted_fs.shape:
+                raise ValueError('Shape of bp_profile array is {0} != {1}.'
+                                 .format(bp_profile.shape,
+                                         restricted_fs.shape))
+        elif type(bp_profile) in [int, float]:
+            bp_profile = np.full(restricted_fs.shape, bp_profile)
+        else:
+            raise TypeError('bp_profile is not a function, array, or float.')
+        bp_profile_ff = np.meshgrid(bp_profile, self.ts)[0]
+
+        signal = t_profile_tt * f_profile(ff, path_tt) * bp_profile_ff
 
         self.data[:, bounding_min:bounding_max] += signal
 

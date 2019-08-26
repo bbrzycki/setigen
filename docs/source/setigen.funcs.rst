@@ -20,10 +20,26 @@ setigen.funcs.f\_profiles module
     :undoc-members:
     :show-inheritance:
 
+setigen.funcs.func\_utils module
+--------------------------------
+
+.. automodule:: setigen.funcs.func_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 setigen.funcs.paths module
 --------------------------
 
 .. automodule:: setigen.funcs.paths
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+setigen.funcs.scint\_profiles module
+------------------------------------
+
+.. automodule:: setigen.funcs.scint_profiles
     :members:
     :undoc-members:
     :show-inheritance:

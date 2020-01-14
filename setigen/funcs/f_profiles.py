@@ -50,3 +50,33 @@ def multiple_gaussian_f_profile(width):
             + func_utils.gaussian(f, f_center, sigma) \
             + func_utils.gaussian(f, f_center + 100, sigma) / 4
     return f_profile
+
+
+def lorentzian_f_profile(width):
+    """
+    Lorentzian profile; width is the FWHM of the profile.
+    """
+    width = unit_utils.get_value(width, u.Hz)
+    gamma = width / 2
+
+    def f_profile(f, f_center):
+        return func_utils.lorentzian(f, f_center, gamma)
+    return f_profile
+
+
+def voigt_f_profile(g_width, l_width):
+    """
+    Voigt profile; g_width and l_width are the FWHMs of the Gaussian and Lorentzian profiles.
+    
+    Further information here: https://en.wikipedia.org/wiki/Voigt_profile.
+    """
+    g_width = unit_utils.get_value(g_width, u.Hz)
+    factor = 2 * np.sqrt(2 * np.log(2))
+    sigma = g_width / factor
+    
+    l_width = unit_utils.get_value(l_width, u.Hz)
+    gamma = l_width / 2
+
+    def f_profile(f, f_center):
+        return func_utils.voigt(f, f_center, sigma, gamma) / func_utils.voigt(f_center, f_center, sigma, gamma)
+    return f_profile

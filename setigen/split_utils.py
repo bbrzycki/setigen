@@ -41,6 +41,11 @@ def split_fil_generator(fil_fn, f_window, f_shift=None):
     # Iterates down frequencies, starting from highest
     while f_start >= fch1 + nchans * df:
         split_fil = Waterfall(fil_fn, f_start=f_start, f_stop=f_stop)
+        
+        # Fix some header values
+        split_fil.header[b'fch1'] = split_fil.file_header[b'fch1'] = f_stop
+        split_fil.header[b'nchans'] = split_fil.file_header[b'nchans'] = f_window
+        
         yield split_fil
 
         f_start += f_shift * df

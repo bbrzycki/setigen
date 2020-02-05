@@ -1,3 +1,19 @@
+"""
+Generate scintillated signals matching Gaussian pulse profiles and exponential
+intensity distributions using the autogregressive to anything (ARTA) algorithm.
+
+Cario & Nelson 1996:
+https://www.sciencedirect.com/science/article/pii/016763779600017X
+
+Scintillation on narrowband signals references:
+
+Cordes & Lazio 1991:
+http://articles.adsabs.harvard.edu/pdf/1991ApJ...376..123C
+
+Cordes, Lazio, & Sagan 1997:
+https://iopscience.iop.org/article/10.1086/304620/pdf
+"""
+
 import numpy as np
 from scipy.stats import norm
 
@@ -11,10 +27,10 @@ def autocorrelation(x, length=20):
 
 
 def get_rho(ts, tscint, p):
-    '''
+    """
     Get autocorrelations with time array ts and scintillation
     timescale tscint.
-    '''
+    """
     # Calculate sigma from width
     sigma = tscint / (2 * np.sqrt(2 * np.log(2)))
     y = func_utils.gaussian(ts, (ts[0] + ts[-1]) / 2, sigma)
@@ -23,7 +39,9 @@ def get_rho(ts, tscint, p):
 
 
 def psi(r):
-    '''Return covariance matrix for initial multivariate normal distribution'''
+    """
+    Return covariance matrix for initial multivariate normal distribution.
+    """
     # r is the array of guesses to get close to desired autocorrelations
     p = len(r)
     covariance = np.ones((p, p))
@@ -34,7 +52,9 @@ def psi(r):
 
 
 def build_Z(r, T):
-    '''Build full baseline Z array'''
+    """
+    Build full baseline Z array.
+    """
     # T is final length of array Z, should be greater than p
     # r is the array of guesses to get close to desired autocorrelations
     # Returns full Z array
@@ -58,15 +78,17 @@ def build_Z(r, T):
 
 
 def inv_exp_cdf(x, rate=1):
-    '''Inverse exponential distribution CDF'''
+    """
+    Inverse exponential distribution CDF.
+    """
     return -np.log(1. - x) / rate
 
 
 def get_Y(Z):
-    '''
+    """
     Get final values specific to an overall exponential distribution,
     normalized to mean of 1.
-    '''
+    """
     Y = inv_exp_cdf(norm.cdf(Z))
     return Y / np.mean(Y)
 

@@ -11,6 +11,14 @@ Subpackages
 Submodules
 ----------
 
+setigen.distributions module
+----------------------------
+
+.. automodule:: setigen.distributions
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 setigen.fil\_utils module
 -------------------------
 
@@ -19,10 +27,18 @@ setigen.fil\_utils module
     :undoc-members:
     :show-inheritance:
 
-setigen.generate\_signal module
--------------------------------
+setigen.frame module
+--------------------
 
-.. automodule:: setigen.generate_signal
+.. automodule:: setigen.frame
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+setigen.sample\_from\_obs module
+--------------------------------
+
+.. automodule:: setigen.sample_from_obs
     :members:
     :undoc-members:
     :show-inheritance:
@@ -35,10 +51,26 @@ setigen.split\_utils module
     :undoc-members:
     :show-inheritance:
 
+setigen.stats module
+--------------------
+
+.. automodule:: setigen.stats
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 setigen.time\_freq\_utils module
 --------------------------------
 
 .. automodule:: setigen.time_freq_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+setigen.unit\_utils module
+--------------------------
+
+.. automodule:: setigen.unit_utils
     :members:
     :undoc-members:
     :show-inheritance:

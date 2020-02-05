@@ -5,7 +5,6 @@ from .funcs import *
 from .distributions import *
 from .fil_utils import *
 from .frame import Frame
-from .generate_signal import *
 from .sample_from_obs import *
 from .split_utils import *
 from .stats import *

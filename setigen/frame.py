@@ -19,18 +19,51 @@ from .funcs import bp_profiles
 
 
 class Frame(object):
-    '''
-    An individual frame object to both construct and add to existing data.
-    '''
+    """
+    Facilitates the creation of entirely synthetic radio data (narrowband
+    signals + Gaussian noise) as well as signal injection into existing
+    observations.
+    """
 
     def __init__(self,
                  fchans=None,
                  tchans=None,
                  df=None,
                  dt=None,
-                 fch1=None,
+                 fch1=8*u.GHz,
                  data=None,
                  fil=None):
+        """
+        Initializes a Frame object from either an existing .fil or .h5 file or
+        from frame resolution / size.
+
+        If you are initializing based on a .fil or .h5, pass in either the
+        filename or the Waterfall object into the fil keyword.
+
+        Otherwise, you can initialize a frame by specifying the parameters
+        fchans, tchans, df, dt, and potentially fch1, if it's important to
+        specify frequencies (8*u.GHz is an arbitrary but reasonable choice
+        otherwise). The `data` keyword is only necessary if you are also
+        preloading data that matches your specified frame dimensions and
+        resolutions.
+
+        Parameters
+        ----------
+        fchans : int, optional
+            Number of frequency samples
+        tchans: int, optional
+            Number of time samples
+        df : astropy.Quantity, optional
+            Frequency resolution (e.g. in u.Hz)
+        dt : astropy.Quantity, optional
+            Time resolution (e.g. in u.s)
+        fch1 : astropy.Quantity, optional
+            Maximum frequency, as in filterbank file headers (e.g. in u.Hz)
+        data : ndarray, optional
+            2D array of intensities to preload into frame
+        fil : str or Waterfall, optional
+            Name of filterbank file or Waterfall object for preloading data.
+        """
         if None not in [fchans, tchans, df, dt, fch1]:
             self.fil = None
 
@@ -88,6 +121,10 @@ class Frame(object):
         self._update_noise_frame_stats()
 
     def _update_fs(self):
+        """
+        Calculates and updates an array of frequencies represented in the
+        frame.
+        """
         self.fmin = self.fmax - self.fchans * self.df
         self.fs = unit_utils.get_value(np.arange(self.fmin,
                                                  self.fmin + self.fchans * self.df,
@@ -95,38 +132,54 @@ class Frame(object):
                                        u.Hz)
 
     def _update_ts(self):
+        """
+        Calculates and updates an array of times represented in the frame.
+        """
         self.ts = unit_utils.get_value(np.arange(0,
                                                  self.tchans * self.dt,
                                                  self.dt),
                                        u.s)
 
     def zero_data(self):
+        """
+        Resets data to a numpy array of zeros.
+        """
         self.data = np.zeros(self.shape)
         self.noise_mean = self.noise_std = 0
-        
+
     def mean(self):
         return np.mean(self.data)
-    
+
     def std(self):
         return np.std(self.data)
-        
+
     def get_total_stats(self):
         return self.mean(), self.std()
 
     def get_noise_stats(self):
         return self.noise_mean, self.noise_std
-        
-    def _update_noise_frame_stats(self, exclude=0.1):
-        clipped_data = sigma_clip(self.data, 
-                                  sigma=3, 
-                                  maxiters=5, 
+
+    def _update_noise_frame_stats(self):
+        """
+        Calculates and updates basic noise statistics (mean and standard
+        deviation) of the frame, using sigma clipping to strip outliers.
+        """
+        clipped_data = sigma_clip(self.data,
+                                  sigma=3,
+                                  maxiters=5,
                                   masked=False)
         self.noise_mean, self.noise_std = np.mean(clipped_data), np.std(clipped_data)
-        
+
     def add_noise(self,
                   x_mean,
                   x_std,
                   x_min=None):
+        """
+        Adds Gaussian noise to the frame, from the specified mean and
+        standard deviation (and minimum if desired). The minimum is simply a
+        lower bound for intensities in the data (e.g. it may make sense to
+        cap intensities at 0), but this is optional.
+        """
         if x_min is not None:
             noise = distributions.truncated_gaussian(x_mean,
                                                      x_std,
@@ -161,6 +214,19 @@ class Frame(object):
         Note: this method will attempt to scale the noise parameters to match
         self.dt and self.df. This assumes that the observation data products
         are *not* normalized by the FFT length used to contstruct them.
+
+        Parameters
+        ----------
+        x_mean_array : ndarray
+            Array of potential means
+        x_std_array : ndarray
+            Array of potential standard deviations
+        x_min_array : ndarray, optional
+            Array of potential minimum values
+        share_index : bool
+            Whether to select noise parameters from the same index across each
+            provided array. If share_index is True, then each array must be
+            the same length.
         """
         if (x_mean_array is None
             and x_std_array is None
@@ -181,9 +247,10 @@ class Frame(object):
 
         if x_min_array is not None:
             if share_index:
-                assert (len(x_mean_array)
-                        == len(x_std_array)
-                        == len(x_min_array))
+                if (len(x_mean_array) != len(x_std_array)
+                        or len(x_mean_array) != len(x_min_array)):
+                    raise IndexError('To share a random index, all parameter \
+                                      arrays must be the same length!')
                 i = np.random.randint(len(x_mean_array))
                 x_mean, x_std, x_min = (x_mean_array[i],
                                         x_std_array[i],
@@ -199,7 +266,9 @@ class Frame(object):
                                                      self.data.shape)
         else:
             if share_index:
-                assert len(x_mean_array) == len(x_std_array)
+                if len(x_mean_array) != len(x_std_array):
+                    raise IndexError('To share a random index, all parameter \
+                                      arrays must be the same length!')
                 i = np.random.randint(len(x_mean_array))
                 x_mean, x_std = x_mean_array[i], x_std_array[i]
             else:
@@ -222,6 +291,9 @@ class Frame(object):
         return noise
 
     def freq_to_index(self, freq):
+        """
+        Convert frequency to closest index in frame.
+        """
         return int(np.round((freq - self.fmin) / self.df))
 
     def add_signal(self,
@@ -231,36 +303,49 @@ class Frame(object):
                    bp_profile,
                    bounding_f_range=None,
                    integrate_time=False,
-                   samples=10,
-                   average_f_pos=False):
-        """Generates synthetic signal.
+                   mean_f_position=False,
+                   time_subsamples=10):
+        """
+        Generates synthetic signal.
 
         Adds a synethic signal using given path in time-frequency domain and
         brightness profiles in time and frequency directions.
 
         Parameters
         ----------
-        path : function
-            Function in time that returns frequencies
-        t_profile : function
-            Time profile: function in time that returns an intensity (scalar)
+        path : function, np.ndarray, list, float
+            Function in time that returns frequencies, or provided array or
+            single value of frequencies for the center of the signal at each
+            time sample
+        t_profile : function, np.ndarray, list, float
+            Time profile: function in time that returns an intensity (scalar),
+            or provided array or single value of intensities at each time
+            sample
         f_profile : function
             Frequency profile: function in frequency that returns an intensity
-            (scalar), relative to the signal frequency within a time sample
-        bp_profile : function
-            Bandpass profile: function in frequency that returns an intensity
-            (scalar)
+            (scalar), relative to the signal frequency within a time sample.
+            Note that unlike the other parameters, this must be a function
+        bp_profile : function, np.ndarray, list, float
+            Bandpass profile: function in frequency that returns a relative
+            intensity (scalar, between 0 and 1), or provided array or single
+            value of relative intensities at each frequency sample
         bounding_f_range : tuple
             Tuple (bounding_min, bounding_max) that constrains the computation
             of the signal to only a range in frequencies
         integrate_time : bool, optional
-            Option to integrate t_profile in the time direction
-        samples : int, optional
-            Number of bins to integrate t_profile in the time direction, using
+            Option to integrate t_profile in the time direction. Note that
+            this option only makes sense if the provided t_profile can be
+            evaluated at the sub time sample level (e.g. as opposed to
+            returning an array of intensities of length `tchans`).
+        mean_f_position : bool, optional
+            Option to average path along frequency to get a more accurate
+            position in t-f space. Note that this option only makes sense if
+            the provided path can be evaluated at the sub frequency sample
+            level (e.g. as opposed to returning a pre-computed array of
+            frequencies of length `tchans`).
+        time_subsamples : int, optional
+            Number of bins for integration in the time direction, using
             Riemann sums
-        average_f_pos : bool, optional
-            Option to average path along frequency to get better position in
-            t-f space
 
         Returns
         -------
@@ -276,15 +361,15 @@ class Frame(object):
         >>> import setigen as stg
         >>> fchans = 1024
         >>> tchans = 32
-        >>> df = -2.7939677238464355*u.Hz
+        >>> df = 2.7939677238464355*u.Hz
         >>> dt = tsamp = 18.25361108*u.s
         >>> fch1 = 6095.214842353016*u.MHz
         >>> frame = stg.Frame(fchans, tchans, df, dt, fch1)
         >>> noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
         >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
-                                                        drift_rate=-2*u.Hz/u.s),
+                                                        drift_rate=2*u.Hz/u.s),
                                       stg.constant_t_profile(level=frame.compute_intensity(snr=30)),
-                                      stg.gaussian_f_profile(width=20*u.Hz),
+                                      stg.gaussian_f_profile(width=40*u.Hz),
                                       stg.constant_bp_profile(level=1))
 
         Saving the noise and signals individually may be useful depending on
@@ -311,39 +396,81 @@ class Frame(object):
         else:
             bounding_min, bounding_max = [self.freq_to_index(freq)
                                           for freq in bounding_f_range]
-        effective_fs = self.fs[bounding_min:bounding_max]
-        ff, tt = np.meshgrid(effective_fs, self.ts)
+        restricted_fs = self.fs[bounding_min:bounding_max]
+        ff, tt = np.meshgrid(restricted_fs, self.ts)
 
-        # Integrate in time direction to capture temporal variations more
-        # accurately
-        if integrate_time:
-            new_ts = np.linspace(0, self.tchans * self.dt, self.dt / samples)
-            y = t_profile(new_ts)
-            if type(y) != np.ndarray:
-                y = np.repeat(y, self.tchans * samples)
-            new_y = []
-            for i in range(self.tchans):
-                new_y.append(np.sum(y[samples*i:samples*(i+1)]) / samples)
-            tt_profile = np.meshgrid(effective_fs, new_y)[1]
+        # Handle t_profile
+        if callable(t_profile):
+            # Integrate in time direction to capture temporal variations more
+            # accurately
+            if integrate_time:
+                new_ts = np.linspace(0,
+                                     self.tchans * self.dt,
+                                     self.tchans * time_subsamples)
+                y = t_profile(new_ts)
+                if type(y) != np.ndarray:
+                    y = np.repeat(y, self.tchans * time_subsamples)
+                integrated_y = np.mean(np.reshape(y, (self.tchans,
+                                                      time_subsamples)),
+                                       axis=1)
+                t_profile = integrated_y
+            else:
+                t_profile = t_profile(self.ts)
+        elif type(t_profile) in [list, np.ndarray]:
+            t_profile = np.array(t_profile)
+            if t_profile.shape != self.ts.shape:
+                raise ValueError('Shape of t_profile array is {0} != {1}.'
+                                 .format(t_profile.shape, self.ts.shape))
+        elif type(t_profile) in [int, float]:
+            t_profile = np.full(self.tchans, t_profile)
         else:
-            tt_profile = t_profile(tt)
+            raise TypeError('t_profile is not a function, array, or float.')
+        t_profile_tt = np.meshgrid(restricted_fs, t_profile)[1]
 
-        # TODO: optimize with vectorization and array operations.
-        # Average using integration to get a better position in frequency
-        # direction
-        if average_f_pos:
-            int_ts_path = []
-            for i in range(self.tchans):
-                val = sciintegrate.quad(path,
-                                        self.ts[i],
-                                        self.ts[i] + self.dt,
-                                        limit=10)[0] / self.tsamp
-                int_ts_path.append(val)
+        # Handle path
+        if callable(path):
+            # Average using integration to get a better position in frequency
+            # direction
+            if mean_f_position:
+                new_ts = np.linspace(0,
+                                     self.tchans * self.dt,
+                                     self.tchans * time_subsamples)
+                f = path(new_ts)
+                if type(f) != np.ndarray:
+                    f = np.repeat(f, self.tchans * time_subsamples)
+                integrated_f = np.mean(np.reshape(f, (self.tchans,
+                                                      time_subsamples)),
+                                       axis=1)
+                path = integrated_f
+            else:
+                path = path(self.ts)
+        elif type(path) in [list, np.ndarray]:
+            path = np.array(path)
+            if path.shape != self.ts.shape:
+                raise ValueError('Shape of path array is {0} != {1}.'
+                                 .format(path.shape, self.ts.shape))
+        elif type(path) in [int, float]:
+            path = np.full(self.tchans, path)
         else:
-            int_ts_path = path(self.ts)
-        path_f_pos = np.meshgrid(effective_fs, int_ts_path)[1]
+            raise TypeError('path is not a function, array, or float.')
+        path_tt = np.meshgrid(restricted_fs, path)[1]
 
-        signal = tt_profile * f_profile(ff, path_f_pos) * bp_profile(ff)
+        # Handle bandpass profile
+        if callable(bp_profile):
+            bp_profile = bp_profile(restricted_fs)
+        elif type(bp_profile) in [list, np.ndarray]:
+            bp_profile = np.array(bp_profile)
+            if bp_profile.shape != restricted_fs.shape:
+                raise ValueError('Shape of bp_profile array is {0} != {1}.'
+                                 .format(bp_profile.shape,
+                                         restricted_fs.shape))
+        elif type(bp_profile) in [int, float]:
+            bp_profile = np.full(restricted_fs.shape, bp_profile)
+        else:
+            raise TypeError('bp_profile is not a function, array, or float.')
+        bp_profile_ff = np.meshgrid(bp_profile, self.ts)[0]
+
+        signal = t_profile_tt * f_profile(ff, path_tt) * bp_profile_ff
 
         self.data[:, bounding_min:bounding_max] += signal
 
@@ -358,6 +485,28 @@ class Frame(object):
                             level,
                             width,
                             f_profile_type='gaussian'):
+        """
+        A wrapper around add_signal() that injects a constant intensity,
+        constant drift_rate signal into the frame.
+
+        Parameters
+        ----------
+        f_start : astropy.Quantity
+            Starting signal frequency
+        drift_rate : astropy.Quantity
+            Signal drift rate, in units of frequency per time
+        level : float
+            Signal intensity
+        width : astropy.Quantity
+            Signal width in frequency units
+        f_profile_type : str
+            Either 'box' or 'gaussian', based on the desired spectral profile
+
+        Returns
+        -------
+        signal : ndarray
+            Two-dimensional NumPy array containing synthetic signal data
+        """
         f_start = unit_utils.get_value(f_start, u.Hz)
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
         width = unit_utils.get_value(width, u.Hz)
@@ -390,13 +539,24 @@ class Frame(object):
                                bounding_f_range=(self.fs[bounding_min], self.fs[bounding_max]))
 
     def compute_intensity(self, snr):
-        '''Calculate intensity from SNR'''
+        """
+        Calculates intensity from SNR, based on estimates of the noise in the
+        frame.
+
+        Note that there must be noise present in the frame for this to make
+        sense.
+        """
         if self.noise_std == 0:
             raise ValueError('You must add noise in the image to specify SNR!')
         return snr * self.noise_std / np.sqrt(self.tchans)
 
     def compute_SNR(self, intensity):
-        '''Calculate SNR from intensity'''
+        """
+        Calculates SNR from intensity.
+
+        Note that there must be noise present in the frame for this to make
+        sense.
+        """
         if self.noise_std == 0:
             raise ValueError('You must add noise in the image to return SNR!')
         return intensity * np.sqrt(self.tchans) / self.noise_std
@@ -445,9 +605,13 @@ class Frame(object):
         self.fil.write_to_hdf5(filename)
 
     def save_data(self, file):
-        '''file can be a filename or a file handle of a npy file'''
+        """
+        file can be a filename or a file handle of a npy file
+        """
         np.save(file, self.data)
 
     def load_data(self, file):
-        '''file can be a filename or a file handle of a npy file'''
+        """
+        file can be a filename or a file handle of a npy file
+        """
         self.set_data(np.load(file))

@@ -4,8 +4,18 @@ from blimpy import read_header, Waterfall
 
 
 def maxfreq(fil):
-    """Return central frequency of the highest-frequency bin in a .fil file.
+    """
+    Returns central frequency of the highest-frequency bin in a .fil file.
 
+    Parameters
+    ----------
+    fil : str or Waterfall
+        Name of filterbank file or Waterfall object
+
+    Returns
+    -------
+    fmax : float
+        Maximum frequency in data
     """
     if type(fil) == str:
         fch1 = read_header(fil)[b'fch1']
@@ -13,12 +23,23 @@ def maxfreq(fil):
         fch1 = fil.header[b'fch1']
     else:
         sys.exit('Invalid fil file!')
+
     return fch1
 
 
 def minfreq(fil):
-    """Return central frequency of the lowest-frequency bin in a .fil file.
+    """
+    Returns central frequency of the lowest-frequency bin in a .fil file.
 
+    Parameters
+    ----------
+    fil : str or Waterfall
+        Name of filterbank file or Waterfall object
+
+    Returns
+    -------
+    fmin : float
+        Minimum frequency in data
     """
     if type(fil) == str:
         fch1 = read_header(fil)[b'fch1']
@@ -30,11 +51,16 @@ def minfreq(fil):
         ch_bandwidth = fil.header[b'foff']
     else:
         sys.exit('Invalid fil file!')
+
     return fch1 + nchans * ch_bandwidth
 
 
 def get_data(fil, db=False):
-    """Gets time-frequency data from filterbank file as a 2d NumPy array.
+    """
+    Gets time-frequency data from filterbank file as a 2d NumPy array.
+
+    Note: when multiple Stokes parameters are supported, this will have to
+    be expanded.
 
     Parameters
     ----------
@@ -45,9 +71,6 @@ def get_data(fil, db=False):
     -------
     data : ndarray
         Time-frequency data
-
-    Note: when multiple Stokes parameters are supported, this will have to
-    be expanded.
     """
     if type(fil) == str:
         fil = Waterfall(fil)
@@ -55,13 +78,16 @@ def get_data(fil, db=False):
         pass
     else:
         sys.exit('Invalid fil file!')
+
     if db:
         return 10 * np.log10(np.squeeze(fil.data))
+
     return np.squeeze(fil.data)
 
 
 def get_fs(fil):
-    """Gets frequency values from filterbank file.
+    """
+    Gets frequency values from filterbank file.
 
     Parameters
     ----------
@@ -83,11 +109,13 @@ def get_fs(fil):
         fchans = fil.header[b'nchans']
     else:
         sys.exit('Invalid fil file!')
+
     return np.arange(fch1, fch1 + fchans * df, df)
 
 
 def get_ts(fil):
-    """Gets time values from filterbank file.
+    """
+    Gets time values from filterbank file.
 
     Parameters
     ----------
@@ -106,18 +134,18 @@ def get_ts(fil):
     else:
         sys.exit('Invalid fil file!')
 
+    if type(fil) == str:
+        fch1 = read_header(fil)[b'fch1']
+        df = read_header(fil)[b'foff']
+    else:
+        fch1 = fil.header[b'fch1']
+        df = fil.header[b'foff']
+
+    fil0 = Waterfall(fil, f_start=fch1, f_stop=fch1 + df)
+
     try:
-        tchans = get_data(fil).shape[0]
+        tchans = get_data(fil0).shape[0]
     except Exception as e:
-        if type(fil) == str:
-            fch1 = read_header(fil)[b'fch1']
-            df = read_header(fil)[b'foff']
-        else:
-            fch1 = fil.header[b'fch1']
-            df = fil.header[b'foff']
-        fil0 = Waterfall(fil, f_start=fch1, f_stop=fch1 + df)
-        try:
-            tchans = get_data(fil0).shape[0]
-        except Exception as e:
-            sys.exit('No data in filterbank file!')
+        sys.exit('No data in filterbank file!')
+
     return np.arange(0, tchans * tsamp, tsamp)

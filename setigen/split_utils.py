@@ -10,6 +10,11 @@ def split_fil_generator(fil_fn, f_window, f_shift=None):
     Creates a generator that returns smaller Waterfall objects by 'splitting'
     an input filterbank file according to the number of frequency samples.
 
+    Since this function only loads in data in chunks according to f_window,
+    it handles very large observations well. Specifically, it will not attempt
+    to load all the data into memory before splitting, which won't work when
+    the data is very large anyway.
+
     Parameters
     ----------
     fil_fn : str
@@ -21,7 +26,7 @@ def split_fil_generator(fil_fn, f_window, f_shift=None):
         None, defaults to `f_shift=f_window` so that there is no
         overlap between new filterbank files
 
-    Yields:
+    Returns
     -------
     split : Waterfall
         A blimpy Waterfall object containing a smaller section of the data

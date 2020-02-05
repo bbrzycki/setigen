@@ -3,39 +3,15 @@ from astropy.stats import median_absolute_deviation
 
 
 def db(x):
-    """ Convert to dB """
+    """
+    Converts to dB.
+    """
     return 10 * np.log10(x)
 
 
-def choose_from_dist(dist, shape):
-    """Load random values from a loaded NumPy array in the specified shape"""
-    return dist[np.random.randint(0, len(dist), shape)]
-
-
-def make_normal(means_dist, stds_dist, mins_dist, shape):
-    """
-    Grab means, standard deviations, and minimums from the loaded distributions
-    (each NumPy arrays) in the shape provided.
-    """
-    means = choose_from_dist(means_dist, shape)
-    stds = choose_from_dist(stds_dist, shape)
-    mins = choose_from_dist(mins_dist, shape)
-    # means = np.maximum(means, stds)
-    return means, stds, mins
-
-
-def gaussian_frame_from_dist(means_dist, stds_dist, mins_dist, shape):
-    """
-    Make a Gaussian noise frame from given distributions for
-    the mean, standard deviation, and minimums for data in the shape provided.
-    """
-    mean, std, minimum = make_normal(means_dist, stds_dist, mins_dist, 1)
-    return np.maximum(np.random.normal(mean, std, shape),
-                      minimum), mean, std, minimum
-
-
 def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
-    """Normalize data per frequency channel so that the noise level in data is
+    """
+    Normalize data per frequency channel so that the noise level in data is
     controlled; using mean or median filter.
 
     Uses a sliding window to calculate mean and standard deviation
@@ -92,49 +68,7 @@ def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
 
 
 def normalize_by_max(data):
-    """Simple normalization by dividing out by the brightest pixel"""
-    return data / np.max(data)
-
-
-def inject_noise(data,
-                 modulate_signal=False,
-                 modulate_width=0.1,
-                 background_noise=True,
-                 noise_sigma=1):
-    """Normalize data per frequency channel so that the noise level in data is
-    controlled.
-
-    Uses a sliding window to calculate mean and standard deviation
-    to preserve non-drifted signals. Excludes a fraction of brightest pixels to
-    better isolate noise.
-
-    Parameters
-    ----------
-    data : ndarray
-        Time-frequency data
-    modulate_signal : bool, optional
-        Modulate signal itself with Gaussian noise (multiplicative)
-    modulate_width : float, optional
-        Standard deviation of signal modulation
-    background_noise : bool, optional
-        Add gaussian noise to entire image (additive)
-    noise_sigma : float, optional
-        Standard deviation of background Gaussian noise
-
-    Returns
-    -------
-    noisy_data : ndarray
-        Data with injected noise
-
     """
-    ts_len, fs_len = data.shape
-    new_data = data
-    if modulate_signal:
-        new_data = new_data * np.random.normal(1,
-                                               modulate_width,
-                                               [ts_len, fs_len])
-    if background_noise:
-        new_data = new_data + np.random.normal(0,
-                                               noise_sigma,
-                                               [ts_len, fs_len])
-    return new_data
+    Simple normalization by dividing out by the brightest pixel.
+    """
+    return data / np.max(data)

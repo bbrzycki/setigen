@@ -21,7 +21,7 @@ def voigt(x, x0, sigma, gamma):
 def voigt_fwhm(g_width, l_width):
     """
     Accurate to 0.0003% for a pure Lorentzian profile, precise for a pure Gaussian.
-    
+
     Source: https://en.wikipedia.org/wiki/Voigt_profile.
     """
     return 0.5346 * l_width + np.sqrt(0.2166 * l_width**2 + g_width**2)

@@ -2,6 +2,8 @@ import sys
 import os.path
 import numpy as np
 import scipy.integrate as sciintegrate
+import matplotlib.pyplot as plt
+
 from astropy import units as u
 from astropy.stats import sigma_clip
 
@@ -368,7 +370,7 @@ class Frame(object):
         >>> noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
         >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                                         drift_rate=2*u.Hz/u.s),
-                                      stg.constant_t_profile(level=frame.compute_intensity(snr=30)),
+                                      stg.constant_t_profile(level=frame.get_intensity(snr=30)),
                                       stg.gaussian_f_profile(width=40*u.Hz),
                                       stg.constant_bp_profile(level=1))
 
@@ -380,10 +382,7 @@ class Frame(object):
         >>> %matplotlib inline
         >>> import matplotlib.pyplot as plt
         >>> fig = plt.figure(figsize=(10, 6))
-        >>> plt.imshow(frame.get_data(), aspect='auto')
-        >>> plt.xlabel('Frequency')
-        >>> plt.ylabel('Time')
-        >>> plt.colorbar()
+        >>> frame.show()
         >>> plt.savefig('image.png', bbox_inches='tight')
         >>> plt.show()
 
@@ -500,7 +499,7 @@ class Frame(object):
         width : astropy.Quantity
             Signal width in frequency units
         f_profile_type : str
-            Either 'box' or 'gaussian', based on the desired spectral profile
+            Can be 'box', 'gaussian', 'lorentzian', or 'voigt', based on the desired spectral profile
 
         Returns
         -------
@@ -527,6 +526,10 @@ class Frame(object):
 
         if f_profile_type == 'gaussian':
             f_profile = f_profiles.gaussian_f_profile(width)
+        elif f_profile_type == 'lorentzian':
+            f_profile = f_profiles.lorentzian_f_profile(width)
+        elif f_profile_type == 'voigt':
+            f_profile = f_profiles.voigt_f_profile(width, width)
         elif f_profile_type == 'box':
             f_profile = f_profiles.box_f_profile(width)
         else:
@@ -538,7 +541,7 @@ class Frame(object):
                                bp_profile=bp_profiles.constant_bp_profile(level=1),
                                bounding_f_range=(self.fs[bounding_min], self.fs[bounding_max]))
 
-    def compute_intensity(self, snr):
+    def get_intensity(self, snr):
         """
         Calculates intensity from SNR, based on estimates of the noise in the
         frame.
@@ -550,7 +553,7 @@ class Frame(object):
             raise ValueError('You must add noise in the image to specify SNR!')
         return snr * self.noise_std / np.sqrt(self.tchans)
 
-    def compute_SNR(self, intensity):
+    def get_SNR(self, intensity):
         """
         Calculates SNR from intensity.
 
@@ -560,12 +563,15 @@ class Frame(object):
         if self.noise_std == 0:
             raise ValueError('You must add noise in the image to return SNR!')
         return intensity * np.sqrt(self.tchans) / self.noise_std
+    
+    def get_drift_rate(self, start_index, end_index):
+        return (end_index - start_index) * self.df / (self.tchans * self.dt)
 
     def get_info(self):
         return vars(self)
 
-    def get_data(self, db=False):
-        if db:
+    def get_data(self, use_db=False):
+        if use_db:
             return 10 * np.log10(self.data)
         return self.data
 
@@ -583,6 +589,16 @@ class Frame(object):
         self.tchans, self.fchans = self.shape
         self._update_fs()
         self._update_ts()
+        
+    def show(self, use_db=False):
+        plt.imshow(self.get_data(use_db=use_db), aspect='auto')
+        plt.colorbar()
+        plt.xlabel('Frequency (px)')
+        plt.ylabel('Time (px)')
+        
+    def bl_show(self, use_db=True):
+        self._update_fil()
+        self.fil.plot_waterfall(logged=use_db)
 
     # Note: currently none of these fil methods edit fil metadata
     def _update_fil(self):

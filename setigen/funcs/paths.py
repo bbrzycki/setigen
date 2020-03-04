@@ -55,6 +55,8 @@ def choppy_rfi_path(f_start, drift_rate, spread, spread_type='uniform'):
     A crude simulation of one style of RFI that shows up, in which the signal
     jumps around in frequency. This example samples the center frequency for
     each time sample from either a uniform or normal distribution.
+    
+    Argument spread_type can be either 'uniform' or 'normal'.
 
     Note: another approach could be to random walk the frequency over time.
     """
@@ -65,7 +67,7 @@ def choppy_rfi_path(f_start, drift_rate, spread, spread_type='uniform'):
     def path(t):
         if spread_type == 'uniform':
             f_offset = np.random.uniform(-spread / 2., spread / 2., t.shape)
-        elif spread_type == 'gaussian':
+        elif spread_type == 'normal':
             f_offset = np.random.normal(0, spread, t.shape)
         else:
             sys.exit('%s is not a valid spread type!' % spread_type)

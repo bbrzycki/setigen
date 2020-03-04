@@ -35,7 +35,7 @@ frame = stg.Frame(fchans=1024*u.pixel,
 noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
 signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                             drift_rate=2*u.Hz/u.s),
-                          stg.constant_t_profile(level=frame.compute_intensity(snr=30)),
+                          stg.constant_t_profile(level=frame.get_intensity(snr=30)),
                           stg.gaussian_f_profile(width=40*u.Hz),
                           stg.constant_bp_profile(level=1))
 

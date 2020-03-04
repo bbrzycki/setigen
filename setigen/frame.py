@@ -603,6 +603,9 @@ class Frame(object):
     def save_hdf5(self, filename):
         self._update_fil()
         self.fil.write_to_hdf5(filename)
+        
+    def save_h5(self, filename):
+        self.save_hdf5(filename)
 
     def save_data(self, file):
         """

@@ -405,7 +405,7 @@ class Frame(object):
         if bounding_f_range is None:
             bounding_min, bounding_max = 0, self.fchans
         else:
-            bounding_min, bounding_max = [self.freq_to_index(freq)
+            bounding_min, bounding_max = [self.get_index(freq)
                                           for freq in bounding_f_range]
         restricted_fs = self.fs[bounding_min:bounding_max]
         ff, tt = np.meshgrid(restricted_fs, self.ts)
@@ -522,7 +522,7 @@ class Frame(object):
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
         width = unit_utils.get_value(width, u.Hz)
 
-        start_index = self.freq_to_index(f_start)
+        start_index = self.get_index(f_start)
 
         # Calculate the bounding box, to optimize signal insertion calculation
         if drift_rate < 0:

@@ -100,7 +100,7 @@ def test_constant_signal_from_add_constant_signal(frame_setup_no_data,
 
 def test_signal_from_arrays():
     frame = stg.Frame(tchans=3, fchans=3, dt=1, df=1, fch1=3)
-    frame.add_signal(path=[1, 0, 2],
+    frame.add_signal(path=[2, 1, 3],
                      t_profile=[1, 0.5, 1],
                      f_profile=stg.box_f_profile(width=1),
                      bp_profile=[1, 0.5, 1])
@@ -111,7 +111,7 @@ def test_signal_from_arrays():
 
 def test_signal_from_floats():
     frame = stg.Frame(tchans=3, fchans=3, dt=1, df=1, fch1=3)
-    frame.add_signal(path=2,
+    frame.add_signal(path=3,
                      t_profile=2,
                      f_profile=stg.box_f_profile(width=1),
                      bp_profile=3)

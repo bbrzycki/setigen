@@ -3,7 +3,7 @@ import numpy as np
 from blimpy import read_header, Waterfall
 
 
-def maxfreq(fil):
+def max_freq(fil):
     """
     Returns central frequency of the highest-frequency bin in a .fil file.
 
@@ -17,17 +17,15 @@ def maxfreq(fil):
     fmax : float
         Maximum frequency in data
     """
-    if type(fil) == str:
-        fch1 = read_header(fil)[b'fch1']
-    elif type(fil) == Waterfall:
-        fch1 = fil.header[b'fch1']
-    else:
+    if isinstance(fil, str):
+        fil = Waterfall(fil, load_data=False)
+    elif not isinstance(fil, Waterfall):
         sys.exit('Invalid fil file!')
 
-    return fch1
+    return fil.container.f_stop
 
 
-def minfreq(fil):
+def min_freq(fil):
     """
     Returns central frequency of the lowest-frequency bin in a .fil file.
 
@@ -41,21 +39,15 @@ def minfreq(fil):
     fmin : float
         Minimum frequency in data
     """
-    if type(fil) == str:
-        fch1 = read_header(fil)[b'fch1']
-        nchans = read_header(fil)[b'nchans']
-        ch_bandwidth = read_header(fil)[b'foff']
-    elif type(fil) == Waterfall:
-        fch1 = fil.header[b'fch1']
-        nchans = fil.header[b'nchans']
-        ch_bandwidth = fil.header[b'foff']
-    else:
+    if isinstance(fil, str):
+        fil = Waterfall(fil, load_data=False)
+    elif not isinstance(fil, Waterfall):
         sys.exit('Invalid fil file!')
 
-    return fch1 + nchans * ch_bandwidth
+    return fil.container.f_start
 
 
-def get_data(fil, db=False):
+def get_data(fil, use_db=False):
     """
     Gets time-frequency data from filterbank file as a 2d NumPy array.
 
@@ -72,17 +64,15 @@ def get_data(fil, db=False):
     data : ndarray
         Time-frequency data
     """
-    if type(fil) == str:
+    if isinstance(fil, str):
         fil = Waterfall(fil)
-    elif type(fil) == Waterfall:
-        pass
-    else:
+    elif not isinstance(fil, Waterfall):
         sys.exit('Invalid fil file!')
 
-    if db:
-        return 10 * np.log10(np.squeeze(fil.data))
+    if use_db:
+        return 10 * np.log10(fil.data[:, 0, :])
 
-    return np.squeeze(fil.data)
+    return fil.data[:, 0, :]
 
 
 def get_fs(fil):
@@ -99,11 +89,11 @@ def get_fs(fil):
     fs : ndarray
         Frequency values
     """
-    if type(fil) == str:
+    if isinstance(fil, str):
         fch1 = read_header(fil)[b'fch1']
         df = read_header(fil)[b'foff']
         fchans = read_header(fil)[b'nchans']
-    elif type(fil) == Waterfall:
+    elif isinstance(fil, Waterfall):
         fch1 = fil.header[b'fch1']
         df = fil.header[b'foff']
         fchans = fil.header[b'nchans']
@@ -127,14 +117,14 @@ def get_ts(fil):
     ts : ndarray
         Time values
     """
-    if type(fil) == str:
+    if isinstance(fil, str):
         tsamp = read_header(fil)[b'tsamp']
-    elif type(fil) == Waterfall:
+    elif isinstance(fil, Waterfall):
         tsamp = fil.header[b'tsamp']
     else:
         sys.exit('Invalid fil file!')
 
-    if type(fil) == str:
+    if isinstance(fil, str):
         fch1 = read_header(fil)[b'fch1']
         df = read_header(fil)[b'foff']
     else:

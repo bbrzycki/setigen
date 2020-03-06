@@ -17,7 +17,7 @@ def constant_t_profile(level=1):
     Constant intensity profile.
     """
     def t_profile(t):
-        if type(t) in [np.ndarray, list]:
+        if isinstance(t, (np.ndarray, list)):
             shape = np.array(t).shape
         else:
             return level

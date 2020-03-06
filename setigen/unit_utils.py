@@ -13,7 +13,7 @@ def cast_value(value, unit):
     unit. Otherwise, value is assumed to be a float and converted directly to
     the desired unit.
     """
-    if type(value) == u.Quantity:
+    if isinstance(value, u.Quantity):
         return value.to(unit)
     return value * unit
 
@@ -29,7 +29,7 @@ def get_value(value, unit=None):
 
     If value is already a float, it simply returns value.
     """
-    if type(value) == u.Quantity:
+    if isinstance(value, u.Quantity):
         if unit is not None:
             return value.to(unit).value
         else:

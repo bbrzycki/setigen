@@ -82,8 +82,8 @@ def test_constant_signal_from_add_signal(frame_setup_no_data,
                               stg.constant_t_profile(level=1),
                               stg.gaussian_f_profile(width=50*u.Hz),
                               stg.constant_bp_profile(level=1))
-    assert_allclose(signal, frame.get_data(db=False))
-    assert_allclose(frame.get_data(db=False), constant_signal_data)
+    assert_allclose(signal, frame.get_data(use_db=False))
+    assert_allclose(frame.get_data(use_db=False), constant_signal_data)
 
 
 def test_constant_signal_from_add_constant_signal(frame_setup_no_data,
@@ -94,8 +94,8 @@ def test_constant_signal_from_add_constant_signal(frame_setup_no_data,
                                        level=1,
                                        width=50*u.Hz,
                                        f_profile_type='gaussian')
-    assert_allclose(signal, frame.get_data(db=False))
-    assert_allclose(frame.get_data(db=False), constant_signal_data, atol=1e-4)
+    assert_allclose(signal, frame.get_data(use_db=False))
+    assert_allclose(frame.get_data(use_db=False), constant_signal_data, atol=1e-4)
 
 
 def test_signal_from_arrays():
@@ -106,7 +106,7 @@ def test_signal_from_arrays():
                      bp_profile=[1, 0.5, 1])
 
     data = np.array([[0., 0.5, 0.], [0.5, 0., 0.], [0., 0., 1.]])
-    assert_allclose(data, frame.get_data(db=False))
+    assert_allclose(data, frame.get_data(use_db=False))
 
 
 def test_signal_from_floats():
@@ -117,4 +117,4 @@ def test_signal_from_floats():
                      bp_profile=3)
 
     data = np.array([[0., 0., 6.], [0., 0., 6.], [0., 0., 6.]])
-    assert_allclose(data, frame.get_data(db=False))
+    assert_allclose(data, frame.get_data(use_db=False))

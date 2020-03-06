@@ -44,7 +44,7 @@ def sample_gaussian_params(x_mean_array, x_std_array, x_min_array=None):
     return x_mean, x_std
 
 
-def get_parameter_distributions(fil_fn, f_window, f_shift=None, exclude=0):
+def get_parameter_distributions(fil_fn, fchans, tchans=None, f_shift=None, exclude=0):
     """
     Calculate parameter distributions for the mean, standard deviation,
     and minimum of split filterbank data from real observations.
@@ -53,8 +53,11 @@ def get_parameter_distributions(fil_fn, f_window, f_shift=None, exclude=0):
     ----------
     fil_fn : str
         Filterbank filename with .fil extension
-    f_window : int
+    fchans : int
         Number of frequency samples per new filterbank file
+    tchans : int, optional
+        Number of time samples to select - will default from start of observation.
+        If None, just uses the entire integration time
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
         None, defaults to `f_shift=f_window` so that there is no
@@ -70,7 +73,8 @@ def get_parameter_distributions(fil_fn, f_window, f_shift=None, exclude=0):
         Distribution of minimums calculated from observations.
     """
     split_generator = split_utils.split_fil_generator(fil_fn,
-                                                      f_window,
+                                                      fchans,
+                                                      tchans=tchans,
                                                       f_shift=f_shift)
 
     x_mean_array = []

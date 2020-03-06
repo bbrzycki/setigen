@@ -28,7 +28,11 @@ drift-rate signal.
     fch1 = 6095.214842353016*u.MHz
 
     # Generate the signal
-    frame = stg.Frame(fchans, tchans, df, dt, fch1)
+    frame = stg.Frame(fchans=fchans, 
+                      tchans=tchans, 
+                      df=df, 
+                      dt=dt, 
+                      fch1=fch1)
     signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
                                                 drift_rate=2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
@@ -95,7 +99,11 @@ repetition, each example script will assume the same basic setup:
     fch1 = 6095.214842353016*u.MHz
 
     # Generate the signal
-    frame = stg.Frame(fchans, tchans, df, dt, fch1)
+    frame = stg.Frame(fchans=fchans, 
+                      tchans=tchans, 
+                      df=df, 
+                      dt=dt, 
+                      fch1=fch1)
 
 :code:`paths`
 ^^^^^^^^^^^^^

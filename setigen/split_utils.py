@@ -5,12 +5,12 @@ import numpy as np
 from blimpy import read_header, Waterfall
 
 
-def split_fil_generator(fil_fn, f_window, f_shift=None):
+def split_fil_generator(fil_fn, fchans, tchans=None, f_shift=None):
     """
     Creates a generator that returns smaller Waterfall objects by 'splitting'
     an input filterbank file according to the number of frequency samples.
 
-    Since this function only loads in data in chunks according to f_window,
+    Since this function only loads in data in chunks according to fchans,
     it handles very large observations well. Specifically, it will not attempt
     to load all the data into memory before splitting, which won't work when
     the data is very large anyway.
@@ -19,11 +19,14 @@ def split_fil_generator(fil_fn, f_window, f_shift=None):
     ----------
     fil_fn : str
         Filterbank filename with .fil extension
-    f_window : int
+    fchans : int
         Number of frequency samples per new filterbank file
+    tchans : int, optional
+        Number of time samples to select - will default from start of observation.
+        If None, just uses the entire integration time
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
-        None, defaults to `f_shift=f_window` so that there is no
+        None, defaults to `f_shift=fchans` so that there is no
         overlap between new filterbank files
 
     Returns
@@ -34,30 +37,37 @@ def split_fil_generator(fil_fn, f_window, f_shift=None):
 
     fch1 = read_header(fil_fn)[b'fch1']
     nchans = read_header(fil_fn)[b'nchans']
-    df = read_header(fil_fn)[b'foff']
+    df = abs(read_header(fil_fn)[b'foff'])
+    tchans_tot = Waterfall(fil_fn, load_data=False).container.selection_shape[0]
 
     if f_shift is None:
-        f_shift = f_window
+        f_shift = fchans
+        
+    if tchans is None:
+        tchans = tchans_tot
+    elif tchans > tchans_tot:
+        raise ValueError('tchans value must be less than the total number of \
+                          time samples in the observation')
 
     # Note that df is negative!
-    f_start = fch1 + f_window * df
+    f_start = fch1 - fchans * df
     f_stop = fch1
 
     # Iterates down frequencies, starting from highest
-    while f_start >= fch1 + nchans * df:
-        split_fil = Waterfall(fil_fn, f_start=f_start, f_stop=f_stop)
-        
-        # Fix some header values
-        split_fil.header[b'fch1'] = split_fil.file_header[b'fch1'] = f_stop
-        split_fil.header[b'nchans'] = split_fil.file_header[b'nchans'] = f_window
+    while f_start >= fch1 - nchans * df:
+        split_fil = Waterfall(fil_fn, 
+                              f_start=f_start, 
+                              f_stop=f_stop,
+                              t_start=0, 
+                              t_stop=tchans)
         
         yield split_fil
 
-        f_start += f_shift * df
-        f_stop += f_shift * df
+        f_start -= f_shift * df
+        f_stop -= f_shift * df
 
 
-def split_fil(fil_fn, output_dir, f_window, f_shift=None):
+def split_fil(fil_fn, output_dir, fchans, tchans=None, f_shift=None):
     """
     Creates a set of new filterbank files by 'splitting' an input filterbank
     file according to the number of frequency samples.
@@ -68,11 +78,14 @@ def split_fil(fil_fn, output_dir, f_window, f_shift=None):
         Filterbank filename with .fil extension
     output_dir : str
         Directory for new filterbank files
-    f_window : int
+    fchans : int
         Number of frequency samples per new filterbank file
+    tchans : int, optional
+        Number of time samples to select - will default from start of observation.
+        If None, just uses the entire integration time
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
-        None, defaults to `f_shift=f_window` so that there is no
+        None, defaults to `f_shift=fchans` so that there is no
         overlap between new filterbank files
 
     Returns
@@ -90,13 +103,14 @@ def split_fil(fil_fn, output_dir, f_window, f_shift=None):
             raise
 
     split_generator = split_fil_generator(fil_fn,
-                                          f_window,
+                                          fchans,
+                                          tchans=tchans,
                                           f_shift=f_shift)
 
     # Iterates down frequencies, starting from highest
     split_fns = []
     for i, split_fil in enumerate(split_generator):
-        output_fn = output_dir + '%s_%04d.fil' % (f_window, i)
+        output_fn = output_dir + '%s_%04d.fil' % (fchans, i)
         split_fil.write_to_fil(output_fn)
         split_fns.append(output_fn)
         print('Saved %s' % output_fn)

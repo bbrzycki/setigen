@@ -3,6 +3,10 @@ import os.path
 import numpy as np
 import scipy.integrate as sciintegrate
 import matplotlib.pyplot as plt
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 from astropy import units as u
 from astropy.stats import sigma_clip
@@ -28,13 +32,13 @@ class Frame(object):
     """
 
     def __init__(self,
+                 fil=None,
                  fchans=None,
                  tchans=None,
                  df=None,
                  dt=None,
                  fch1=8*u.GHz,
-                 data=None,
-                 fil=None):
+                 data=None):
         """
         Initializes a Frame object from either an existing .fil or .h5 file or
         from frame resolution / size.
@@ -51,6 +55,8 @@ class Frame(object):
 
         Parameters
         ----------
+        fil : str or Waterfall, optional
+            Name of filterbank file or Waterfall object for preloading data.
         fchans : int, optional
             Number of frequency samples
         tchans: int, optional
@@ -59,12 +65,10 @@ class Frame(object):
             Frequency resolution (e.g. in u.Hz)
         dt : astropy.Quantity, optional
             Time resolution (e.g. in u.s)
-        fch1 : astropy.Quantity, optional
+        fch1 : astropy.Quantity, optional (fmax)
             Maximum frequency, as in filterbank file headers (e.g. in u.Hz)
         data : ndarray, optional
             2D array of intensities to preload into frame
-        fil : str or Waterfall, optional
-            Name of filterbank file or Waterfall object for preloading data.
         """
         if None not in [fchans, tchans, df, dt, fch1]:
             self.fil = None
@@ -87,26 +91,25 @@ class Frame(object):
                 self.data = np.zeros(self.shape)
         elif fil:
             # Load fil via filename or Waterfall object
-            if type(fil) is str:
+            if isinstance(fil, str):
                 self.fil = Waterfall(fil)
-            elif type(fil) == Waterfall:
+            elif isinstance(fil, Waterfall):
                 self.fil = fil
             else:
                 sys.exit('Invalid fil file!')
             self.header = self.fil.header
-            self.fchans = self.fil.header[b'nchans']
+            self.tchans, _, self.fchans = self.fil.container.selection_shape
 
             # Frequency values are saved in MHz in fil files
             self.df = unit_utils.cast_value(abs(self.fil.header[b'foff']),
                                             u.MHz).to(u.Hz).value
-            self.fch1 = unit_utils.cast_value(self.fil.header[b'fch1'],
+            self.fch1 = unit_utils.cast_value(self.fil.container.f_stop,
                                               u.MHz).to(u.Hz).value
 
             # When multiple Stokes parameters are supported, this will have to
             # be expanded.
             self.data = fil_utils.get_data(self.fil)[:, ::-1]
 
-            self.tchans = self.data.shape[0]
             self.dt = unit_utils.get_value(self.fil.header[b'tsamp'], u.s)
 
             self.shape = (self.tchans, self.fchans)
@@ -121,17 +124,32 @@ class Frame(object):
 
         # No matter what, self.data will be populated at this point.
         self._update_noise_frame_stats()
+        
+        # Placeholder dictionary for user metadata, just for bookkeeping purposes
+        self.metadata = {}
+        
+    def __getstate__(self):
+        # Exclude fil Waterfall object from pickle, since it uses open threads, which 
+        # can't be pickled
+        state = self.__dict__.copy()
+        state['fil'] = None
+        return state
+    
+#     def __setstate__(self):
+#         self.__dict__.update(state)
 
     def _update_fs(self):
         """
         Calculates and updates an array of frequencies represented in the
         frame.
         """
-        self.fmin = self.fmax - self.fchans * self.df
-        self.fs = unit_utils.get_value(np.arange(self.fmin,
-                                                 self.fmin + self.fchans * self.df,
-                                                 self.df),
+        self.fs = unit_utils.get_value(np.arange(self.fmax,
+                                                 self.fmax - self.fchans * self.df,
+                                                 -self.df),
                                        u.Hz)
+        
+        self.fs = self.fs[::-1]
+        self.fmin = self.fs[0]
 
     def _update_ts(self):
         """
@@ -292,12 +310,6 @@ class Frame(object):
 
         return noise
 
-    def freq_to_index(self, freq):
-        """
-        Convert frequency to closest index in frame.
-        """
-        return int(np.round((freq - self.fmin) / self.df))
-
     def add_signal(self,
                    path,
                    t_profile,
@@ -407,7 +419,7 @@ class Frame(object):
                                      self.tchans * self.dt,
                                      self.tchans * time_subsamples)
                 y = t_profile(new_ts)
-                if type(y) != np.ndarray:
+                if not isinstance(y, np.ndarray):
                     y = np.repeat(y, self.tchans * time_subsamples)
                 integrated_y = np.mean(np.reshape(y, (self.tchans,
                                                       time_subsamples)),
@@ -415,12 +427,12 @@ class Frame(object):
                 t_profile = integrated_y
             else:
                 t_profile = t_profile(self.ts)
-        elif type(t_profile) in [list, np.ndarray]:
+        elif isinstance(t_profile, (list, np.ndarray)):
             t_profile = np.array(t_profile)
             if t_profile.shape != self.ts.shape:
                 raise ValueError('Shape of t_profile array is {0} != {1}.'
                                  .format(t_profile.shape, self.ts.shape))
-        elif type(t_profile) in [int, float]:
+        elif isinstance(t_profile, (int, float)):
             t_profile = np.full(self.tchans, t_profile)
         else:
             raise TypeError('t_profile is not a function, array, or float.')
@@ -435,7 +447,7 @@ class Frame(object):
                                      self.tchans * self.dt,
                                      self.tchans * time_subsamples)
                 f = path(new_ts)
-                if type(f) != np.ndarray:
+                if isinstance(f, np.ndarray):
                     f = np.repeat(f, self.tchans * time_subsamples)
                 integrated_f = np.mean(np.reshape(f, (self.tchans,
                                                       time_subsamples)),
@@ -443,12 +455,12 @@ class Frame(object):
                 path = integrated_f
             else:
                 path = path(self.ts)
-        elif type(path) in [list, np.ndarray]:
+        elif isinstance(path, (list, np.ndarray)):
             path = np.array(path)
             if path.shape != self.ts.shape:
                 raise ValueError('Shape of path array is {0} != {1}.'
                                  .format(path.shape, self.ts.shape))
-        elif type(path) in [int, float]:
+        elif isinstance(path, (int, float)):
             path = np.full(self.tchans, path)
         else:
             raise TypeError('path is not a function, array, or float.')
@@ -457,13 +469,13 @@ class Frame(object):
         # Handle bandpass profile
         if callable(bp_profile):
             bp_profile = bp_profile(restricted_fs)
-        elif type(bp_profile) in [list, np.ndarray]:
+        elif isinstance(bp_profile, (list, np.ndarray)):
             bp_profile = np.array(bp_profile)
             if bp_profile.shape != restricted_fs.shape:
                 raise ValueError('Shape of bp_profile array is {0} != {1}.'
                                  .format(bp_profile.shape,
                                          restricted_fs.shape))
-        elif type(bp_profile) in [int, float]:
+        elif isinstance(bp_profile, (int, float)):
             bp_profile = np.full(restricted_fs.shape, bp_profile)
         else:
             raise TypeError('bp_profile is not a function, array, or float.')
@@ -510,20 +522,22 @@ class Frame(object):
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
         width = unit_utils.get_value(width, u.Hz)
 
-        start_index = int(np.round((f_start - self.fmin) / self.df))
+        start_index = self.freq_to_index(f_start)
 
+        # Calculate the bounding box, to optimize signal insertion calculation
         if drift_rate < 0:
-            width_offset = -2 * width / self.df
+            px_width_offset = -2 * width / self.df
         else:
-            width_offset = 2 * width / self.df
-        drift_offset = self.dt * (self.tchans - 1) * drift_rate / self.df
+            px_width_offset = 2 * width / self.df
+        px_drift_offset = self.dt * (self.tchans - 1) * drift_rate / self.df
 
-        bounding_start = start_index + int(np.floor(-width_offset))
-        bounding_stop = start_index + int(np.ceil(drift_offset + width_offset))
+        bounding_start_index = start_index + int(np.floor(-px_width_offset))
+        bounding_stop_index = start_index + int(np.ceil(px_drift_offset + px_width_offset))
 
-        bounding_min = max(min(bounding_start, bounding_stop), 0)
-        bounding_max = min(max(bounding_start, bounding_stop), self.fchans)
+        bounding_min_index = max(min(bounding_start_index, bounding_stop_index), 0)
+        bounding_max_index = min(max(bounding_start_index, bounding_stop_index), self.fchans)
 
+        # Select common frequency profile types
         if f_profile_type == 'gaussian':
             f_profile = f_profiles.gaussian_f_profile(width)
         elif f_profile_type == 'lorentzian':
@@ -539,7 +553,20 @@ class Frame(object):
                                t_profile=t_profiles.constant_t_profile(level),
                                f_profile=f_profile,
                                bp_profile=bp_profiles.constant_bp_profile(level=1),
-                               bounding_f_range=(self.fs[bounding_min], self.fs[bounding_max]))
+                               bounding_f_range=(self.fs[bounding_min_index],
+                                                 self.fs[bounding_max_index]))
+    
+    def get_index(self, freq):
+        """
+        Convert frequency to closest index in frame.
+        """
+        return int(np.round((freq - self.fmin) / self.df))
+    
+    def get_frequency(self, index):
+        """
+        Convert index to frequency 
+        """
+        return self.fs[index]
 
     def get_intensity(self, snr):
         """
@@ -590,8 +617,23 @@ class Frame(object):
         self._update_fs()
         self._update_ts()
         
+    def set_metadata(self, new_metadata):
+        """
+        Set custom metadata using a dictionary new_metadata.
+        """
+        self.metadata = new_metadata
+        
+    def add_metadata(self, new_metadata):
+        """
+        Append custom metadata using a dictionary new_metadata.
+        """
+        self.metadata.update(new_metadata)
+        
     def show(self, use_db=False):
-        plt.imshow(self.get_data(use_db=use_db), aspect='auto')
+        # Display frame data in waterfall format
+        plt.imshow(self.get_data(use_db=use_db), 
+                   aspect='auto', 
+                   interpolation='none')
         plt.colorbar()
         plt.xlabel('Frequency (px)')
         plt.ylabel('Time (px)')
@@ -611,26 +653,60 @@ class Frame(object):
         # Have to manually flip in the frequency direction + add an extra
         # dimension for polarization to work with Waterfall
         self.fil.data = self.data[:, np.newaxis, ::-1]
+        
+    def get_fil(self):
+        """
+        Return current frame as a filterbank file. Note: some filterbank 
+        metadata may not be accurate anymore, depending on prior frame 
+        manipulations.
+        """
+        self._update_fil()
+        return self.fil
 
     def save_fil(self, filename):
+        """
+        Save frame data as a filterbank file (.fil).
+        """
         self._update_fil()
         self.fil.write_to_fil(filename)
 
     def save_hdf5(self, filename):
+        """
+        Save frame data as an HDF5 file.
+        """
         self._update_fil()
         self.fil.write_to_hdf5(filename)
         
     def save_h5(self, filename):
+        """
+        Save frame data as an HDF5 file.
+        """
         self.save_hdf5(filename)
 
-    def save_data(self, file):
+    def save_npy(self, filename):
         """
-        file can be a filename or a file handle of a npy file
+        Save frame data as an .npy file.
         """
         np.save(file, self.data)
 
-    def load_data(self, file):
+    def load_npy(self, filename):
         """
-        file can be a filename or a file handle of a npy file
+        Load frame data from a .npy file.
         """
         self.set_data(np.load(file))
+
+    def save_pickle(self, filename):
+        """
+        Save entire frame as a pickled file (.pickle).
+        """
+        with open(filename, 'wb') as f:
+            pickle.dump(self, f)
+            
+    @classmethod        
+    def load_pickle(cls, filename):
+        """
+        Load Frame object from a pickled file (.pickle), created with Frame.save_pickle.
+        """
+        with open(filename, 'rb') as f:
+            frame = pickle.load(f)
+        return frame

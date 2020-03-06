@@ -95,12 +95,12 @@ def get_Y(Z):
 
 def scint_t_profile(Y, level=1):
     def t_profile(t):
-        if type(t) is np.ndarray:
+        if isinstance(t, np.ndarray):
             assert len(Y) == t.shape[0]
             print(t.shape)
             return np.repeat(Y.reshape((t.shape[0], 1)) * level, t.shape[1],
                              axis=1)
-        elif type(t) is list:
+        elif isinstance(t, list):
             return Y[:len(t)]
         else:
             return 0

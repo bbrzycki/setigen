@@ -25,7 +25,11 @@ A minimal working example for adding noise is:
     fch1 = 6095.214842353016*u.MHz
     
     # Generate the signal
-    frame = stg.Frame(fchans, tchans, df, dt, fch1)
+    frame = stg.Frame(fchans=fchans, 
+                      tchans=tchans, 
+                      df=df, 
+                      dt=dt, 
+                      fch1=fch1)
     noise = frame.add_noise(x_mean=5, x_std=2)
     
     fig = plt.figure(figsize=(10,6))

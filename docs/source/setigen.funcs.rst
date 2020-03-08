@@ -1,9 +1,6 @@
 setigen.funcs package
 =====================
 
-Submodules
-----------
-
 setigen.funcs.bp\_profiles module
 ---------------------------------
 
@@ -36,27 +33,10 @@ setigen.funcs.paths module
     :undoc-members:
     :show-inheritance:
 
-setigen.funcs.scint\_profiles module
-------------------------------------
-
-.. automodule:: setigen.funcs.scint_profiles
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 setigen.funcs.t\_profiles module
 --------------------------------
 
 .. automodule:: setigen.funcs.t_profiles
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: setigen.funcs
     :members:
     :undoc-members:
     :show-inheritance:

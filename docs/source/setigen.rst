@@ -1,5 +1,5 @@
-setigen package
-===============
+setigen package API
+===================
 
 Subpackages
 -----------
@@ -8,8 +8,22 @@ Subpackages
 
     setigen.funcs
 
-Submodules
-----------
+setigen.frame module
+--------------------
+
+.. automodule:: setigen.frame
+    :special-members: __init__ 
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    
+setigen.split\_utils module
+---------------------------
+
+.. automodule:: setigen.split_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 setigen.distributions module
 ----------------------------
@@ -27,26 +41,10 @@ setigen.fil\_utils module
     :undoc-members:
     :show-inheritance:
 
-setigen.frame module
---------------------
-
-.. automodule:: setigen.frame
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 setigen.sample\_from\_obs module
 --------------------------------
 
 .. automodule:: setigen.sample_from_obs
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-setigen.split\_utils module
----------------------------
-
-.. automodule:: setigen.split_utils
     :members:
     :undoc-members:
     :show-inheritance:
@@ -71,15 +69,6 @@ setigen.unit\_utils module
 --------------------------
 
 .. automodule:: setigen.unit_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: setigen
     :members:
     :undoc-members:
     :show-inheritance:

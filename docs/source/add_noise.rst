@@ -37,7 +37,7 @@ A minimal working example for adding noise is:
     plt.colorbar()
     plt.show()
     
-.. image:: basic_noise.png
+.. image:: images/basic_noise.png
     
 This adds Gaussian noise with mean 5 and standard deviation 2 to an empty frame. In addition, we can truncate the noise at a lower bound specified by parameter `x_min`:
 
@@ -45,7 +45,7 @@ This adds Gaussian noise with mean 5 and standard deviation 2 to an empty frame.
 
     noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
     
-.. image:: basic_noise_truncated.png
+.. image:: images/basic_noise_truncated.png
 
 This may be useful depending on the use case; you might not want negative intensities, or simply any intensity below a reasonable threshold, to occur in your synthetic data.
 
@@ -62,7 +62,7 @@ Without specifying distributions:
 
     noise = frame.add_noise_from_obs()
     
-.. image:: noise_from_obs_default.png
+.. image:: images/noise_from_obs_default.png
 
 We can readily see that the intensities are similar to a real GBT observation.
 
@@ -74,6 +74,6 @@ We can also specify the distributions from which to sample parameters, one each 
                                      x_std_array=[1,2,3],
                                      x_min_array=[1,2])
     
-.. image:: noise_from_obs_params.png
+.. image:: images/noise_from_obs_params.png
 
 

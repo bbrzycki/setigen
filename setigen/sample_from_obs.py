@@ -63,14 +63,14 @@ def get_parameter_distributions(fil_fn, fchans, tchans=None, f_shift=None, exclu
         None, defaults to `f_shift=f_window` so that there is no
         overlap between new filterbank files
 
-    Returns:
-    --------
+    Returns
+    -------
     x_mean_array
-        Distribution of means calculated from observations.
+        Distribution of means calculated from observations
     x_std_array
-        Distribution of standard deviations calculated from observations.
+        Distribution of standard deviations calculated from observations
     x_min_array
-        Distribution of minimums calculated from observations.
+        Distribution of minimums calculated from observations
     """
     split_generator = split_utils.split_fil_generator(fil_fn,
                                                       fchans,

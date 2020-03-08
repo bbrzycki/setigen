@@ -11,7 +11,7 @@
 Welcome to setigen's documentation!
 ===================================
 
-.. image:: flashy_synthetic.png
+.. image:: images/flashy_synthetic.png
     :align: center
     :scale: 75
 
@@ -32,7 +32,10 @@ Table of Contents
    :maxdepth: 1
 
    install
-   cookbook
+   getting_started
+   generate
+   add_noise
+   filterbank
    setigen
 
 Indices and tables

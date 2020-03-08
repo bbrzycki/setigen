@@ -4,7 +4,7 @@ Generating synthetic signals
 Adding a basic signal
 -------------------------
 
-The main method that generates signals is :func:`~setigen.Frame.add_signal` (or :func:`~setigen.generate_signal.generate` in legacy).
+The main method that generates signals is :func:`setigen.Frame.add_signal`.
 We need to pass in an array of times, frequencies, and functions that describe
 the shape of the signal over time, over frequency within individual time samples,
 and over a bandpass of frequencies. :mod:`setigen` comes prepackaged with common
@@ -48,7 +48,7 @@ visualize this, we use :func:`matplotlib.pyplot.imshow`::
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
-.. image:: basic_signal.png
+.. image:: images/basic_signal.png
 
 Using prepackaged signal functions
 ----------------------------------
@@ -129,7 +129,7 @@ the units of your time and frequency arrays):
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
-.. image:: basic_signal.png
+.. image:: images/basic_signal.png
 
 Sine path
 ~~~~~~~~~
@@ -152,7 +152,7 @@ and amplitude, using :func:`~setigen.funcs.paths.sine_path`.
     plt.colorbar()
     fig.savefig("sine_signal.png", bbox_inches='tight')
 
-.. image:: sine_signal.png
+.. image:: images/sine_signal.png
 
 Squared path
 ~~~~~~~~~~~~
@@ -173,7 +173,7 @@ This path is a very simple quadratic with respect to time, using
     plt.colorbar()
     fig.savefig("squared_signal.png", bbox_inches='tight')
 
-.. image:: squared_signal.png
+.. image:: images/squared_signal.png
 
 :code:`t_profiles`
 ^^^^^^^^^^^^^^^^^^
@@ -198,7 +198,7 @@ intensity level:
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
-.. image:: basic_signal.png
+.. image:: images/basic_signal.png
 
 Sine intensity
 ~~~~~~~~~~~~~~
@@ -226,7 +226,7 @@ Here's an example with equal level and amplitude:
     plt.colorbar()
     fig.savefig("sine_intensity_1_1.png", bbox_inches='tight')
 
-.. image:: sine_intensity_1_1.png
+.. image:: images/sine_intensity_1_1.png
 
 And here's an example with the level a bit higher than the amplitude:
 
@@ -245,7 +245,7 @@ And here's an example with the level a bit higher than the amplitude:
     plt.colorbar()
     fig.savefig("sine_intensity_1_3.png", bbox_inches='tight')
 
-.. image:: sine_intensity_1_3.png
+.. image:: images/sine_intensity_1_3.png
 
 :code:`f_profiles`
 ^^^^^^^^^^^^^^^^^^
@@ -270,7 +270,7 @@ signal:
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
-.. image:: box_profile.png
+.. image:: images/box_profile.png
 
 Gaussian intensity profile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -293,7 +293,7 @@ the width of the signal:
     plt.colorbar()
     fig.savefig("gaussian_profile.png", bbox_inches='tight')
 
-.. image:: gaussian_profile.png
+.. image:: images/gaussian_profile.png
 
 Multiple Gaussian intensity profile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -315,7 +315,7 @@ smaller signals on either side.
     plt.colorbar()
     fig.savefig("multiple_gaussian_profile.png", bbox_inches='tight')
 
-.. image:: multiple_gaussian_profile.png
+.. image:: images/multiple_gaussian_profile.png
 
 Writing custom signal functions
 -------------------------------

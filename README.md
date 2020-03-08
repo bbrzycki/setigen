@@ -3,7 +3,7 @@
 Python library for generating and injecting artificial narrow-band signals into time-frequency data, as well as tools for working with filterbank data.
 
 <p align="center">
-<img src="docs/source/flashy_synthetic.png" alt="Synthetic sine modulated signal + synthetic RFI signal"
+<img src="docs/source/images/flashy_synthetic.png" alt="Synthetic sine modulated signal + synthetic RFI signal"
 width="700" height="450"/>
 </p>
 
@@ -26,6 +26,7 @@ Here's an example of synthetic signal generation, using `astropy.units` to expre
 ```
 from astropy import units as u
 import setigen as stg
+import matplotlib.pyplot as plt
 
 frame = stg.Frame(fchans=1024*u.pixel,
                   tchans=32*u.pixel,
@@ -33,17 +34,14 @@ frame = stg.Frame(fchans=1024*u.pixel,
                   dt=18.25361108*u.s,
                   fch1=6095.214842353016*u.MHz)
 noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
-signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(index=200),
                                             drift_rate=2*u.Hz/u.s),
                           stg.constant_t_profile(level=frame.get_intensity(snr=30)),
                           stg.gaussian_f_profile(width=40*u.Hz),
                           stg.constant_bp_profile(level=1))
 
 fig = plt.figure(figsize=(10, 6))
-plt.imshow(frame.get_data(), aspect='auto')
-plt.xlabel('Frequency')
-plt.ylabel('Time')
-plt.colorbar()
+frame.render()
 plt.savefig('example.png', bbox_inches='tight')
 plt.show()
 ```
@@ -51,6 +49,6 @@ plt.show()
 This first adds Gaussian noise to the frame, and adds a constant intensity signal at 30 SNR (relative to the background noise). The result is:
 
 <p align="center">
-<img src="docs/source/example.png" alt="Example synthetic frame"
+<img src="docs/source/images/example.png" alt="Example synthetic frame"
 width="700" height="450"/>
 </p>

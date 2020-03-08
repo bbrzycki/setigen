@@ -629,7 +629,7 @@ class Frame(object):
         """
         self.metadata.update(new_metadata)
         
-    def show(self, use_db=False):
+    def render(self, use_db=False):
         # Display frame data in waterfall format
         plt.imshow(self.get_data(use_db=use_db), 
                    aspect='auto', 
@@ -638,9 +638,10 @@ class Frame(object):
         plt.xlabel('Frequency (px)')
         plt.ylabel('Time (px)')
         
-    def bl_show(self, use_db=True):
+    def bl_render(self, use_db=True):
         self._update_fil()
         self.fil.plot_waterfall(logged=use_db)
+        plt.title('')
 
     # Note: currently none of these fil methods edit fil metadata
     def _update_fil(self):

@@ -378,9 +378,13 @@ class Frame(object):
         >>> df = 2.7939677238464355*u.Hz
         >>> dt = tsamp = 18.25361108*u.s
         >>> fch1 = 6095.214842353016*u.MHz
-        >>> frame = stg.Frame(fchans, tchans, df, dt, fch1)
+        >>> frame = stg.Frame(fchans=fchans, 
+                              tchans=tchans, 
+                              df=df, 
+                              dt=dt, 
+                              fch1=fch1)
         >>> noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
-        >>> signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+        >>> signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                         drift_rate=2*u.Hz/u.s),
                                       stg.constant_t_profile(level=frame.get_intensity(snr=30)),
                                       stg.gaussian_f_profile(width=40*u.Hz),
@@ -394,7 +398,7 @@ class Frame(object):
         >>> %matplotlib inline
         >>> import matplotlib.pyplot as plt
         >>> fig = plt.figure(figsize=(10, 6))
-        >>> frame.show()
+        >>> frame.render()
         >>> plt.savefig('image.png', bbox_inches='tight')
         >>> plt.show()
 

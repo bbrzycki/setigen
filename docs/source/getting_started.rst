@@ -26,6 +26,7 @@ Here's a minimal working example for a purely synthetic frame, injecting a const
                      stg.gaussian_f_profile(width=40*u.Hz),
                      stg.constant_bp_profile(level=1))
                   
+    fig = plt.figure(figsize=(10, 6))
     frame.render()
     plt.savefig('frame.png', bbox_inches='tight')
     plt.show()
@@ -50,6 +51,7 @@ Similarly, here's a minimal working example for injecting a signal into a frame 
                      stg.gaussian_f_profile(width=40*u.Hz),
                      stg.constant_bp_profile(level=1))
                      
+    fig = plt.figure(figsize=(10, 6))
     frame.render()
     plt.show()
     
@@ -59,6 +61,7 @@ We can also view this using blimpy's plotting style:
 
 .. code-block:: python
 
+    fig = plt.figure(figsize=(10, 6))
     frame.bl_render()
     plt.show()
     

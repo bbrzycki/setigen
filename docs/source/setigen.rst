@@ -1,8 +1,8 @@
-setigen package API
-===================
+setigen API reference
+=====================
 
-Subpackages
------------
+Signal parameter functions
+--------------------------
 
 .. toctree::
 
@@ -12,11 +12,11 @@ setigen.frame module
 --------------------
 
 .. automodule:: setigen.frame
-    :special-members: __init__ 
+    :special-members: __init__
     :members:
     :undoc-members:
     :show-inheritance:
-    
+
 setigen.split\_utils module
 ---------------------------
 

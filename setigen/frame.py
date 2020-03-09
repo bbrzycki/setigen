@@ -124,17 +124,17 @@ class Frame(object):
 
         # No matter what, self.data will be populated at this point.
         self._update_noise_frame_stats()
-        
+
         # Placeholder dictionary for user metadata, just for bookkeeping purposes
         self.metadata = {}
-        
+
     def __getstate__(self):
-        # Exclude fil Waterfall object from pickle, since it uses open threads, which 
+        # Exclude fil Waterfall object from pickle, since it uses open threads, which
         # can't be pickled
         state = self.__dict__.copy()
         state['fil'] = None
         return state
-    
+
 #     def __setstate__(self):
 #         self.__dict__.update(state)
 
@@ -147,7 +147,7 @@ class Frame(object):
                                                  self.fmax - self.fchans * self.df,
                                                  -self.df),
                                        u.Hz)
-        
+
         self.fs = self.fs[::-1]
         self.fmin = self.fs[0]
 
@@ -378,10 +378,10 @@ class Frame(object):
         >>> df = 2.7939677238464355*u.Hz
         >>> dt = tsamp = 18.25361108*u.s
         >>> fch1 = 6095.214842353016*u.MHz
-        >>> frame = stg.Frame(fchans=fchans, 
-                              tchans=tchans, 
-                              df=df, 
-                              dt=dt, 
+        >>> frame = stg.Frame(fchans=fchans,
+                              tchans=tchans,
+                              df=df,
+                              dt=dt,
                               fch1=fch1)
         >>> noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
         >>> signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
@@ -559,16 +559,16 @@ class Frame(object):
                                bp_profile=bp_profiles.constant_bp_profile(level=1),
                                bounding_f_range=(self.fs[bounding_min_index],
                                                  self.fs[bounding_max_index]))
-    
+
     def get_index(self, freq):
         """
         Convert frequency to closest index in frame.
         """
         return int(np.round((freq - self.fmin) / self.df))
-    
+
     def get_frequency(self, index):
         """
-        Convert index to frequency 
+        Convert index to frequency
         """
         return self.fs[index]
 
@@ -584,7 +584,7 @@ class Frame(object):
             raise ValueError('You must add noise in the image to specify SNR!')
         return snr * self.noise_std / np.sqrt(self.tchans)
 
-    def get_SNR(self, intensity):
+    def get_snr(self, intensity):
         """
         Calculates SNR from intensity.
 
@@ -594,7 +594,7 @@ class Frame(object):
         if self.noise_std == 0:
             raise ValueError('You must add noise in the image to return SNR!')
         return intensity * np.sqrt(self.tchans) / self.noise_std
-    
+
     def get_drift_rate(self, start_index, end_index):
         return (end_index - start_index) * self.df / (self.tchans * self.dt)
 
@@ -620,31 +620,31 @@ class Frame(object):
         self.tchans, self.fchans = self.shape
         self._update_fs()
         self._update_ts()
-        
+
     def get_metadata(self):
         return self.metadata
-        
+
     def set_metadata(self, new_metadata):
         """
         Set custom metadata using a dictionary new_metadata.
         """
         self.metadata = new_metadata
-        
+
     def add_metadata(self, new_metadata):
         """
         Append custom metadata using a dictionary new_metadata.
         """
         self.metadata.update(new_metadata)
-        
+
     def render(self, use_db=False):
         # Display frame data in waterfall format
-        plt.imshow(self.get_data(use_db=use_db), 
-                   aspect='auto', 
+        plt.imshow(self.get_data(use_db=use_db),
+                   aspect='auto',
                    interpolation='none')
         plt.colorbar()
         plt.xlabel('Frequency (px)')
         plt.ylabel('Time (px)')
-        
+
     def bl_render(self, use_db=True):
         self._update_fil()
         self.fil.plot_waterfall(logged=use_db)
@@ -661,11 +661,11 @@ class Frame(object):
         # Have to manually flip in the frequency direction + add an extra
         # dimension for polarization to work with Waterfall
         self.fil.data = self.data[:, np.newaxis, ::-1]
-        
+
     def get_fil(self):
         """
-        Return current frame as a filterbank file. Note: some filterbank 
-        metadata may not be accurate anymore, depending on prior frame 
+        Return current frame as a filterbank file. Note: some filterbank
+        metadata may not be accurate anymore, depending on prior frame
         manipulations.
         """
         self._update_fil()
@@ -684,7 +684,7 @@ class Frame(object):
         """
         self._update_fil()
         self.fil.write_to_hdf5(filename)
-        
+
     def save_h5(self, filename):
         """
         Save frame data as an HDF5 file.
@@ -709,8 +709,8 @@ class Frame(object):
         """
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
-            
-    @classmethod        
+
+    @classmethod
     def load_pickle(cls, filename):
         """
         Load Frame object from a pickled file (.pickle), created with Frame.save_pickle.

@@ -33,9 +33,8 @@ Table of Contents
 
    install
    getting_started
-   generate
-   add_noise
-   filterbank
+   basics
+   advanced
    setigen
 
 Indices and tables

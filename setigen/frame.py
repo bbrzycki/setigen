@@ -40,7 +40,7 @@ class Frame(object):
                  fch1=8*u.GHz,
                  data=None):
         """
-        Initializes a Frame object from either an existing .fil or .h5 file or
+        Initializes a Frame object either from an existing .fil/.h5 file or
         from frame resolution / size.
 
         If you are initializing based on a .fil or .h5, pass in either the
@@ -620,6 +620,9 @@ class Frame(object):
         self.tchans, self.fchans = self.shape
         self._update_fs()
         self._update_ts()
+        
+    def get_metadata(self):
+        return self.metadata
         
     def set_metadata(self, new_metadata):
         """

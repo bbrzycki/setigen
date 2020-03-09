@@ -1,3 +1,5 @@
+.. _setigen.funcs: https://setigen.readthedocs.io/en/master/setigen.funcs.html
+
 Generating synthetic signals
 ============================
 
@@ -5,10 +7,10 @@ Adding a basic signal
 -------------------------
 
 The main method that generates signals is :func:`setigen.Frame.add_signal`.
-We need to pass in an array of times, frequencies, and functions that describe
+This allows us to pass in an functions or arrays that describe
 the shape of the signal over time, over frequency within individual time samples,
 and over a bandpass of frequencies. :mod:`setigen` comes prepackaged with common
-functions (:mod:`setigen.funcs`), but you can write your own!
+functions (setigen.funcs_), but you can write your own!
 
 The most basic signal that you can generate is a constant intensity, constant
 drift-rate signal.
@@ -33,7 +35,7 @@ drift-rate signal.
                       df=df, 
                       dt=dt, 
                       fch1=fch1)
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.box_f_profile(width=20*u.Hz),
@@ -43,7 +45,7 @@ drift-rate signal.
 visualize this, we use :func:`matplotlib.pyplot.imshow`::
 
     import matplotlib.pyplot as plt
-    fig = plt.figure(figsize=(10,6))
+    fig = plt.figure(figsize=(10, 6))
     plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     fig.savefig("basic_signal.png", bbox_inches='tight')
@@ -79,9 +81,9 @@ absolute frequency value. The :code:`bp_profile` function takes in a frequency
 and outputs an intensity as well.
 
 All these functions combine to form the final synthetic signal, which means
-you can create a host of signals by mixing and matching these parameters!
+you can create a host of signals by switching up these parameters!
 
-Here are some examples of pre-written signal functions. To avoid needless
+Here are just a few examples of pre-written signal functions. To see all of the included functions, check out setigen.funcs_. To avoid needless
 repetition, each example script will assume the same basic setup:
 
 .. code-block:: python
@@ -105,8 +107,8 @@ repetition, each example script will assume the same basic setup:
                       dt=dt, 
                       fch1=fch1)
 
-:code:`paths`
-^^^^^^^^^^^^^
+:code:`paths` - trajectories in time-frequency space
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Constant path
 ~~~~~~~~~~~~~
@@ -118,16 +120,11 @@ the units of your time and frequency arrays):
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
-
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    fig.savefig("basic_signal.png", bbox_inches='tight')
 
 .. image:: images/basic_signal.png
 
@@ -139,18 +136,13 @@ and amplitude, using :func:`~setigen.funcs.paths.sine_path`.
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.sine_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.sine_path(f_start=frame.get_frequency(200),
                                             drift_rate=2*u.Hz/u.s,
                                             period=100*u.s,
                                             amplitude=100*u.Hz),
                               stg.constant_t_profile(level=1),
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
-
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    fig.savefig("sine_signal.png", bbox_inches='tight')
 
 .. image:: images/sine_signal.png
 
@@ -162,16 +154,11 @@ This path is a very simple quadratic with respect to time, using
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.squared_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.squared_path(f_start=frame.get_frequency(200),
                                                drift_rate=0.01*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
-
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    fig.savefig("squared_signal.png", bbox_inches='tight')
 
 .. image:: images/squared_signal.png
 
@@ -187,16 +174,11 @@ intensity level:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                             drift_rate=2*u.Hz/u.s),
                           stg.constant_t_profile(level=1),
                           stg.box_f_profile(width=20*u.Hz),
                           stg.constant_bp_profile(level=1))
-
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    fig.savefig("basic_signal.png", bbox_inches='tight')
 
 .. image:: images/basic_signal.png
 
@@ -213,7 +195,7 @@ Here's an example with equal level and amplitude:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
                               stg.sine_t_profile(period=100*u.s,
                                                  amplitude=1,
@@ -221,29 +203,19 @@ Here's an example with equal level and amplitude:
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
 
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    fig.savefig("sine_intensity_1_1.png", bbox_inches='tight')
-
 .. image:: images/sine_intensity_1_1.png
 
 And here's an example with the level a bit higher than the amplitude:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
                               stg.sine_t_profile(period=100*u.s,
                                                  amplitude=1,
                                                  level=3),
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
-
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    fig.savefig("sine_intensity_1_3.png", bbox_inches='tight')
 
 .. image:: images/sine_intensity_1_3.png
 
@@ -259,16 +231,11 @@ signal:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.box_f_profile(width=40*u.Hz),
                               stg.constant_bp_profile(level=1))
-
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    fig.savefig("basic_signal.png", bbox_inches='tight')
 
 .. image:: images/box_profile.png
 
@@ -281,17 +248,11 @@ the width of the signal:
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.gaussian_f_profile(width=40*u.Hz),
                               stg.constant_bp_profile(level=1))
-
-
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    fig.savefig("gaussian_profile.png", bbox_inches='tight')
 
 .. image:: images/gaussian_profile.png
 
@@ -304,16 +265,11 @@ smaller signals on either side.
 
 .. code-block:: python
 
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.multiple_gaussian_f_profile(width=40*u.Hz),
                               stg.constant_bp_profile(level=1))
-
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    fig.savefig("multiple_gaussian_profile.png", bbox_inches='tight')
 
 .. image:: images/multiple_gaussian_profile.png
 

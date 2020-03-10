@@ -1,7 +1,6 @@
 import sys
 import os.path
 import numpy as np
-import scipy.integrate as sciintegrate
 import matplotlib.pyplot as plt
 try:
     import cPickle as pickle
@@ -352,7 +351,7 @@ class Frame(object):
             evaluated at the sub time sample level (e.g. as opposed to
             returning an array of intensities of length `tchans`).
         mean_f_position : bool, optional
-            Option to average path along frequency to get a more accurate
+            Option to average path along time to get a more accurate frequency
             position in t-f space. Note that this option only makes sense if
             the provided path can be evaluated at the sub frequency sample
             level (e.g. as opposed to returning a pre-computed array of

@@ -1,7 +1,7 @@
 import numpy as np
 from astropy.stats import sigma_clip
 
-from . import fil_utils
+from . import waterfall_utils
 from . import split_utils
 
 
@@ -44,14 +44,14 @@ def sample_gaussian_params(x_mean_array, x_std_array, x_min_array=None):
     return x_mean, x_std
 
 
-def get_parameter_distributions(fil_fn, fchans, tchans=None, f_shift=None):
+def get_parameter_distributions(waterfall_fn, fchans, tchans=None, f_shift=None):
     """
     Calculate parameter distributions for the mean, standard deviation,
     and minimum of split filterbank data from real observations.
 
     Parameters
     ----------
-    fil_fn : str
+    waterfall_fn : str
         Filterbank filename with .fil extension
     fchans : int
         Number of frequency samples per new filterbank file
@@ -72,16 +72,16 @@ def get_parameter_distributions(fil_fn, fchans, tchans=None, f_shift=None):
     x_min_array
         Distribution of minimums calculated from observations
     """
-    split_generator = split_utils.split_fil_generator(fil_fn,
-                                                      fchans,
-                                                      tchans=tchans,
-                                                      f_shift=f_shift)
+    split_generator = split_utils.split_waterfall_generator(waterfall_fn,
+                                                            fchans,
+                                                            tchans=tchans,
+                                                            f_shift=f_shift)
 
     x_mean_array = []
     x_std_array = []
     x_min_array = []
-    for split_fil in split_generator:
-        clipped_data = sigma_clip(fil_utils.get_data(split_fil),
+    for waterfall in split_generator:
+        clipped_data = sigma_clip(waterfall_utils.get_data(waterfall),
                                   sigma=3,
                                   maxiters=5,
                                   masked=False)

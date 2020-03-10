@@ -33,10 +33,10 @@ setigen.distributions module
     :undoc-members:
     :show-inheritance:
 
-setigen.fil\_utils module
+setigen.waterfall\_utils module
 -------------------------
 
-.. automodule:: setigen.fil_utils
+.. automodule:: setigen.waterfall_utils
     :members:
     :undoc-members:
     :show-inheritance:

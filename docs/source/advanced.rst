@@ -293,12 +293,12 @@ To do this, we can use :func:`~setigen.sample_from_obs.get_parameter_distributio
 .. code-block:: Python
 
     import setigen as stg
-    fil_fn = 'path/to/data.fil'
+    waterfall_fn = 'path/to/data.fil'
     # Number of frequency channels per frame
     fchans = 1024
     # Number of time samples per frame; optional
     tchans = 32
-    x_mean_array, x_std_array, x_min_array = stg.get_parameter_distributions(fil_fn,
+    x_mean_array, x_std_array, x_min_array = stg.get_parameter_distributions(waterfall_fn,
                                                                              fchans,
                                                                              tchans=tchans,
                                                                              f_shift=None)
@@ -311,7 +311,7 @@ Creating a synthetic signal dataset using observations
 ------------------------------------------------------
 
 We can create a dataset based on observations using the :mod:`~setigen.split_utils`
-module. We can use :func:`~setigen.split_utils.split_fil_generator` to create
+module. We can use :func:`~setigen.split_utils.split_waterfall_generator` to create
 a Python generator that returns :code:`blimpy` Waterfall objects, from which we can create
 |setigen| Frames. The function :func:`~setigen.sample_from_obs.get_parameter_distributions`
 actually uses this behind the scenes to iterate through observational data.
@@ -319,15 +319,15 @@ actually uses this behind the scenes to iterate through observational data.
 .. code-block:: Python
 
     import setigen as stg
-    fil_fn = 'path/to/data.fil'
+    waterfall_fn = 'path/to/data.fil'
     fchans = 1024
     tchans = 32
-    fil_itr = stg.split_fil_generator(fil_fn,
-                                      fchans,
-                                      tchans=tchans,
-                                      f_shift=None)
-    fil = next(fil_itr)
-    frame = stg.Frame(fil)
+    waterfall_itr = stg.split_waterfall_generator(waterfall_fn,
+                                                  fchans,
+                                                  tchans=tchans,
+                                                  f_shift=None)
+    waterfall = next(waterfall_itr)
+    frame = stg.Frame(waterfall)
 
 Here, :code:`f_shift` is the number of indices in the frequency direction to shift
 before making another slice or split of size :code:`fchans`. If :code:`f_shift=None`,
@@ -338,8 +338,8 @@ of data and save out frames. As a simple example:
 
 .. code-block:: Python
 
-    for i, fil in enumerate(fil_itr):
-        frame = stg.Frame(fil=fil)
+    for i, waterfall in enumerate(waterfall_itr):
+        frame = stg.Frame(waterfall=waterfall)
 
         start_index = np.random.randint(0, fchans)
         end_index = np.random.randint(0, fchans)

@@ -5,7 +5,7 @@ import numpy as np
 from blimpy import read_header, Waterfall
 
 
-def split_fil_generator(fil_fn, fchans, tchans=None, f_shift=None):
+def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
     """
     Creates a generator that returns smaller Waterfall objects by 'splitting'
     an input filterbank file according to the number of frequency samples.
@@ -17,7 +17,7 @@ def split_fil_generator(fil_fn, fchans, tchans=None, f_shift=None):
 
     Parameters
     ----------
-    fil_fn : str
+    waterfall_fn : str
         Filterbank filename with .fil extension
     fchans : int
         Number of frequency samples per new filterbank file
@@ -35,10 +35,10 @@ def split_fil_generator(fil_fn, fchans, tchans=None, f_shift=None):
         A blimpy Waterfall object containing a smaller section of the data
     """
 
-    fch1 = read_header(fil_fn)[b'fch1']
-    nchans = read_header(fil_fn)[b'nchans']
-    df = abs(read_header(fil_fn)[b'foff'])
-    tchans_tot = Waterfall(fil_fn, load_data=False).container.selection_shape[0]
+    fch1 = read_header(waterfall_fn)[b'fch1']
+    nchans = read_header(waterfall_fn)[b'nchans']
+    df = abs(read_header(waterfall_fn)[b'foff'])
+    tchans_tot = Waterfall(waterfall_fn, load_data=False).container.selection_shape[0]
 
     if f_shift is None:
         f_shift = fchans
@@ -55,26 +55,26 @@ def split_fil_generator(fil_fn, fchans, tchans=None, f_shift=None):
 
     # Iterates down frequencies, starting from highest
     while f_start >= fch1 - nchans * df:
-        split_fil = Waterfall(fil_fn,
+        waterfall = Waterfall(waterfall_fn,
                               f_start=f_start,
                               f_stop=f_stop,
                               t_start=0,
                               t_stop=tchans)
 
-        yield split_fil
+        yield waterfall
 
         f_start -= f_shift * df
         f_stop -= f_shift * df
 
 
-def split_fil(fil_fn, output_dir, fchans, tchans=None, f_shift=None):
+def split_fil(waterfall_fn, output_dir, fchans, tchans=None, f_shift=None):
     """
     Creates a set of new filterbank files by 'splitting' an input filterbank
     file according to the number of frequency samples.
 
     Parameters
     ----------
-    fil_fn : str
+    waterfall_fn : str
         Filterbank filename with .fil extension
     output_dir : str
         Directory for new filterbank files
@@ -102,16 +102,16 @@ def split_fil(fil_fn, output_dir, fchans, tchans=None, f_shift=None):
         if e.errno != errno.EEXIST:
             raise
 
-    split_generator = split_fil_generator(fil_fn,
-                                          fchans,
-                                          tchans=tchans,
-                                          f_shift=f_shift)
+    split_generator = split_waterfall_generator(waterfall_fn,
+                                                fchans,
+                                                tchans=tchans,
+                                                f_shift=f_shift)
 
     # Iterates down frequencies, starting from highest
     split_fns = []
-    for i, split_fil in enumerate(split_generator):
+    for i, waterfall in enumerate(split_generator):
         output_fn = output_dir + '%s_%04d.fil' % (fchans, i)
-        split_fil.write_to_fil(output_fn)
+        waterfall.write_to_fil(output_fn)
         split_fns.append(output_fn)
         print('Saved %s' % output_fn)
     return split_fns

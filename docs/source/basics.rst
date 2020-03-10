@@ -504,8 +504,8 @@ Another useful conversion is between frequencies and frame indices:
 
 .. code-block:: Python
 
-    index = frame.get_index(freq)
-    freq = frame.get_frequency(index)
+    index = frame.get_index(frequency)
+    frequency = frame.get_frequency(index)
 
 Drift rate
 ^^^^^^^^^^
@@ -605,4 +605,4 @@ use
 
 .. code-block:: Python
 
-    fil = frame.get_fil()
+    waterfall = frame.get_waterfall()

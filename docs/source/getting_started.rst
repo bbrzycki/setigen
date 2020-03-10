@@ -61,8 +61,8 @@ the observational data also has dimensions 32x1024 to make it easy to visualize 
     import matplotlib.pyplot as plt
 
     data_path = 'path/to/data.fil'
-    fil = bl.Waterfall(data_path)
-    frame = stg.Frame(fil=fil)
+    waterfall = bl.Waterfall(data_path)
+    frame = stg.Frame(waterfall=waterfall)
     frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                        drift_rate=2*u.Hz/u.s),
                      stg.constant_t_profile(level=frame.get_intensity(snr=30)),

@@ -677,8 +677,8 @@ class Frame(object):
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
             self.waterfall = Waterfall(path)
-            self.waterfall.file_header[b'source_name'] = 'Synthetic'
-            self.waterfall.header[b'source_name'] = 'Synthetic'
+            self.waterfall.file_header[b'source_name'] = b'Synthetic'
+            self.waterfall.header[b'source_name'] = b'Synthetic'
 
         # Have to manually flip in the frequency direction + add an extra
         # dimension for polarization to work with Waterfall

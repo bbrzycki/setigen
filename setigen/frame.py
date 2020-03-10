@@ -315,9 +315,11 @@ class Frame(object):
                    f_profile,
                    bp_profile,
                    bounding_f_range=None,
-                   integrate_time=False,
-                   mean_f_position=False,
-                   time_subsamples=10):
+                   integrate_path=False,
+                   integrate_t_profile=False,
+                   integrate_f_profile=False,
+                   t_subsamples=10,
+                   f_subsamples=10):
         """
         Generates synthetic signal.
 
@@ -345,19 +347,27 @@ class Frame(object):
         bounding_f_range : tuple
             Tuple (bounding_min, bounding_max) that constrains the computation
             of the signal to only a range in frequencies
-        integrate_time : bool, optional
-            Option to integrate t_profile in the time direction. Note that
-            this option only makes sense if the provided t_profile can be
-            evaluated at the sub time sample level (e.g. as opposed to
-            returning an array of intensities of length `tchans`).
-        mean_f_position : bool, optional
+        integrate_path : bool, optional
             Option to average path along time to get a more accurate frequency
             position in t-f space. Note that this option only makes sense if
             the provided path can be evaluated at the sub frequency sample
             level (e.g. as opposed to returning a pre-computed array of
-            frequencies of length `tchans`).
-        time_subsamples : int, optional
+            frequencies of length `tchans`). Makes `t_subsamples` calculations
+            per time sample. 
+        integrate_t_profile : bool, optional
+            Option to integrate t_profile in the time direction. Note that
+            this option only makes sense if the provided t_profile can be
+            evaluated at the sub time sample level (e.g. as opposed to
+            returning an array of intensities of length `tchans`). Makes 
+            `t_subsamples` calculations per time sample. 
+        integrate_f_profile : bool, optional
+            Option to integrate f_profile in the frequency direction. Makes 
+            `f_subsamples` calculations per time sample. 
+        t_subsamples : int, optional
             Number of bins for integration in the time direction, using
+            Riemann sums
+        f_subsamples : int, optional
+            Number of bins for integration in the frequency direction, using
             Riemann sums
 
         Returns
@@ -411,21 +421,27 @@ class Frame(object):
             bounding_min, bounding_max = [self.get_index(freq)
                                           for freq in bounding_f_range]
         restricted_fs = self.fs[bounding_min:bounding_max]
+        if integrate_f_profile:
+            f0 = restricted_fs[0]
+            restricted_fchans = len(restricted_fs)
+            restricted_fs = np.linspace(f0, 
+                                        f0 + restricted_fchans * self.df,
+                                        restricted_fchans * f_subsamples)
         ff, tt = np.meshgrid(restricted_fs, self.ts)
 
         # Handle t_profile
         if callable(t_profile):
             # Integrate in time direction to capture temporal variations more
             # accurately
-            if integrate_time:
+            if integrate_t_profile:
                 new_ts = np.linspace(0,
                                      self.tchans * self.dt,
-                                     self.tchans * time_subsamples)
+                                     self.tchans * t_subsamples)
                 y = t_profile(new_ts)
                 if not isinstance(y, np.ndarray):
-                    y = np.repeat(y, self.tchans * time_subsamples)
+                    y = np.repeat(y, self.tchans * t_subsamples)
                 integrated_y = np.mean(np.reshape(y, (self.tchans,
-                                                      time_subsamples)),
+                                                      t_subsamples)),
                                        axis=1)
                 t_profile = integrated_y
             else:
@@ -445,15 +461,15 @@ class Frame(object):
         if callable(path):
             # Average using integration to get a better position in frequency
             # direction
-            if mean_f_position:
+            if integrate_path:
                 new_ts = np.linspace(0,
                                      self.tchans * self.dt,
-                                     self.tchans * time_subsamples)
+                                     self.tchans * t_subsamples)
                 f = path(new_ts)
-                if isinstance(f, np.ndarray):
-                    f = np.repeat(f, self.tchans * time_subsamples)
+                if not isinstance(f, np.ndarray):
+                    f = np.repeat(f, self.tchans * t_subsamples)
                 integrated_f = np.mean(np.reshape(f, (self.tchans,
-                                                      time_subsamples)),
+                                                      t_subsamples)),
                                        axis=1)
                 path = integrated_f
             else:
@@ -485,6 +501,12 @@ class Frame(object):
         bp_profile_ff = np.meshgrid(bp_profile, self.ts)[0]
 
         signal = t_profile_tt * f_profile(ff, path_tt) * bp_profile_ff
+        
+        if integrate_f_profile:
+            signal = np.mean(np.reshape(signal, (self.tchans,
+                                                 restricted_fchans,
+                                                 f_subsamples)),
+                             axis=2)
 
         self.data[:, bounding_min:bounding_max] += signal
 

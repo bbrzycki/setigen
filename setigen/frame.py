@@ -1,7 +1,6 @@
 import sys
 import os.path
 import numpy as np
-import scipy.integrate as sciintegrate
 import matplotlib.pyplot as plt
 try:
     import cPickle as pickle
@@ -13,7 +12,7 @@ from astropy.stats import sigma_clip
 
 from blimpy import Waterfall
 
-from . import fil_utils
+from . import waterfall_utils
 from . import distributions
 from . import sample_from_obs
 from . import unit_utils
@@ -32,7 +31,7 @@ class Frame(object):
     """
 
     def __init__(self,
-                 fil=None,
+                 waterfall=None,
                  fchans=None,
                  tchans=None,
                  df=None,
@@ -44,7 +43,7 @@ class Frame(object):
         from frame resolution / size.
 
         If you are initializing based on a .fil or .h5, pass in either the
-        filename or the Waterfall object into the fil keyword.
+        filename or the Waterfall object into the waterfall keyword.
 
         Otherwise, you can initialize a frame by specifying the parameters
         fchans, tchans, df, dt, and potentially fch1, if it's important to
@@ -55,7 +54,7 @@ class Frame(object):
 
         Parameters
         ----------
-        fil : str or Waterfall, optional
+        waterfall : str or Waterfall, optional
             Name of filterbank file or Waterfall object for preloading data.
         fchans : int, optional
             Number of frequency samples
@@ -71,7 +70,7 @@ class Frame(object):
             2D array of intensities to preload into frame
         """
         if None not in [fchans, tchans, df, dt, fch1]:
-            self.fil = None
+            self.waterfall = None
 
             # Need to address this and come up with a meaningful header
             self.header = None
@@ -89,28 +88,28 @@ class Frame(object):
                 self.data = data
             else:
                 self.data = np.zeros(self.shape)
-        elif fil:
-            # Load fil via filename or Waterfall object
-            if isinstance(fil, str):
-                self.fil = Waterfall(fil)
-            elif isinstance(fil, Waterfall):
-                self.fil = fil
+        elif waterfall:
+            # Load waterfall via filename or Waterfall object
+            if isinstance(waterfall, str):
+                self.waterfall = Waterfall(waterfall)
+            elif isinstance(waterfall, Waterfall):
+                self.waterfall = waterfall
             else:
-                sys.exit('Invalid fil file!')
-            self.header = self.fil.header
-            self.tchans, _, self.fchans = self.fil.container.selection_shape
+                sys.exit('Invalid data file!')
+            self.header = self.waterfall.header
+            self.tchans, _, self.fchans = self.waterfall.container.selection_shape
 
-            # Frequency values are saved in MHz in fil files
-            self.df = unit_utils.cast_value(abs(self.fil.header[b'foff']),
+            # Frequency values are saved in MHz in waterfall files
+            self.df = unit_utils.cast_value(abs(self.waterfall.header[b'foff']),
                                             u.MHz).to(u.Hz).value
-            self.fch1 = unit_utils.cast_value(self.fil.container.f_stop,
+            self.fch1 = unit_utils.cast_value(self.waterfall.container.f_stop,
                                               u.MHz).to(u.Hz).value
 
             # When multiple Stokes parameters are supported, this will have to
             # be expanded.
-            self.data = fil_utils.get_data(self.fil)[:, ::-1]
+            self.data = waterfall_utils.get_data(self.waterfall)[:, ::-1]
 
-            self.dt = unit_utils.get_value(self.fil.header[b'tsamp'], u.s)
+            self.dt = unit_utils.get_value(self.waterfall.header[b'tsamp'], u.s)
 
             self.shape = (self.tchans, self.fchans)
         else:
@@ -124,17 +123,17 @@ class Frame(object):
 
         # No matter what, self.data will be populated at this point.
         self._update_noise_frame_stats()
-        
+
         # Placeholder dictionary for user metadata, just for bookkeeping purposes
         self.metadata = {}
-        
+
     def __getstate__(self):
-        # Exclude fil Waterfall object from pickle, since it uses open threads, which 
+        # Exclude waterfall Waterfall object from pickle, since it uses open threads, which
         # can't be pickled
         state = self.__dict__.copy()
-        state['fil'] = None
+        state['waterfall'] = None
         return state
-    
+
 #     def __setstate__(self):
 #         self.__dict__.update(state)
 
@@ -147,7 +146,7 @@ class Frame(object):
                                                  self.fmax - self.fchans * self.df,
                                                  -self.df),
                                        u.Hz)
-        
+
         self.fs = self.fs[::-1]
         self.fmin = self.fs[0]
 
@@ -316,9 +315,11 @@ class Frame(object):
                    f_profile,
                    bp_profile,
                    bounding_f_range=None,
-                   integrate_time=False,
-                   mean_f_position=False,
-                   time_subsamples=10):
+                   integrate_path=False,
+                   integrate_t_profile=False,
+                   integrate_f_profile=False,
+                   t_subsamples=10,
+                   f_subsamples=10):
         """
         Generates synthetic signal.
 
@@ -346,19 +347,27 @@ class Frame(object):
         bounding_f_range : tuple
             Tuple (bounding_min, bounding_max) that constrains the computation
             of the signal to only a range in frequencies
-        integrate_time : bool, optional
-            Option to integrate t_profile in the time direction. Note that
-            this option only makes sense if the provided t_profile can be
-            evaluated at the sub time sample level (e.g. as opposed to
-            returning an array of intensities of length `tchans`).
-        mean_f_position : bool, optional
-            Option to average path along frequency to get a more accurate
+        integrate_path : bool, optional
+            Option to average path along time to get a more accurate frequency
             position in t-f space. Note that this option only makes sense if
             the provided path can be evaluated at the sub frequency sample
             level (e.g. as opposed to returning a pre-computed array of
-            frequencies of length `tchans`).
-        time_subsamples : int, optional
+            frequencies of length `tchans`). Makes `t_subsamples` calculations
+            per time sample.
+        integrate_t_profile : bool, optional
+            Option to integrate t_profile in the time direction. Note that
+            this option only makes sense if the provided t_profile can be
+            evaluated at the sub time sample level (e.g. as opposed to
+            returning an array of intensities of length `tchans`). Makes
+            `t_subsamples` calculations per time sample.
+        integrate_f_profile : bool, optional
+            Option to integrate f_profile in the frequency direction. Makes
+            `f_subsamples` calculations per time sample.
+        t_subsamples : int, optional
             Number of bins for integration in the time direction, using
+            Riemann sums
+        f_subsamples : int, optional
+            Number of bins for integration in the frequency direction, using
             Riemann sums
 
         Returns
@@ -378,10 +387,10 @@ class Frame(object):
         >>> df = 2.7939677238464355*u.Hz
         >>> dt = tsamp = 18.25361108*u.s
         >>> fch1 = 6095.214842353016*u.MHz
-        >>> frame = stg.Frame(fchans=fchans, 
-                              tchans=tchans, 
-                              df=df, 
-                              dt=dt, 
+        >>> frame = stg.Frame(fchans=fchans,
+                              tchans=tchans,
+                              df=df,
+                              dt=dt,
                               fch1=fch1)
         >>> noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
         >>> signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
@@ -412,21 +421,27 @@ class Frame(object):
             bounding_min, bounding_max = [self.get_index(freq)
                                           for freq in bounding_f_range]
         restricted_fs = self.fs[bounding_min:bounding_max]
+        if integrate_f_profile:
+            f0 = restricted_fs[0]
+            restricted_fchans = len(restricted_fs)
+            restricted_fs = np.linspace(f0,
+                                        f0 + restricted_fchans * self.df,
+                                        restricted_fchans * f_subsamples)
         ff, tt = np.meshgrid(restricted_fs, self.ts)
 
         # Handle t_profile
         if callable(t_profile):
             # Integrate in time direction to capture temporal variations more
             # accurately
-            if integrate_time:
+            if integrate_t_profile:
                 new_ts = np.linspace(0,
                                      self.tchans * self.dt,
-                                     self.tchans * time_subsamples)
+                                     self.tchans * t_subsamples)
                 y = t_profile(new_ts)
                 if not isinstance(y, np.ndarray):
-                    y = np.repeat(y, self.tchans * time_subsamples)
+                    y = np.repeat(y, self.tchans * t_subsamples)
                 integrated_y = np.mean(np.reshape(y, (self.tchans,
-                                                      time_subsamples)),
+                                                      t_subsamples)),
                                        axis=1)
                 t_profile = integrated_y
             else:
@@ -446,15 +461,15 @@ class Frame(object):
         if callable(path):
             # Average using integration to get a better position in frequency
             # direction
-            if mean_f_position:
+            if integrate_path:
                 new_ts = np.linspace(0,
                                      self.tchans * self.dt,
-                                     self.tchans * time_subsamples)
+                                     self.tchans * t_subsamples)
                 f = path(new_ts)
-                if isinstance(f, np.ndarray):
-                    f = np.repeat(f, self.tchans * time_subsamples)
+                if not isinstance(f, np.ndarray):
+                    f = np.repeat(f, self.tchans * t_subsamples)
                 integrated_f = np.mean(np.reshape(f, (self.tchans,
-                                                      time_subsamples)),
+                                                      t_subsamples)),
                                        axis=1)
                 path = integrated_f
             else:
@@ -486,6 +501,12 @@ class Frame(object):
         bp_profile_ff = np.meshgrid(bp_profile, self.ts)[0]
 
         signal = t_profile_tt * f_profile(ff, path_tt) * bp_profile_ff
+
+        if integrate_f_profile:
+            signal = np.mean(np.reshape(signal, (self.tchans,
+                                                 restricted_fchans,
+                                                 f_subsamples)),
+                             axis=2)
 
         self.data[:, bounding_min:bounding_max] += signal
 
@@ -559,16 +580,16 @@ class Frame(object):
                                bp_profile=bp_profiles.constant_bp_profile(level=1),
                                bounding_f_range=(self.fs[bounding_min_index],
                                                  self.fs[bounding_max_index]))
-    
-    def get_index(self, freq):
+
+    def get_index(self, frequency):
         """
         Convert frequency to closest index in frame.
         """
-        return int(np.round((freq - self.fmin) / self.df))
-    
+        return int(np.round((frequency - self.fmin) / self.df))
+
     def get_frequency(self, index):
         """
-        Convert index to frequency 
+        Convert index to frequency
         """
         return self.fs[index]
 
@@ -584,7 +605,7 @@ class Frame(object):
             raise ValueError('You must add noise in the image to specify SNR!')
         return snr * self.noise_std / np.sqrt(self.tchans)
 
-    def get_SNR(self, intensity):
+    def get_snr(self, intensity):
         """
         Calculates SNR from intensity.
 
@@ -594,7 +615,7 @@ class Frame(object):
         if self.noise_std == 0:
             raise ValueError('You must add noise in the image to return SNR!')
         return intensity * np.sqrt(self.tchans) / self.noise_std
-    
+
     def get_drift_rate(self, start_index, end_index):
         return (end_index - start_index) * self.df / (self.tchans * self.dt)
 
@@ -620,71 +641,72 @@ class Frame(object):
         self.tchans, self.fchans = self.shape
         self._update_fs()
         self._update_ts()
-        
+
     def get_metadata(self):
         return self.metadata
-        
+
     def set_metadata(self, new_metadata):
         """
         Set custom metadata using a dictionary new_metadata.
         """
         self.metadata = new_metadata
-        
+
     def add_metadata(self, new_metadata):
         """
         Append custom metadata using a dictionary new_metadata.
         """
         self.metadata.update(new_metadata)
-        
+
     def render(self, use_db=False):
         # Display frame data in waterfall format
-        plt.imshow(self.get_data(use_db=use_db), 
-                   aspect='auto', 
+        plt.imshow(self.get_data(use_db=use_db),
+                   aspect='auto',
                    interpolation='none')
         plt.colorbar()
         plt.xlabel('Frequency (px)')
         plt.ylabel('Time (px)')
-        
-    def bl_render(self, use_db=True):
-        self._update_fil()
-        self.fil.plot_waterfall(logged=use_db)
-        plt.title('')
 
-    # Note: currently none of these fil methods edit fil metadata
-    def _update_fil(self):
+    def bl_render(self, use_db=True):
+        self._update_waterfall()
+        self.waterfall.plot_waterfall(logged=use_db)
+
+    # Note: currently none of these waterfall methods edit waterfall metadata
+    def _update_waterfall(self):
         # Set fil with sample data; (1.4 Hz, 1.4 s) res
-        if self.fil is None:
+        if self.waterfall is None:
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
-            self.fil = Waterfall(path)
+            self.waterfall = Waterfall(path)
+            self.waterfall.file_header[b'source_name'] = b'Synthetic'
+            self.waterfall.header[b'source_name'] = b'Synthetic'
 
         # Have to manually flip in the frequency direction + add an extra
         # dimension for polarization to work with Waterfall
-        self.fil.data = self.data[:, np.newaxis, ::-1]
-        
-    def get_fil(self):
+        self.waterfall.data = self.data[:, np.newaxis, ::-1]
+
+    def get_waterfall(self):
         """
-        Return current frame as a filterbank file. Note: some filterbank 
-        metadata may not be accurate anymore, depending on prior frame 
+        Return current frame as a Waterfall object. Note: some filterbank
+        metadata may not be accurate anymore, depending on prior frame
         manipulations.
         """
-        self._update_fil()
-        return self.fil
+        self._update_waterfall()
+        return self.waterfall
 
     def save_fil(self, filename):
         """
         Save frame data as a filterbank file (.fil).
         """
-        self._update_fil()
-        self.fil.write_to_fil(filename)
+        self._update_waterfall()
+        self.waterfall.write_to_fil(filename)
 
     def save_hdf5(self, filename):
         """
         Save frame data as an HDF5 file.
         """
-        self._update_fil()
-        self.fil.write_to_hdf5(filename)
-        
+        self._update_waterfall()
+        self.waterfall.write_to_hdf5(filename)
+
     def save_h5(self, filename):
         """
         Save frame data as an HDF5 file.
@@ -709,8 +731,8 @@ class Frame(object):
         """
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
-            
-    @classmethod        
+
+    @classmethod
     def load_pickle(cls, filename):
         """
         Load Frame object from a pickled file (.pickle), created with Frame.save_pickle.

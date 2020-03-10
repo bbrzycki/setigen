@@ -1,5 +1,6 @@
 .. |setigen| replace:: :mod:`setigen`
 .. _setigen.funcs: https://setigen.readthedocs.io/en/master/setigen.funcs.html
+.. _`Getting started`: https://setigen.readthedocs.io/en/master/getting_started.html
 
 Basic usage
 ===========
@@ -14,7 +15,9 @@ and over a bandpass of frequencies. :mod:`setigen` comes prepackaged with common
 functions (setigen.funcs_), but you can write your own!
 
 The most basic signal that you can generate is a constant intensity, constant
-drift-rate signal.
+drift-rate signal. Note that as in the `Getting started`_ example, you can also use
+:code:`frame.add_constant_signal`, which is simpler and more efficient for
+signal injection into large data frames.
 
 .. code-block:: python
 
@@ -42,8 +45,10 @@ drift-rate signal.
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
 
-:code:`signal` is a 2D NumPy array with the resulting time-frequency data. To
-visualize this, we use :func:`matplotlib.pyplot.imshow`::
+:func:`setigen.Frame.add_signal` returns a 2D numpy array containing only the synthetic signal. To
+visualize the resulting frame, we can use :func:`matplotlib.pyplot.imshow`:
+
+.. code-block:: python
 
     import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(10, 6))
@@ -351,7 +356,11 @@ A minimal working example for adding noise is:
 
 .. image:: images/basic_noise.png
 
-This adds Gaussian noise with mean 5 and standard deviation 2 to an empty frame. In addition, we can truncate the noise at a lower bound specified by parameter `x_min`:
+This adds Gaussian noise with mean 5 and standard deviation 2 to an empty frame.
+:func:`~setigen.frame.Frame.add_noise` returns a 2D numpy array containing only
+the synthetic noise.
+
+In addition, we can truncate the noise at a lower bound specified by parameter `x_min`:
 
 .. code-block:: python
 
@@ -389,8 +398,6 @@ We can also specify the distributions from which to sample parameters, one each 
 .. image:: images/noise_from_obs_params.png
 
 
-
-
 Convenience functions for signal generation
 -------------------------------------------
 
@@ -398,7 +405,7 @@ There are a few functions included in :code:`Frame` that can help in constructin
 signals.
 
 Getting frame data
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 
 To just grab the underlying intensity data, you can do
 
@@ -410,8 +417,30 @@ As it implies, if you switch the :code:`use_db` flag to true, it will express
 the intensities in terms of decibels. This can help visualize data a little better,
 depending on the application.
 
+Plotting frames
+^^^^^^^^^^^^^^^
+
+Examples of the built-in plotting utilities are on the `Getting started`_ page:
+
+.. code-block:: Python
+
+    frame.render()
+    frame.bl_render()
+
+Note that both of these methods use :code:`matplotlib.pyplot.imshow` behind
+the scenes, which means you can still control plot parameters before and after
+these function calls, e.g.
+
+.. code-block:: Python
+
+    fig = plt.figure(figsize=(10, 6))
+    frame.render()
+    plt.title('My awesome title')
+    plt.savefig('frame.png')
+    plt.show()
+
 SNR <-> Intensity
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
 
 If a frame has background noise, we can calculate intensities corresponding to
 different signal-to-noise (SNR) values. Here, the SNR of a signal is obtained
@@ -433,7 +462,7 @@ Alternately, you can get the SNR of a given intensity by doing:
     snr = frame.get_snr(intensity=100)
 
 Frequency <-> Index
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 Another useful conversion is between frequencies and frame indices:
 
@@ -443,7 +472,7 @@ Another useful conversion is between frequencies and frame indices:
     freq = frame.get_frequency(index)
 
 Drift rate
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^
 
 For some injection tasks, you might want to define signals based on where they
 start and end on the frequency axis. Furthermore, this might not depend on
@@ -457,7 +486,7 @@ frequency per se. In these cases, you can calculate a drift frequency using the
     drift_rate = frame.get_drift_rate(start_index, end_index)
 
 Custom metadata
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
 
 The Frame object includes a custom metadata property that allows you to manually
 track injected signal parameters. Accordingly, :code:`frame.metadata` is a simple
@@ -488,7 +517,7 @@ Saving and loading frames
 There are a few different ways to save information from frames.
 
 Using pickle
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^
 
 Pickle lets us save and load entire Frame objects, which is helpful for
 keeping both data and metadata together in storage:
@@ -504,7 +533,7 @@ keeping both data and metadata together in storage:
 Note that :code:`load_pickle` is a class method, not an instance method.
 
 Using numpy
-^^^^^^^^^^^^^^
+^^^^^^^^^^^
 
 If you would only like to save the frame data as a numpy array, you can do:
 
@@ -520,10 +549,12 @@ to :code:`.npy`. If needed, you can also load in the data using
     frame.load_npy(filename='frame.npy')
 
 Using filterbank / HDF5
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 If you are interfacing with other Breakthrough Listen or astronomy codebases,
-outputting |setigen| frames in filterbank or HDF5 format can be very useful.
+outputting |setigen| frames in filterbank or HDF5 format can be very useful. Note
+that saving to HDF5 can have some difficulties based on your :code:`bitshuffle`
+installation and other dependencies, but saving as a filterbank file is stable.
 
 We provide the following methods:
 

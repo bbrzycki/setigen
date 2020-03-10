@@ -1,6 +1,7 @@
 .. |setigen| replace:: :mod:`setigen`
 .. _setigen.funcs: https://setigen.readthedocs.io/en/master/setigen.funcs.html
 .. _`Getting started`: https://setigen.readthedocs.io/en/master/getting_started.html
+.. _`observational data`: https://setigen.readthedocs.io/en/master/advanced.html#creating-custom-observational-noise-distributions
 
 Basic usage
 ===========
@@ -8,7 +9,7 @@ Basic usage
 Adding a basic signal
 -------------------------
 
-The main method that generates signals is :func:`setigen.Frame.add_signal`.
+The main method that generates signals is :func:`~setigen.frame.Frame.add_signal`.
 This allows us to pass in an functions or arrays that describe
 the shape of the signal over time, over frequency within individual time samples,
 and over a bandpass of frequencies. :mod:`setigen` comes prepackaged with common
@@ -318,12 +319,20 @@ smaller signals on either side.
 Adding synthetic noise
 ----------------------
 
+Currently, all the synthetic noise routines packaged with :mod:`setigen` are
+based on Gaussian noise. Every time synthetic noise is added to an image, :mod:`setigen` will try to
+estimate the noise properties of the frame, and you can get these via
+:func:`~setigen.Frame.get_total_stats` and :func:`~setigen.Frame.get_noise_stats`.
+
+Important note: over a range of many frequency channels, real radio data has
+complex systematic structure, such as coarse channels and bandpass shapes.
+Adding purely synthetic Gaussian noise as the background for your frames
+is therefore most appropriate when your frame size is somewhat limited in frequency,
+in which case you can mostly ignore these systematic artifacts. As usual,
+whether this is something you should care about just depends on your use cases.
+
 Adding pure Gaussian noise
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Currently, all the synthetic noise routines packaged with :mod:`setigen` are based on Gaussian noise.
-
-Every time synthetic noise is added to an image, :mod:`setigen` will try to estimate the noise properties of the frame, and you can get these via :func:`~setigen.Frame.get_total_stats` and :func:`~setigen.Frame.get_noise_stats`.
 
 A minimal working example for adding noise is:
 
@@ -368,26 +377,48 @@ In addition, we can truncate the noise at a lower bound specified by parameter `
 
 .. image:: images/basic_noise_truncated.png
 
-This may be useful depending on the use case; you might not want negative intensities, or simply any intensity below a reasonable threshold, to occur in your synthetic data.
+This may be useful depending on the use case; you might not want negative
+intensities, or simply any intensity below a reasonable threshold, to occur in
+your synthetic data.
 
 Adding Gaussian noise based on real observations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We can also generate synthetic noise whose parameters are sampled from real observations. Specifically, we can select the mean, standard deviation, and minimum from distributions of parameters estimated from observations.
+We can also generate synthetic noise whose parameters are sampled from real
+observations. Specifically, we can select the mean, standard deviation,
+and minimum from distributions of parameters estimated from observations.
 
-If no distributions are specified explicitly, noise parameters are sampled by default from pre-loaded distributions in :mod:`setigen`. These were estimated from GBT C-Band observations on frames with (dt, df) = (1.4 s, 1.4 Hz) and (tchans, fchans) = (32, 1024). Note that these pre-loaded observations only serve as approximations and real observation vary depending on the noise temperature + frequency band. To be safe, generate your own parameters distributions from observational data! A suite for facilitating this will be coming to :mod:`setigen` soon.
+If no distributions are specified explicitly, noise parameters are sampled by
+default from pre-loaded distributions in :mod:`setigen`. These were estimated
+from GBT C-Band observations on frames with (dt, df) = (1.4 s, 1.4 Hz) and
+(tchans, fchans) = (32, 1024). Behind the scenes, the mean, standard deviation,
+and minimum intensity over each sub-frame in the observation were saved into
+three respective numpy arrays. The :code:`frame.add_noise_from_obs` function
+selects a mean, standard deviation, and minimum from these arrays (not
+necessarily all corresponding to the same original observational sub-frame), and
+populates your frame with Gaussian noise accordingly. You can also set the
+:code:`share_index` parameter to True, to force these random noise parameter selections
+to all correspond to the same original observational sub-frame.
+
+Note that these pre-loaded observations only
+serve as approximations and real observations vary depending on the noise
+temperature and frequency band. To be safe, you can generate your own parameters
+distributions from `observational data`_.
 
 Without specifying distributions:
 
 .. code-block:: python
 
-    noise = frame.add_noise_from_obs()
+    noise = frame.add_noise_from_obs(share_index=False)
 
 .. image:: images/noise_from_obs_default.png
 
-We can readily see that the intensities are similar to a real GBT observation.
+We can readily see that the intensities are similar to a real GBT observation's.
 
-We can also specify the distributions from which to sample parameters, one each for the mean, standard deviation, and minimum, as below. Note: just as in the pure noise generation above, you don't need to specify an x_min_array from which to sample if there's no need to truncate the noise at a lower bound.
+We can also specify the distributions from which to sample parameters, one
+each for the mean, standard deviation, and minimum, as below. Note: just as
+in the pure noise generation above, you don't need to specify an x_min_array
+from which to sample if there's no need to truncate the noise at a lower bound.
 
 .. code-block:: python
 
@@ -396,6 +427,11 @@ We can also specify the distributions from which to sample parameters, one each 
                                      x_min_array=[1,2])
 
 .. image:: images/noise_from_obs_params.png
+
+When using custom distribution arrays, if they all have the same size,
+you can set :code:`share_index=True` to force the random noise parameter
+selections to use the same indices (as opposed to randomly choosing a parameter
+from each array).
 
 
 Convenience functions for signal generation

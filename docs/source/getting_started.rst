@@ -4,9 +4,14 @@
 Getting started
 ===============
 
-The heart of |setigen| is the Frame object. For signal injection and manipulation, we call each snippet of time-frequency data a "frame." There are two main ways to initialize frames, starting from either resolution/size parameters or existing observational data.
+The heart of |setigen| is the Frame object. For signal injection and manipulation,
+we call each snippet of time-frequency data a "frame." There are two main ways
+to initialize frames, starting from either resolution/size parameters or existing
+observational data.
 
-Here's a minimal working example for a purely synthetic frame, injecting a constant intensity signal into a background of Gaussian noise. Parameters in |setigen| are specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in the example:
+Here's a minimal working example for a purely synthetic frame, injecting a constant
+intensity signal into a background of Gaussian noise. Parameters in |setigen| are
+specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in the example:
 
 .. code-block:: python
 
@@ -33,7 +38,8 @@ Here's a minimal working example for a purely synthetic frame, injecting a const
 
 .. image:: images/gs_synth_render.png
 
-This simple signal can also be generated using the method :code:`frame.add_constant_signal`, which is optimized for created signals of constant intensity and drift rate in large frames:
+This simple signal can also be generated using the method :code:`frame.add_constant_signal`,
+which is optimized for created signals of constant intensity and drift rate in large frames:
 
 .. code-block:: python
 
@@ -43,7 +49,9 @@ This simple signal can also be generated using the method :code:`frame.add_const
                               width=40*u.Hz,
                               f_profile_type='gaussian')
 
-Similarly, here's a minimal working example for injecting a signal into a frame of observational data (from a blimpy Waterfall object). Note that in this example, the observational data also has dimensions 32x1024 to make it easy to visualize here.
+Similarly, here's a minimal working example for injecting a signal into a frame of
+observational data (from a blimpy Waterfall object). Note that in this example,
+the observational data also has dimensions 32x1024 to make it easy to visualize here.
 
 .. code-block:: python
 

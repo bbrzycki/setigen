@@ -15,7 +15,7 @@ section, we explore some of the flexibility behind :func:`~setigen.frame.Frame.a
 Writing custom signal functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can go beyond :mod:`setigen`'s pre-written signal functions by
+You can go beyond |setigen|'s pre-written signal functions by
 writing your own. For each :func:`~setigen.frame.Frame.add_signal` input parameter
 (:code:`path`, :code:`t_profile`, :code:`f_profile`, and :code:`bp_profile`),
 you can pass in your own custom functions. Note that these inputs are themselves functions.
@@ -90,12 +90,12 @@ instead of functions.
                       fch1=6095.214842353016*u.MHz)
     frame.add_noise(x_mean=5, x_std=2, x_min=0)
 
-    path_array = np.random.rand(frame.get_frequency(200),
-                                frame.get_frequency(400),
-                                32)
-    t_profile_array = np.random.rand(frame.get_intensity(snr=20),
-                                     frame.get_intensity(snr=40),
-                                     32)
+    path_array = np.random.uniform(frame.get_frequency(200),
+                                   frame.get_frequency(400),
+                                   32)
+    t_profile_array = np.random.uniform(frame.get_intensity(snr=20),
+                                        frame.get_intensity(snr=40),
+                                        32)
 
     frame.add_signal(path_array,
                      t_profile_array,
@@ -275,12 +275,88 @@ Here is an example of integration in action:
 .. image:: images/advanced_accuracy.png
 
 Creating custom observational noise distributions
---------------------------------------------------------
+-------------------------------------------------
+
+If you are interested in simulating observations of different resolutions and
+frequency bands, the underlying noise statistics may certainly differ from the
+included C-band distributions used by :code:`frame.add_noise_from_obs`. In these cases,
+it may be best to generate your own parameter distribution arrays from your
+own observations, and feed those into :code:`frame.add_noise_from_obs` yourself.
+It is worth mentioning that while you can just inject signals into
+observational frames directly, real observations may contain real signals as well.
+By estimating noise parameter distributions from observations, you can generate
+synthetic Gaussian noise with similar noise statistics as real observations, thereby
+resembling real data while excluding real signals.
+
+To do this, we can use :func:`~setigen.sample_from_obs.get_parameter_distributions`:
+
+.. code-block:: Python
+
+    import setigen as stg
+    fil_fn = 'path/to/data.fil'
+    # Number of frequency channels per frame
+    fchans = 1024
+    # Number of time samples per frame; optional
+    tchans = 32
+    x_mean_array, x_std_array, x_min_array = stg.get_parameter_distributions(fil_fn,
+                                                                             fchans,
+                                                                             tchans=tchans,
+                                                                             f_shift=None)
+
+This will iterate over an entire filterbank file, estimating the noise statistics
+and returning them as numpy arrays.
 
 
+Creating a synthetic signal dataset using observations
+------------------------------------------------------
 
+We can create a dataset based on observations using the :mod:`~setigen.split_utils`
+module. We can use :func:`~setigen.split_utils.split_fil_generator` to create
+a Python generator that returns :code:`blimpy` Waterfall objects, from which we can create
+|setigen| Frames. The function :func:`~setigen.sample_from_obs.get_parameter_distributions`
+actually uses this behind the scenes to iterate through observational data.
 
+.. code-block:: Python
 
+    import setigen as stg
+    fil_fn = 'path/to/data.fil'
+    fchans = 1024
+    tchans = 32
+    fil_itr = stg.split_fil_generator(fil_fn,
+                                      fchans,
+                                      tchans=tchans,
+                                      f_shift=None)
+    fil = next(fil_itr)
+    frame = stg.Frame(fil)
 
-Create a dataset using existing observations
-----------------------------------------------------
+Here, :code:`f_shift` is the number of indices in the frequency direction to shift
+before making another slice or split of size :code:`fchans`. If :code:`f_shift=None`,
+it defaults to shifting over by :code:`fchans`, so that there is no overlap.
+
+To construct a full dataset, we can then use the generator to iterate over slices
+of data and save out frames. As a simple example:
+
+.. code-block:: Python
+
+    for i, fil in enumerate(fil_itr):
+        frame = stg.Frame(fil=fil)
+
+        start_index = np.random.randint(0, fchans)
+        end_index = np.random.randint(0, fchans)
+        drift_rate = frame.get_drift_rate(start_index, end_index)
+
+        signal = frame.add_constant_signal(f_start=frame.get_frequency(start_index),
+                                           drift_rate=drift_rate,
+                                           level=frame.get_intensity(snr=10),
+                                           width=40,
+                                           f_profile_type='gaussian')
+        signal_props = {
+            'start_index': start_index,
+            'end_index': end_index,
+            'snr': 10,
+        }
+        frame.add_metadata(signal_props)
+        frame.save_pickle('save/path/frame{:06d}.pickle'.format(i))
+
+Depending on the application, it can also pay to save metadata out to a CSV file,
+which tracks filenames / indices with corresponding properties.

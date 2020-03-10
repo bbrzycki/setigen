@@ -42,7 +42,7 @@ def split_fil_generator(fil_fn, fchans, tchans=None, f_shift=None):
 
     if f_shift is None:
         f_shift = fchans
-        
+
     if tchans is None:
         tchans = tchans_tot
     elif tchans > tchans_tot:
@@ -55,12 +55,12 @@ def split_fil_generator(fil_fn, fchans, tchans=None, f_shift=None):
 
     # Iterates down frequencies, starting from highest
     while f_start >= fch1 - nchans * df:
-        split_fil = Waterfall(fil_fn, 
-                              f_start=f_start, 
+        split_fil = Waterfall(fil_fn,
+                              f_start=f_start,
                               f_stop=f_stop,
-                              t_start=0, 
+                              t_start=0,
                               t_stop=tchans)
-        
+
         yield split_fil
 
         f_start -= f_shift * df

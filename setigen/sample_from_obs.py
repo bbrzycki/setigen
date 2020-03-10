@@ -44,7 +44,7 @@ def sample_gaussian_params(x_mean_array, x_std_array, x_min_array=None):
     return x_mean, x_std
 
 
-def get_parameter_distributions(fil_fn, fchans, tchans=None, f_shift=None, exclude=0):
+def get_parameter_distributions(fil_fn, fchans, tchans=None, f_shift=None):
     """
     Calculate parameter distributions for the mean, standard deviation,
     and minimum of split filterbank data from real observations.

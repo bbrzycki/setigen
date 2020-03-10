@@ -48,11 +48,11 @@ def test_fil_io(frame_setup_no_data):
     fil_fn = 'temp.fil'
     frame.save_fil(fil_fn)
 
-    temp_frame = stg.Frame(fil=fil_fn)
+    temp_frame = stg.Frame(waterfall=fil_fn)
     assert_allclose(temp_frame.get_data(), frame.get_data())
 
-    fil = bl.Waterfall(fil_fn)
-    temp_frame = stg.Frame(fil=fil)
+    wf = bl.Waterfall(fil_fn)
+    temp_frame = stg.Frame(waterfall=wf)
     assert_allclose(temp_frame.get_data(), frame.get_data())
 
     os.remove(fil_fn)
@@ -64,11 +64,11 @@ def test_h5_io(frame_setup_no_data):
     fil_fn = 'temp.h5'
     frame.save_hdf5(fil_fn)
 
-    temp_frame = stg.Frame(fil=fil_fn)
+    temp_frame = stg.Frame(waterfall=fil_fn)
     assert_allclose(temp_frame.get_data(), frame.get_data())
 
-    fil = bl.Waterfall(fil_fn)
-    temp_frame = stg.Frame(fil=fil)
+    wf = bl.Waterfall(fil_fn)
+    temp_frame = stg.Frame(waterfall=wf)
     assert_allclose(temp_frame.get_data(), frame.get_data())
 
     os.remove(fil_fn)
@@ -77,7 +77,7 @@ def test_h5_io(frame_setup_no_data):
 def test_constant_signal_from_add_signal(frame_setup_no_data,
                                          constant_signal_data):
     frame = copy.deepcopy(frame_setup_no_data)
-    signal = frame.add_signal(stg.constant_path(f_start=frame.fs[200],
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
                               stg.constant_t_profile(level=1),
                               stg.gaussian_f_profile(width=50*u.Hz),
@@ -89,7 +89,7 @@ def test_constant_signal_from_add_signal(frame_setup_no_data,
 def test_constant_signal_from_add_constant_signal(frame_setup_no_data,
                                                   constant_signal_data):
     frame = copy.deepcopy(frame_setup_no_data)
-    signal = frame.add_constant_signal(f_start=frame.fs[200],
+    signal = frame.add_constant_signal(f_start=frame.get_frequency(200),
                                        drift_rate=2*u.Hz/u.s,
                                        level=1,
                                        width=50*u.Hz,

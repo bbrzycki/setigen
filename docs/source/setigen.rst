@@ -1,8 +1,8 @@
-setigen package API
-===================
+setigen API reference
+=====================
 
-Subpackages
------------
+Signal parameter functions
+--------------------------
 
 .. toctree::
 
@@ -12,11 +12,11 @@ setigen.frame module
 --------------------
 
 .. automodule:: setigen.frame
-    :special-members: __init__ 
+    :special-members: __init__
     :members:
     :undoc-members:
     :show-inheritance:
-    
+
 setigen.split\_utils module
 ---------------------------
 
@@ -33,10 +33,10 @@ setigen.distributions module
     :undoc-members:
     :show-inheritance:
 
-setigen.fil\_utils module
+setigen.waterfall\_utils module
 -------------------------
 
-.. automodule:: setigen.fil_utils
+.. automodule:: setigen.waterfall_utils
     :members:
     :undoc-members:
     :show-inheritance:

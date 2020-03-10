@@ -10,7 +10,7 @@ import setigen as stg
 def frame_setup_from_h5():
     my_path = os.path.abspath(os.path.dirname(__file__))
     path = os.path.join(my_path, 'assets/sample.fil')
-    frame = stg.Frame(fil=path)
+    frame = stg.Frame(waterfall=path)
     return frame
 
 
@@ -27,8 +27,8 @@ def test_setup_from_h5(frame_setup_from_h5):
 
     assert frame.mean() == pytest.approx(484170.38)
     assert frame.noise_mean == pytest.approx(461739.75)
-    
+
     assert frame.std() == pytest.approx(253477.6)
     assert frame.noise_std == pytest.approx(217443.1)
-    
+
     assert np.min(frame.data) == pytest.approx(15350.96)

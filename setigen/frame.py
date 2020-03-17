@@ -677,8 +677,11 @@ class Frame(object):
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
             self.waterfall = Waterfall(path)
-            self.waterfall.file_header[b'source_name'] = b'Synthetic'
             self.waterfall.header[b'source_name'] = b'Synthetic'
+            self.waterfall.header[b'foff'] = self.df * -1e-6
+            self.waterfall.header[b'tsamp'] = self.dt
+            self.waterfall.header[b'nchans'] = self.fchans
+            self.waterfall.header[b'fch1'] = self.fmax
 
         # Have to manually flip in the frequency direction + add an extra
         # dimension for polarization to work with Waterfall

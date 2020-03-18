@@ -627,21 +627,6 @@ class Frame(object):
             return 10 * np.log10(self.data)
         return self.data
 
-    def set_df(self, df):
-        self.df = unit_utils.get_value(abs(df), u.Hz)
-        self._update_fs()
-
-    def set_dt(self, dt):
-        self.dt = unit_utils.get_value(dt, u.s)
-        self._update_ts()
-
-    def set_data(self, data):
-        self.data = data
-        self.shape = data.shape
-        self.tchans, self.fchans = self.shape
-        self._update_fs()
-        self._update_ts()
-
     def get_metadata(self):
         return self.metadata
 
@@ -724,6 +709,14 @@ class Frame(object):
         # Have to manually flip in the frequency direction + add an extra
         # dimension for polarization to work with Waterfall
         self.waterfall.data = self.data[:, np.newaxis, ::-1]
+        
+        # Set Waterfall metadata just in case these have been edited
+        header_attr = {
+            b'foff': self.df * -1e-6,
+            b'tsamp': self.dt,
+        }
+        self.waterfall.header.update(header_attr)
+        self.waterfall.file_header.update(header_attr)
 
     def get_waterfall(self):
         """

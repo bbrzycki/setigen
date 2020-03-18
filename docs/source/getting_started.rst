@@ -84,3 +84,17 @@ We can also view this using blimpy's plotting style:
     plt.show()
 
 .. image:: images/gs_obs_bl_render.png
+
+Assuming you have access to a data array, with corresponding resolution information, you can
+can also initialize a frame as follows. Just make sure that your data is arranged in order 
+of increasing frequency! 
+
+.. code-block:: python
+
+    my_data = # your 2D array
+    frame = stg.Frame.from_data(df=2.7939677238464355*u.Hz,
+                                dt=18.25361108*u.s,
+                                fch1=6095.214842353016*u.MHz,
+                                data=my_data)
+                                
+    frame.render()

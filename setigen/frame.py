@@ -126,6 +126,20 @@ class Frame(object):
 
         # Placeholder dictionary for user metadata, just for bookkeeping purposes
         self.metadata = {}
+        
+    @classmethod
+    def from_data(cls, df, dt, fch1, data):
+        tchans, fchans = data.shape
+        return cls(fchans=fchans, 
+                   tchans=tchans,
+                   df=df,
+                   dt=dt,
+                   fch1=fch1,
+                   data=data)
+    
+    @classmethod
+    def from_waterfall(cls, waterfall):
+        return cls(waterfall=waterfall)
 
     def __getstate__(self):
         # Exclude waterfall Waterfall object from pickle, since it uses open threads, which
@@ -133,9 +147,6 @@ class Frame(object):
         state = self.__dict__.copy()
         state['waterfall'] = None
         return state
-
-#     def __setstate__(self):
-#         self.__dict__.update(state)
 
     def _update_fs(self):
         """

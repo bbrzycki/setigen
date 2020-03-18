@@ -670,7 +670,6 @@ class Frame(object):
         self._update_waterfall()
         self.waterfall.plot_waterfall(logged=use_db)
 
-    # Note: currently none of these waterfall methods edit waterfall metadata
     def _update_waterfall(self):
         # Set fil with sample data; (1.4 Hz, 1.4 s) res
         if self.waterfall is None:
@@ -678,10 +677,49 @@ class Frame(object):
             path = os.path.join(my_path, 'assets/sample.fil')
             self.waterfall = Waterfall(path)
             self.waterfall.header[b'source_name'] = b'Synthetic'
-            self.waterfall.header[b'foff'] = self.df * -1e-6
-            self.waterfall.header[b'tsamp'] = self.dt
-            self.waterfall.header[b'nchans'] = self.fchans
-            self.waterfall.header[b'fch1'] = self.fmax
+            
+            # Fix header info for Waterfall, for purely Synthetic frames
+            header_attr = {
+                b'foff': self.df * -1e-6,
+                b'tsamp': self.dt,
+                b'nchans': self.fchans,
+                b'fch1': self.fmax * 1e-6,
+            }
+            self.waterfall.header.update(header_attr)
+            self.waterfall.file_header.update(header_attr)
+
+            container_attr = {
+                't_begin': 0,
+                't_end': self.tchans,
+                'n_channels_in_file': self.fchans,
+                'n_ints_in_file': self.tchans,
+                'file_shape': (self.tchans, 1, self.fchans),
+                'f_end': self.fmax * 1e-6,
+                'f_begin': self.fmin * 1e-6,
+                'f_stop': self.fmax * 1e-6,
+                'f_start': self.fmin * 1e-6,
+                't_start': 0,
+                't_stop': self.tchans,
+                'selection_shape': (self.tchans, 1, self.fchans),
+                'chan_start_idx': 0,
+                'chan_stop_idx': self.fchans,
+            }
+            for key, value in container_attr.items():
+                setattr(self.waterfall.container,
+                        key,
+                        value)
+
+            wat_attr = {
+                'n_channels_in_file': self.fchans,
+                'n_ints_in_file': self.tchans,
+                'file_shape': (self.tchans, 1, self.fchans),
+                'file_size_bytes': self.tchans * self.fchans * self.waterfall.header[b'nbits'] / 8,
+                'selection_shape': (self.tchans, 1, self.fchans),
+            }
+            for key, value in wat_attr.items():
+                setattr(self.waterfall,
+                        key,
+                        value)
 
         # Have to manually flip in the frequency direction + add an extra
         # dimension for polarization to work with Waterfall

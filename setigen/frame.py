@@ -722,10 +722,6 @@ class Frame(object):
         # dimension for polarization to work with Waterfall
         self.waterfall.data = self.data[:, np.newaxis, ::-1]
 
-        # Change relevant strings to byte-strings as required by blimpy
-        self.waterfall.header['source_name'] = self.waterfall.header['source_name'].encode('utf-8')
-        self.waterfall.header['rawdatafile'] = self.waterfall.header['rawdatafile'].encode('utf-8')
-
         # Set Waterfall metadata just in case these have been edited
         header_attr = {
             'foff': self.df * -1e-6,
@@ -733,6 +729,14 @@ class Frame(object):
         }
         self.waterfall.header.update(header_attr)
         self.waterfall.file_header.update(header_attr)
+        
+    def _encode_bytestrings(self):
+        for key in ['source_name', 'rawdatafile']:
+            self.waterfall.header[key] = self.waterfall.header[key].encode()
+        
+    def _decode_bytestrings(self):
+        for key in ['source_name', 'rawdatafile']:
+            self.waterfall.header[key] = self.waterfall.header[key].decode()
 
     def get_waterfall(self):
         """
@@ -748,14 +752,18 @@ class Frame(object):
         Save frame data as a filterbank file (.fil).
         """
         self._update_waterfall()
+        self._encode_bytestrings()
         self.waterfall.write_to_fil(filename)
+        self._decode_bytestrings()
 
     def save_hdf5(self, filename):
         """
         Save frame data as an HDF5 file.
         """
         self._update_waterfall()
+        self._encode_bytestrings()
         self.waterfall.write_to_hdf5(filename)
+        self._decode_bytestrings()
 
     def save_h5(self, filename):
         """

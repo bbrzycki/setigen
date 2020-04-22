@@ -100,7 +100,7 @@ class Frame(object):
             self.tchans, _, self.fchans = self.waterfall.container.selection_shape
 
             # Frequency values are saved in MHz in waterfall files
-            self.df = unit_utils.cast_value(abs(self.waterfall.header[b'foff']),
+            self.df = unit_utils.cast_value(abs(self.waterfall.header['foff']),
                                             u.MHz).to(u.Hz).value
             self.fch1 = unit_utils.cast_value(self.waterfall.container.f_stop,
                                               u.MHz).to(u.Hz).value
@@ -109,7 +109,7 @@ class Frame(object):
             # be expanded.
             self.data = waterfall_utils.get_data(self.waterfall)[:, ::-1]
 
-            self.dt = unit_utils.get_value(self.waterfall.header[b'tsamp'], u.s)
+            self.dt = unit_utils.get_value(self.waterfall.header['tsamp'], u.s)
 
             self.shape = (self.tchans, self.fchans)
         else:
@@ -126,17 +126,17 @@ class Frame(object):
 
         # Placeholder dictionary for user metadata, just for bookkeeping purposes
         self.metadata = {}
-        
+
     @classmethod
     def from_data(cls, df, dt, fch1, data):
         tchans, fchans = data.shape
-        return cls(fchans=fchans, 
+        return cls(fchans=fchans,
                    tchans=tchans,
                    df=df,
                    dt=dt,
                    fch1=fch1,
                    data=data)
-    
+
     @classmethod
     def from_waterfall(cls, waterfall):
         return cls(waterfall=waterfall)
@@ -672,14 +672,15 @@ class Frame(object):
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
             self.waterfall = Waterfall(path)
-            self.waterfall.header[b'source_name'] = b'Synthetic'
-            
+            self.waterfall.header['source_name'] = 'Synthetic'
+            self.waterfall.header['rawdatafile'] = 'Synthetic'
+
             # Fix header info for Waterfall, for purely Synthetic frames
             header_attr = {
-                b'foff': self.df * -1e-6,
-                b'tsamp': self.dt,
-                b'nchans': self.fchans,
-                b'fch1': self.fmax * 1e-6,
+                'foff': self.df * -1e-6,
+                'tsamp': self.dt,
+                'nchans': self.fchans,
+                'fch1': self.fmax * 1e-6,
             }
             self.waterfall.header.update(header_attr)
             self.waterfall.file_header.update(header_attr)
@@ -709,7 +710,7 @@ class Frame(object):
                 'n_channels_in_file': self.fchans,
                 'n_ints_in_file': self.tchans,
                 'file_shape': (self.tchans, 1, self.fchans),
-                'file_size_bytes': self.tchans * self.fchans * self.waterfall.header[b'nbits'] / 8,
+                'file_size_bytes': self.tchans * self.fchans * self.waterfall.header['nbits'] / 8,
                 'selection_shape': (self.tchans, 1, self.fchans),
             }
             for key, value in wat_attr.items():
@@ -720,11 +721,15 @@ class Frame(object):
         # Have to manually flip in the frequency direction + add an extra
         # dimension for polarization to work with Waterfall
         self.waterfall.data = self.data[:, np.newaxis, ::-1]
-        
+
+        # Change relevant strings to byte-strings as required by blimpy
+        self.waterfall.header['source_name'] = self.waterfall.header['source_name'].encode('utf-8')
+        self.waterfall.header['rawdatafile'] = self.waterfall.header['rawdatafile'].encode('utf-8')
+
         # Set Waterfall metadata just in case these have been edited
         header_attr = {
-            b'foff': self.df * -1e-6,
-            b'tsamp': self.dt,
+            'foff': self.df * -1e-6,
+            'tsamp': self.dt,
         }
         self.waterfall.header.update(header_attr)
         self.waterfall.file_header.update(header_attr)

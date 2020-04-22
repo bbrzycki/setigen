@@ -94,9 +94,9 @@ def get_fs(waterfall):
     elif not isinstance(waterfall, Waterfall):
         sys.exit('Invalid data file!')
 
-    fch1 = waterfall.header[b'fch1']
-    df = waterfall.header[b'foff']
-    fchans = waterfall.header[b'nchans']
+    fch1 = waterfall.header['fch1']
+    df = waterfall.header['foff']
+    fchans = waterfall.header['nchans']
 
     return np.arange(fch1, fch1 + fchans * df, df)
 
@@ -120,7 +120,7 @@ def get_ts(waterfall):
     elif not isinstance(waterfall, Waterfall):
         sys.exit('Invalid data file!')
 
-    tsamp = waterfall.header[b'tsamp']
+    tsamp = waterfall.header['tsamp']
     tchans = waterfall.container.selection_shape[0]
 
     return np.arange(0, tchans * tsamp, tsamp)

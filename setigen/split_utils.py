@@ -36,9 +36,9 @@ def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
     """
 
     info_wf = Waterfall(waterfall_fn, load_data=False)
-    fch1 = info_wf.header[b'fch1']
-    nchans = info_wf.header[b'nchans']
-    df = abs(info_wf.header[b'foff'])
+    fch1 = info_wf.header['fch1']
+    nchans = info_wf.header['nchans']
+    df = abs(info_wf.header['foff'])
     tchans_tot = info_wf.container.selection_shape[0]
 
     if f_shift is None:

@@ -5,6 +5,7 @@ data/*
 jupyter-notebooks/*.fil
 jupyter-notebooks/*.png
 *.pickle
+*.h5
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

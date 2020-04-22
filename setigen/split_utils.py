@@ -2,7 +2,7 @@ import sys
 import os
 import errno
 import numpy as np
-from blimpy import read_header, Waterfall
+from blimpy import Waterfall
 
 
 def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
@@ -35,10 +35,11 @@ def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
         A blimpy Waterfall object containing a smaller section of the data
     """
 
-    fch1 = read_header(waterfall_fn)[b'fch1']
-    nchans = read_header(waterfall_fn)[b'nchans']
-    df = abs(read_header(waterfall_fn)[b'foff'])
-    tchans_tot = Waterfall(waterfall_fn, load_data=False).container.selection_shape[0]
+    info_wf = Waterfall(waterfall_fn, load_data=False)
+    fch1 = info_wf.header[b'fch1']
+    nchans = info_wf.header[b'nchans']
+    df = abs(info_wf.header[b'foff'])
+    tchans_tot = info_wf.container.selection_shape[0]
 
     if f_shift is None:
         f_shift = fchans

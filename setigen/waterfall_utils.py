@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-from blimpy import read_header, Waterfall
+from blimpy import Waterfall
 
 
 def max_freq(waterfall):
@@ -90,15 +90,13 @@ def get_fs(waterfall):
         Frequency values
     """
     if isinstance(waterfall, str):
-        fch1 = read_header(waterfall)[b'fch1']
-        df = read_header(waterfall)[b'foff']
-        fchans = read_header(waterfall)[b'nchans']
-    elif isinstance(waterfall, Waterfall):
-        fch1 = waterfall.header[b'fch1']
-        df = waterfall.header[b'foff']
-        fchans = waterfall.header[b'nchans']
-    else:
+        waterfall = Waterfall(waterfall, load_data=False)
+    elif not isinstance(waterfall, Waterfall):
         sys.exit('Invalid data file!')
+
+    fch1 = waterfall.header[b'fch1']
+    df = waterfall.header[b'foff']
+    fchans = waterfall.header[b'nchans']
 
     return np.arange(fch1, fch1 + fchans * df, df)
 
@@ -118,24 +116,11 @@ def get_ts(waterfall):
         Time values
     """
     if isinstance(waterfall, str):
-        tsamp = read_header(waterfall)[b'tsamp']
-    elif isinstance(waterfall, Waterfall):
-        tsamp = waterfall.header[b'tsamp']
-    else:
-        sys.exit('Invalid fil file!')
+        waterfall = Waterfall(waterfall, load_data=False)
+    elif not isinstance(waterfall, Waterfall):
+        sys.exit('Invalid data file!')
 
-    if isinstance(waterfall, str):
-        fch1 = read_header(waterfall)[b'fch1']
-        df = read_header(waterfall)[b'foff']
-    else:
-        fch1 = waterfall.header[b'fch1']
-        df = waterfall.header[b'foff']
-
-    waterfall0 = Waterfall(waterfall, f_start=fch1, f_stop=fch1 + df)
-
-    try:
-        tchans = get_data(waterfall0).shape[0]
-    except Exception as e:
-        sys.exit('No data in filterbank file!')
+    tsamp = waterfall.header[b'tsamp']
+    tchans = waterfall.container.selection_shape[0]
 
     return np.arange(0, tchans * tsamp, tsamp)

@@ -21,7 +21,7 @@ setuptools.setup(
        'numpy>=1.18.1',
        'scipy>=1.4.1',
        'astropy>=4.0',
-       'blimpy>=1.4.2',
+       'blimpy>=2.0.0',
        'matplotlib>=3.1.3',
        'sphinx-rtd-theme==0.4.3'
     ],

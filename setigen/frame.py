@@ -732,11 +732,14 @@ class Frame(object):
         
     def _encode_bytestrings(self):
         for key in ['source_name', 'rawdatafile']:
-            self.waterfall.header[key] = self.waterfall.header[key].encode()
+            # Some data don't have these keys to begin with
+            if key in self.waterfall.header:
+                self.waterfall.header[key] = self.waterfall.header[key].encode()
         
     def _decode_bytestrings(self):
         for key in ['source_name', 'rawdatafile']:
-            self.waterfall.header[key] = self.waterfall.header[key].decode()
+            if key in self.waterfall.header:
+                self.waterfall.header[key] = self.waterfall.header[key].decode()
 
     def get_waterfall(self):
         """

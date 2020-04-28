@@ -153,9 +153,10 @@ class Frame(object):
         Calculates and updates an array of frequencies represented in the
         frame.
         """
-        self.fs = unit_utils.get_value(np.arange(self.fmax,
-                                                 self.fmax - self.fchans * self.df,
-                                                 -self.df),
+        self.fs = unit_utils.get_value(np.linspace(self.fmax,
+                                                   self.fmax - self.fchans * self.df,
+                                                   self.fchans,
+                                                   endpoint=False),
                                        u.Hz)
 
         self.fs = self.fs[::-1]
@@ -165,9 +166,10 @@ class Frame(object):
         """
         Calculates and updates an array of times represented in the frame.
         """
-        self.ts = unit_utils.get_value(np.arange(0,
-                                                 self.tchans * self.dt,
-                                                 self.dt),
+        self.ts = unit_utils.get_value(np.linspace(0,
+                                                   self.tchans * self.dt,
+                                                   self.tchans,
+                                                   endpoint=False),
                                        u.s)
 
     def zero_data(self):
@@ -429,8 +431,9 @@ class Frame(object):
         if bounding_f_range is None:
             bounding_min, bounding_max = 0, self.fchans
         else:
-            bounding_min, bounding_max = [self.get_index(freq)
-                                          for freq in bounding_f_range]
+            bounding_min = max(self.get_index(bounding_f_range[0]), 0)
+            bounding_max = min(self.get_index(bounding_f_range[1]), self.fchans)
+            
         restricted_fs = self.fs[bounding_min:bounding_max]
         if integrate_f_profile:
             f0 = restricted_fs[0]
@@ -589,20 +592,20 @@ class Frame(object):
                                t_profile=t_profiles.constant_t_profile(level),
                                f_profile=f_profile,
                                bp_profile=bp_profiles.constant_bp_profile(level=1),
-                               bounding_f_range=(self.fs[bounding_min_index],
-                                                 self.fs[bounding_max_index]))
+                               bounding_f_range=(self.get_frequency(bounding_min_index),
+                                                 self.get_frequency(bounding_max_index)))
 
     def get_index(self, frequency):
         """
         Convert frequency to closest index in frame.
         """
-        return int(np.round((frequency - self.fmin) / self.df))
+        return (self.fchans - 1) - int(np.round((self.fmax - frequency) / self.df))
 
     def get_frequency(self, index):
         """
-        Convert index to frequency
+        Convert index to frequency.
         """
-        return self.fs[index]
+        return self.fmax - self.df * ((self.fchans - 1) - index)
 
     def get_intensity(self, snr):
         """
@@ -780,13 +783,13 @@ class Frame(object):
         """
         Save frame data as an .npy file.
         """
-        np.save(file, self.data)
+        np.save(filename, self.data)
 
     def load_npy(self, filename):
         """
         Load frame data from a .npy file.
         """
-        self.set_data(np.load(file))
+        self.set_data(np.load(filename))
 
     def save_pickle(self, filename):
         """

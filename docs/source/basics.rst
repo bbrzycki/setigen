@@ -319,19 +319,24 @@ smaller signals on either side.
 Adding synthetic noise
 ----------------------
 
-Currently, all the synthetic noise routines packaged with :mod:`setigen` are
-based on Gaussian noise. Every time synthetic noise is added to an image, :mod:`setigen` will try to
+The background noise in high resolution BL data inherently follows a chi-squared 
+distribution. Depending on the data's spectral and temporal resolutions, with enough 
+integration blocks, the noise approaches a Gaussian distribution. :mod:`setigen` 
+supports both distributions for noise generation, but uses chi-squared by default.
+
+Every time synthetic noise is added to an image, :mod:`setigen` will
 estimate the noise properties of the frame, and you can get these via
 :func:`~setigen.Frame.get_total_stats` and :func:`~setigen.Frame.get_noise_stats`.
 
 Important note: over a range of many frequency channels, real radio data has
 complex systematic structure, such as coarse channels and bandpass shapes.
-Adding purely synthetic Gaussian noise as the background for your frames
-is therefore most appropriate when your frame size is somewhat limited in frequency,
-in which case you can mostly ignore these systematic artifacts. As usual,
-whether this is something you should care about just depends on your use cases.
+Adding synthetic noise according to a pure statistical distribution
+as the background for your frames is therefore most appropriate when your 
+frame size is somewhat limited in frequency, in which case you can mostly ignore 
+these systematic artifacts. As usual, whether this is something you should care about 
+just depends on your use cases.
 
-Adding pure Gaussian noise
+Adding pure chi-squared noise
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A minimal working example for adding noise is:
@@ -346,7 +351,7 @@ A minimal working example for adding noise is:
     # Define time and frequency arrays, essentially labels for the 2D data array
     fchans = 1024
     tchans = 16
-    df = -2.7939677238464355*u.Hz
+    df = 2.7939677238464355*u.Hz
     dt = 18.25361108*u.s
     fch1 = 6095.214842353016*u.MHz
 
@@ -356,9 +361,50 @@ A minimal working example for adding noise is:
                       df=df,
                       dt=dt,
                       fch1=fch1)
-    noise = frame.add_noise(x_mean=5, x_std=2)
+    noise = frame.add_noise(x_mean=10)
 
-    fig = plt.figure(figsize=(10,6))
+    fig = plt.figure(figsize=(10, 6))
+    plt.imshow(frame.get_data(), aspect='auto')
+    plt.colorbar()
+    plt.show()
+
+.. image:: images/basic_noise_chi2.png
+
+This adds chi-squared noise scaled to a mean of 10. :func:`~setigen.frame.Frame.add_noise` 
+returns a 2D numpy array containing only the synthetic noise, and uses a default argument of
+:code:`noise_type=chi2`. Behind the scenes, the degrees of freedom used in the chi-squared 
+distribution are calculated using the frame resolution and can be accessed via the 
+:code:`frame.chi2_df` attribute.
+
+
+Adding pure Gaussian noise
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+An example for adding Gaussian noise is:
+
+.. code-block:: python
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from astropy import units as u
+    import setigen as stg
+
+    # Define time and frequency arrays, essentially labels for the 2D data array
+    fchans = 1024
+    tchans = 16
+    df = 2.7939677238464355*u.Hz
+    dt = 18.25361108*u.s
+    fch1 = 6095.214842353016*u.MHz
+
+    # Generate the signal
+    frame = stg.Frame(fchans=fchans,
+                      tchans=tchans,
+                      df=df,
+                      dt=dt,
+                      fch1=fch1)
+    noise = frame.add_noise(x_mean=5, x_std=2, noise_type='gaussian')
+
+    fig = plt.figure(figsize=(10, 6))
     plt.imshow(frame.get_data(), aspect='auto')
     plt.colorbar()
     plt.show()
@@ -366,14 +412,12 @@ A minimal working example for adding noise is:
 .. image:: images/basic_noise.png
 
 This adds Gaussian noise with mean 5 and standard deviation 2 to an empty frame.
-:func:`~setigen.frame.Frame.add_noise` returns a 2D numpy array containing only
-the synthetic noise.
 
 In addition, we can truncate the noise at a lower bound specified by parameter `x_min`:
 
 .. code-block:: python
 
-    noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
+    noise = frame.add_noise(x_mean=5, x_std=2, x_min=0, noise_type='gaussian')
 
 .. image:: images/basic_noise_truncated.png
 
@@ -381,22 +425,29 @@ This may be useful depending on the use case; you might not want negative
 intensities, or simply any intensity below a reasonable threshold, to occur in
 your synthetic data.
 
-Adding Gaussian noise based on real observations
+Adding synthetic noise based on real observations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We can also generate synthetic noise whose parameters are sampled from real
-observations. Specifically, we can select the mean, standard deviation,
-and minimum from distributions of parameters estimated from observations.
+observations. Specifically, we can select the mean for chi-squared noise, or 
+additionally the standard deviation and minimum for Gaussian noise, from 
+distributions of parameters estimated from observations.
 
-If no distributions are specified explicitly, noise parameters are sampled by
+If no distributions are provided by the user, noise parameters are sampled by
 default from pre-loaded distributions in :mod:`setigen`. These were estimated
 from GBT C-Band observations on frames with (dt, df) = (1.4 s, 1.4 Hz) and
 (tchans, fchans) = (32, 1024). Behind the scenes, the mean, standard deviation,
 and minimum intensity over each sub-frame in the observation were saved into
-three respective numpy arrays. The :code:`frame.add_noise_from_obs` function
-selects a mean, standard deviation, and minimum from these arrays (not
+three respective numpy arrays. 
+
+The :code:`frame.add_noise_from_obs` function also uses chi-squared noise by default,
+selecting a mean intensity from the sampled observational distribution of means, and
+populating the frame with chi-squared noise accordingly. 
+
+Alternately, by setting :code:`noise_type=gaussian` or :code:`noise_type=normal` 
+the function will select a mean, standard deviation, and minimum from these arrays (not
 necessarily all corresponding to the same original observational sub-frame), and
-populates your frame with Gaussian noise accordingly. You can also set the
+populates your frame with Gaussian noise. You can also set the
 :code:`share_index` parameter to True, to force these random noise parameter selections
 to all correspond to the same original observational sub-frame.
 
@@ -405,15 +456,23 @@ serve as approximations and real observations vary depending on the noise
 temperature and frequency band. To be safe, you can generate your own parameters
 distributions from `observational data`_.
 
-Without specifying distributions:
+For chi-squared noise:
 
 .. code-block:: python
 
-    noise = frame.add_noise_from_obs(share_index=False)
+    noise = frame.add_noise_from_obs()
 
-.. image:: images/noise_from_obs_default.png
+.. image:: images/noise_from_obs_default_chi2.png
 
 We can readily see that the intensities are similar to a real GBT observation's.
+
+For Gaussian noise:
+
+.. code-block:: python
+
+    noise = frame.add_noise_from_obs(noise_type='gaussian')
+
+.. image:: images/noise_from_obs_default.png
 
 We can also specify the distributions from which to sample parameters, one
 each for the mean, standard deviation, and minimum, as below. Note: just as
@@ -424,14 +483,15 @@ from which to sample if there's no need to truncate the noise at a lower bound.
 
     noise = frame.add_noise_from_obs(x_mean_array=[3,4,5],
                                      x_std_array=[1,2,3],
-                                     x_min_array=[1,2])
+                                     x_min_array=[1,2],
+                                     share_index=False,
+                                     noise_type='gaussian')
 
 .. image:: images/noise_from_obs_params.png
 
-When using custom distribution arrays, if they all have the same size,
-you can set :code:`share_index=True` to force the random noise parameter
-selections to use the same indices (as opposed to randomly choosing a parameter
-from each array).
+For chi-squared noise, only :code:`x_mean_array` is used. For Gaussian noise, by default,
+random noise parameter selections are forced to use the same indices (as opposed 
+to randomly choosing a parameter from each array) via :code:`share_index=True`.
 
 
 Convenience functions for signal generation

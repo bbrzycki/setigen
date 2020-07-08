@@ -94,3 +94,45 @@ def get_parameter_distributions(waterfall_fn, fchans, tchans=None, f_shift=None)
     x_min_array = np.array(x_min_array)
 
     return (x_mean_array, x_std_array, x_min_array)
+
+
+def get_mean_distribution(waterfall_fn, fchans, tchans=None, f_shift=None):
+    """
+    Calculate parameter distributions for the mean of split filterbank frames 
+    from real observations.
+
+    Parameters
+    ----------
+    waterfall_fn : str
+        Filterbank filename with .fil extension
+    fchans : int
+        Number of frequency samples per new filterbank file
+    tchans : int, optional
+        Number of time samples to select - will default from start of observation.
+        If None, just uses the entire integration time
+    f_shift : int, optional
+        Number of samples to shift when splitting filterbank. If
+        None, defaults to `f_shift=f_window` so that there is no
+        overlap between new filterbank files
+
+    Returns
+    -------
+    x_mean_array
+        Distribution of means calculated from observations
+    """
+    split_generator = split_utils.split_waterfall_generator(waterfall_fn,
+                                                            fchans,
+                                                            tchans=tchans,
+                                                            f_shift=f_shift)
+
+    x_mean_array = []
+    for waterfall in split_generator:
+        clipped_data = sigma_clip(waterfall_utils.get_data(waterfall),
+                                  sigma=3,
+                                  maxiters=5,
+                                  masked=False)
+        x_mean_array.append(np.mean(clipped_data))
+
+    x_mean_array = np.array(x_mean_array)
+
+    return x_mean_array

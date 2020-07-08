@@ -10,7 +10,7 @@ to initialize frames, starting from either resolution/size parameters or existin
 observational data.
 
 Here's a minimal working example for a purely synthetic frame, injecting a constant
-intensity signal into a background of Gaussian noise. Parameters in |setigen| are
+intensity signal into a background of chi-squared noise. Parameters in |setigen| are
 specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in the example:
 
 .. code-block:: python
@@ -24,12 +24,12 @@ specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in th
                       df=2.7939677238464355*u.Hz,
                       dt=18.25361108*u.s,
                       fch1=6095.214842353016*u.MHz)
-    frame.add_noise(x_mean=5, x_std=2, x_min=0)
-    frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
-                                       drift_rate=2*u.Hz/u.s),
-                     stg.constant_t_profile(level=frame.get_intensity(snr=30)),
-                     stg.gaussian_f_profile(width=40*u.Hz),
-                     stg.constant_bp_profile(level=1))
+    noise = frame.add_noise(x_mean=10, noise_type='chi2')
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(index=200),
+                                                drift_rate=2*u.Hz/u.s),
+                              stg.constant_t_profile(level=frame.get_intensity(snr=30)),
+                              stg.gaussian_f_profile(width=40*u.Hz),
+                              stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
     frame.render()

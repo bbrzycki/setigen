@@ -88,7 +88,7 @@ instead of functions.
                       df=2.7939677238464355*u.Hz,
                       dt=18.25361108*u.s,
                       fch1=6095.214842353016*u.MHz)
-    frame.add_noise(x_mean=5, x_std=2, x_min=0)
+    frame.add_noise(x_mean=10)
 
     path_array = np.random.uniform(frame.get_frequency(200),
                                    frame.get_frequency(400),
@@ -156,7 +156,7 @@ frame manipulations for a large frame:
                       fch1=6095.214842353016*u.MHz)
     times.append(time.time())
 
-    frame.add_noise(x_mean=5, x_std=2, x_min=0)
+    frame.add_noise(x_mean=10)
     times.append(time.time())
 
     # Normal add_signal
@@ -201,7 +201,7 @@ setting too small of a bounding frequency range can look like:
                       df=2.7939677238464355*u.Hz,
                       dt=18.25361108*u.s,
                       fch1=6095.214842353016*u.MHz)
-    frame.add_noise(x_mean=5, x_std=2, x_min=0)
+    frame.add_noise(x_mean=10)
 
     path_array = np.random.uniform(frame.get_frequency(200),
                                    frame.get_frequency(400),
@@ -259,7 +259,7 @@ Here is an example of integration in action:
                       df=2.7939677238464355*u.Hz,
                       dt=18.25361108*u.s,
                       fch1=6095.214842353016*u.MHz)
-    frame.add_noise(x_mean=5, x_std=2, x_min=0)
+    frame.add_noise(x_mean=10)
 
     frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                        drift_rate=2*u.Hz/u.s),
@@ -285,8 +285,8 @@ own observations, and feed those into :code:`frame.add_noise_from_obs` yourself.
 It is worth mentioning that while you can just inject signals into
 observational frames directly, real observations may contain real signals as well.
 By estimating noise parameter distributions from observations, you can generate
-synthetic Gaussian noise with similar noise statistics as real observations, thereby
-resembling real data while excluding real signals.
+synthetic chi-squared or Gaussian noise with similar noise statistics as real observations, 
+thereby resembling real data while excluding real signals.
 
 To do this, we can use :func:`~setigen.sample_from_obs.get_parameter_distributions`:
 
@@ -307,8 +307,8 @@ This will iterate over an entire filterbank file, estimating the noise statistic
 and returning them as numpy arrays.
 
 
-Creating a synthetic signal dataset using observations
-------------------------------------------------------
+Creating an injected synthetic signal dataset using observations
+----------------------------------------------------------------
 
 We can create a dataset based on observations using the :mod:`~setigen.split_utils`
 module. We can use :func:`~setigen.split_utils.split_waterfall_generator` to create

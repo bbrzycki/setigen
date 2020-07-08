@@ -26,7 +26,7 @@ from .funcs import bp_profiles
 class Frame(object):
     """
     Facilitates the creation of entirely synthetic radio data (narrowband
-    signals + Gaussian noise) as well as signal injection into existing
+    signals + background noise) as well as signal injection into existing
     observations.
     """
 
@@ -115,6 +115,10 @@ class Frame(object):
         else:
             raise ValueError('Frame must be provided dimensions or an \
                               existing filterbank file.')
+            
+        # Degrees of freedom for chi-squared radiometer noise
+        # 2 polarizations, real and imaginary components -> 4
+        self.chi2_df = 4 * round(self.df * self.dt)
 
         # Shared creation of ranges
         self.fmax = self.fch1
@@ -204,23 +208,42 @@ class Frame(object):
 
     def add_noise(self,
                   x_mean,
-                  x_std,
-                  x_min=None):
+                  x_std=None,
+                  x_min=None,
+                  noise_type='chi2'):
         """
-        Adds Gaussian noise to the frame, from the specified mean and
-        standard deviation (and minimum if desired). The minimum is simply a
+        By default, synthesizes radiometer noise based on a chi-squared
+        distribution. Alternately, can generate pure Gaussian noise.
+        
+        Specifying noise_type='chi2' will only use x_mean,
+        and ignore other parameters. Specifying noise_type='normal' or 'gaussian' 
+        will use all arguments (if provided).
+        
+        When adding Gaussian noise to the frame, the minimum is simply a
         lower bound for intensities in the data (e.g. it may make sense to
         cap intensities at 0), but this is optional.
         """
-        if x_min is not None:
-            noise = distributions.truncated_gaussian(x_mean,
-                                                     x_std,
-                                                     x_min,
-                                                     self.data.shape)
+        if noise_type == 'chi2':
+            noise = distributions.chi2(x_mean, self.chi2_df, self.shape)
+            
+            # Based on variance of ideal chi-squared distribution
+            x_std = np.sqrt(2 * self.chi2_df) * x_mean / self.chi2_df
+        elif noise_type in ['normal', 'gaussian']:
+            if x_std is not None:
+                if x_min is not None:
+                    noise = distributions.truncated_gaussian(x_mean,
+                                                             x_std,
+                                                             x_min,
+                                                             self.shape)
+                else:
+                    noise = distributions.gaussian(x_mean,
+                                                   x_std,
+                                                   self.shape)
+            else:
+                sys.exit('x_std must be given')
         else:
-            noise = distributions.gaussian(x_mean,
-                                           x_std,
-                                           self.data.shape)
+            sys.exit('{} is not a valid noise type'.format(noise_type))
+                
         self.data += noise
 
         set_to_param = (self.noise_mean == self.noise_std == 0)
@@ -235,13 +258,21 @@ class Frame(object):
                            x_mean_array=None,
                            x_std_array=None,
                            x_min_array=None,
-                           share_index=True):
+                           share_index=True,
+                           noise_type='chi2'):
         """
-        If no arrays are specified to sample Gaussian parameters from, noise
+        By default, synthesizes radiometer noise based on a chi-squared
+        distribution. Alternately, can generate pure Gaussian noise.
+        
+        If no arrays are specified from which to sample, noise
         samples will be drawn from saved GBT C-Band observations at
         (dt, df) = (1.4 s, 1.4 Hz) resolution, from frames of shape
-        (tchans, fchans) = (32, 1024). These sample noise parameters consists
+        (tchans, fchans) = (32, 1024). These sample noise parameters consist
         of 126500 samples for mean, std, and min of each observation.
+        
+        Specifying noise_type='chi2' will only use x_mean_array (if provided),
+        and ignore other parameters. Specifying noise_type='normal' will use
+        all arrays (if provided).
 
         Note: this method will attempt to scale the noise parameters to match
         self.dt and self.df. This assumes that the observation data products
@@ -259,6 +290,8 @@ class Frame(object):
             Whether to select noise parameters from the same index across each
             provided array. If share_index is True, then each array must be
             the same length.
+        noise_type : string
+            Distribution to use for synthetic noise; 'chi2', 'normal', 'gaussian'
         """
         if (x_mean_array is None
             and x_std_array is None
@@ -276,41 +309,51 @@ class Frame(object):
             x_mean_array = sample_noise_params[:, 0] * scale_factor
             x_std_array = sample_noise_params[:, 1] * scale_factor
             x_min_array = sample_noise_params[:, 2] * scale_factor
-
-        if x_min_array is not None:
-            if share_index:
-                if (len(x_mean_array) != len(x_std_array)
-                        or len(x_mean_array) != len(x_min_array)):
-                    raise IndexError('To share a random index, all parameter \
-                                      arrays must be the same length!')
-                i = np.random.randint(len(x_mean_array))
-                x_mean, x_std, x_min = (x_mean_array[i],
-                                        x_std_array[i],
-                                        x_min_array[i])
+            
+        if noise_type == 'chi2':
+            x_mean = np.random.choice(x_mean_array)
+            noise = distributions.chi2(x_mean, self.chi2_df, self.shape)
+            
+            # Based on variance of ideal chi-squared distribution
+            x_std = np.sqrt(2 * self.chi2_df) * x_mean / self.chi2_df
+            
+        elif noise_type in ['normal', 'gaussian']:
+            if x_min_array is not None:
+                if share_index:
+                    if (len(x_mean_array) != len(x_std_array)
+                            or len(x_mean_array) != len(x_min_array)):
+                        raise IndexError('To share a random index, all parameter \
+                                          arrays must be the same length!')
+                    i = np.random.randint(len(x_mean_array))
+                    x_mean, x_std, x_min = (x_mean_array[i],
+                                            x_std_array[i],
+                                            x_min_array[i])
+                else:
+                    x_mean, x_std, x_min = sample_from_obs \
+                                           .sample_gaussian_params(x_mean_array,
+                                                                   x_std_array,
+                                                                   x_min_array)
+                noise = distributions.truncated_gaussian(x_mean,
+                                                         x_std,
+                                                         x_min,
+                                                         self.shape)
             else:
-                x_mean, x_std, x_min = sample_from_obs \
-                                       .sample_gaussian_params(x_mean_array,
-                                                               x_std_array,
-                                                               x_min_array)
-            noise = distributions.truncated_gaussian(x_mean,
-                                                     x_std,
-                                                     x_min,
-                                                     self.data.shape)
+                if share_index:
+                    if len(x_mean_array) != len(x_std_array):
+                        raise IndexError('To share a random index, all parameter \
+                                          arrays must be the same length!')
+                    i = np.random.randint(len(x_mean_array))
+                    x_mean, x_std = x_mean_array[i], x_std_array[i]
+                else:
+                    x_mean, x_std = sample_from_obs \
+                                    .sample_gaussian_params(x_mean_array,
+                                                            x_std_array)
+
+                noise = distributions.gaussian(x_mean,
+                                               x_std,
+                                               self.shape)
         else:
-            if share_index:
-                if len(x_mean_array) != len(x_std_array):
-                    raise IndexError('To share a random index, all parameter \
-                                      arrays must be the same length!')
-                i = np.random.randint(len(x_mean_array))
-                x_mean, x_std = x_mean_array[i], x_std_array[i]
-            else:
-                x_mean, x_std = sample_from_obs \
-                                .sample_gaussian_params(x_mean_array,
-                                                        x_std_array)
-
-            noise = distributions.gaussian(x_mean,
-                                           x_std,
-                                           self.data.shape)
+            sys.exit('{} is not a valid noise type'.format(noise_type))
 
         self.data += noise
 
@@ -391,7 +434,7 @@ class Frame(object):
         Examples
         --------
         Here's an example that creates a linear Doppler-drifted signal with
-        Gaussian noise with sampled parameters:
+        chi-squared noise with sampled parameters:
 
         >>> from astropy import units as u
         >>> import setigen as stg
@@ -405,7 +448,7 @@ class Frame(object):
                               df=df,
                               dt=dt,
                               fch1=fch1)
-        >>> noise = frame.add_noise(x_mean=5, x_std=2, x_min=0)
+        >>> noise = frame.add_noise(x_mean=10)
         >>> signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                         drift_rate=2*u.Hz/u.s),
                                       stg.constant_t_profile(level=frame.get_intensity(snr=30)),

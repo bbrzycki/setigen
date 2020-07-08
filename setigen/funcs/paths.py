@@ -70,6 +70,6 @@ def choppy_rfi_path(f_start, drift_rate, spread, spread_type='uniform'):
         elif spread_type == 'normal':
             f_offset = np.random.normal(0, spread, t.shape)
         else:
-            sys.exit('%s is not a valid spread type!' % spread_type)
+            sys.exit('{} is not a valid spread type!'.format(spread_type))
         return f_start + drift_rate * t + f_offset
     return path

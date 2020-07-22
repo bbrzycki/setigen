@@ -5,7 +5,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='setigen',
-    version='1.3.0',
+    version='1.3.1',
     author='Bryan Brzycki',
     author_email='bbrzycki@berkeley.edu',
     description='SETI radio signal generator',
@@ -17,6 +17,7 @@ setuptools.setup(
         'Source': 'https://github.com/bbrzycki/setigen'
     },
     packages=setuptools.find_packages(),
+    include_package_data=True,
     install_requires=[
        'numpy>=1.18.1',
        'scipy>=1.4.1',

@@ -298,12 +298,41 @@ the width of the signal:
 
 .. image:: images/gaussian_profile.png
 
+Sinc squared intensity profile
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To generate a signal with a sinc squared intensity profile in the frequency direction, use
+:func:`~setigen.funcs.f_profiles.sinc2_f_profile`, specifying the width of the
+signal:
+
+.. code-block:: python
+
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
+                                                drift_rate=2*u.Hz/u.s),
+                              stg.constant_t_profile(level=1),
+                              stg.sinc2_f_profile(width=40*u.Hz),
+                              stg.constant_bp_profile(level=1))
+
+.. image:: images/sinc2_profile.png
+
+By default, the function has the parameter :code:`trunc=True` to truncate the sinc squared function at the first zero-crossing. With :code:`trunc=False` and using a larger width to show the effect:
+
+.. code-block:: python
+
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
+                                                drift_rate=2*u.Hz/u.s),
+                              stg.constant_t_profile(level=1),
+                              stg.sinc2_f_profile(width=200*u.Hz, trunc=False),
+                              stg.constant_bp_profile(level=1))
+
+.. image:: images/sinc2_profile_no_trunc.png
+
 Multiple Gaussian intensity profile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The profile :func:`~setigen.funcs.f_profiles.multiple_gaussian_f_profile`,
 generates a symmetric signal with three Gaussians; one main signal and two
-smaller signals on either side.
+smaller signals on either side. This is mostly a demonstration that :code:`f_profile` functions can be composite, and you can create custom functions like this (:doc:`advanced.rst`).
 
 .. code-block:: python
 

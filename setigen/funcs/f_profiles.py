@@ -80,3 +80,25 @@ def voigt_f_profile(g_width, l_width):
     def f_profile(f, f_center):
         return func_utils.voigt(f, f_center, sigma, gamma) / func_utils.voigt(f_center, f_center, sigma, gamma)
     return f_profile
+
+
+def sinc2_f_profile(width, trunc=True):
+    """
+    Sinc squared profile; width is the FWHM of the squared normalized sinc function.
+    
+    The trunc parameter controls whether or not the sinc squared profile is 
+    truncated at the first root (e.g. zeroed out for more distant frequencies).
+    """
+    width = unit_utils.get_value(width, u.Hz)
+    
+    # Using the numerical solution for the FWHM
+    zero_crossing = (width / 2) / 0.442946470689452
+    
+    def f_profile(f, f_center):
+        if trunc:
+            return np.where(np.abs(f - f_center) < zero_crossing, 
+                            np.sinc((f - f_center) / zero_crossing),
+                            0)**2
+        else:
+            return np.sinc((f - f_center) / zero_crossing)**2
+    return f_profile

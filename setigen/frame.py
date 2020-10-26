@@ -593,7 +593,7 @@ class Frame(object):
         width : astropy.Quantity
             Signal width in frequency units
         f_profile_type : str
-            Can be 'box', 'gaussian', 'lorentzian', or 'voigt', based on the desired spectral profile
+            Can be 'box', 'sinc2', 'gaussian', 'lorentzian', or 'voigt', based on the desired spectral profile
 
         Returns
         -------
@@ -626,6 +626,8 @@ class Frame(object):
             f_profile = f_profiles.lorentzian_f_profile(width)
         elif f_profile_type == 'voigt':
             f_profile = f_profiles.voigt_f_profile(width, width)
+        elif f_profile_type == 'sinc2':
+            f_profile = f_profiles.sinc2_f_profile(width)
         elif f_profile_type == 'box':
             f_profile = f_profiles.box_f_profile(width)
         else:

@@ -204,6 +204,37 @@ This path is a very simple quadratic with respect to time, using
 
 .. image:: images/squared_signal.png
 
+RFI-like path
+~~~~~~~~~~~~
+
+This path randomly varies in frequency, as in some RFI signals, using
+:func:`~setigen.funcs.paths.simple_rfi_path`. The following example shows two
+such signals, with :code:`rfi_type` set to 'stationary' and 'random_walk'. You 
+can define :code:`drift_rate` to set these signals in relation to a straight
+line path.
+
+.. code-block:: python
+
+    frame.add_signal(stg.simple_rfi_path(f_start=frame.fs[200], 
+                                         drift_rate=0*u.Hz/u.s,
+                                         spread=300*u.Hz,
+                                         spread_type='uniform',
+                                         rfi_type='stationary'),
+                     stg.constant_t_profile(level=1),
+                     stg.box_f_profile(width=20*u.Hz),
+                     stg.constant_bp_profile(level=1))
+
+    frame.add_signal(stg.simple_rfi_path(f_start=frame.fs[600], 
+                                         drift_rate=0*u.Hz/u.s,
+                                         spread=300*u.Hz,
+                                         spread_type='uniform',
+                                         rfi_type='random_walk'),
+                     stg.constant_t_profile(level=1),
+                     stg.box_f_profile(width=20*u.Hz),
+                     stg.constant_bp_profile(level=1))
+
+.. image:: images/rfi_signal.png
+
 :code:`t_profiles` - intensity variation with time
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

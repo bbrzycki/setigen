@@ -38,7 +38,7 @@ def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
     info_wf = Waterfall(waterfall_fn, load_data=False)
     fch1 = info_wf.header['fch1']
     nchans = info_wf.header['nchans']
-    df = abs(info_wf.header['foff'])
+    df = info_wf.header['foff']
     tchans_tot = info_wf.container.selection_shape[0]
 
     if f_shift is None:
@@ -51,21 +51,21 @@ def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
                           time samples in the observation')
 
     # Note that df is negative!
-    f_start = fch1 - fchans * df
-    f_stop = fch1
+    f_start, f_stop = fch1, fch1 + fchans * df
 
     # Iterates down frequencies, starting from highest
-    while f_start >= fch1 - nchans * df:
+    while np.abs(f_stop - fch1) <= np.abs(nchans * df):
+        fmin, fmax = np.sort([f_start, f_stop])
         waterfall = Waterfall(waterfall_fn,
-                              f_start=f_start,
-                              f_stop=f_stop,
+                              f_start=fmin,
+                              f_stop=fmax,
                               t_start=0,
                               t_stop=tchans)
 
         yield waterfall
 
-        f_start -= f_shift * df
-        f_stop -= f_shift * df
+        f_start += f_shift * df
+        f_stop += f_shift * df
 
 
 def split_fil(waterfall_fn, output_dir, fchans, tchans=None, f_shift=None):

@@ -37,7 +37,8 @@ class Frame(object):
                  df=None,
                  dt=None,
                  fch1=8*u.GHz,
-                 data=None):
+                 data=None,
+                 ascending=False):
         """
         Initializes a Frame object either from an existing .fil/.h5 file or
         from frame resolution / size.
@@ -68,6 +69,12 @@ class Frame(object):
             Maximum frequency, as in filterbank file headers (e.g. in u.Hz)
         data : ndarray, optional
             2D array of intensities to preload into frame
+        ascending : bool, optional
+            Specify whether frequencies should be in ascending order, so that 
+            fch1 is the minimum frequency. Default is False, for which fch1
+            is the maximum frequency. This is overwritten if a waterfall
+            object is provided, where ascending will be automatically 
+            determined by observational parameters.
         """
         if None not in [fchans, tchans, df, dt, fch1]:
             self.waterfall = None
@@ -75,6 +82,8 @@ class Frame(object):
             # Need to address this and come up with a meaningful header
             self.header = None
             self.fchans = int(unit_utils.get_value(fchans, u.pixel))
+            
+            self.ascending = ascending
             self.df = unit_utils.get_value(abs(df), u.Hz)
             self.fch1 = unit_utils.get_value(fch1, u.Hz)
 
@@ -100,6 +109,7 @@ class Frame(object):
             self.tchans, _, self.fchans = self.waterfall.container.selection_shape
 
             # Frequency values are saved in MHz in waterfall files
+            self.ascending = (self.waterfall.header['foff'] > 0)
             self.df = unit_utils.cast_value(abs(self.waterfall.header['foff']),
                                             u.MHz).to(u.Hz).value
             self.fch1 = unit_utils.cast_value(self.waterfall.container.f_stop,
@@ -121,7 +131,6 @@ class Frame(object):
         self.chi2_df = 4 * round(self.df * self.dt)
 
         # Shared creation of ranges
-        self.fmax = self.fch1
         self._update_fs()
         self._update_ts()
 
@@ -157,14 +166,22 @@ class Frame(object):
         Calculates and updates an array of frequencies represented in the
         frame.
         """
-        self.fs = unit_utils.get_value(np.linspace(self.fmax,
-                                                   self.fmax - self.fchans * self.df,
-                                                   self.fchans,
-                                                   endpoint=False),
-                                       u.Hz)
-
-        self.fs = self.fs[::-1]
-        self.fmin = self.fs[0]
+        # Normally, self.ascending will be False; filterbank convention is decreasing freqs
+        if self.ascending:
+            self.fmin = self.fch1
+            self.fs = np.linspace(self.fmin,
+                                  self.fmin + self.fchans * self.df,
+                                  self.fchans,
+                                  endpoint=False)
+            self.fmax = self.fs[-1]
+        else:
+            self.fmax = self.fch1
+            self.fs = np.linspace(self.fmax,
+                                  self.fmax - self.fchans * self.df,
+                                  self.fchans,
+                                  endpoint=False)
+            self.fmin = self.fs[-1]
+            self.fs = self.fs[::-1]
 
     def _update_ts(self):
         """
@@ -644,7 +661,7 @@ class Frame(object):
         """
         Convert frequency to closest index in frame.
         """
-        return (self.fchans - 1) - int(np.round((self.fmax - frequency) / self.df))
+        return (self.fchans - 1) - int(np.round((self.fmax - unit_utils.get_value(frequency, u.Hz)) / self.df))
 
     def get_frequency(self, index):
         """
@@ -715,23 +732,13 @@ class Frame(object):
         self.waterfall.plot_waterfall(logged=use_db)
 
     def _update_waterfall(self):
-        # Set fil with sample data; (1.4 Hz, 1.4 s) res
+        # If entirely synthetic, base filterbank structure on existing sample data
         if self.waterfall is None:
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
             self.waterfall = Waterfall(path)
             self.waterfall.header['source_name'] = 'Synthetic'
             self.waterfall.header['rawdatafile'] = 'Synthetic'
-
-            # Fix header info for Waterfall, for purely Synthetic frames
-            header_attr = {
-                'foff': self.df * -1e-6,
-                'tsamp': self.dt,
-                'nchans': self.fchans,
-                'fch1': self.fmax * 1e-6,
-            }
-            self.waterfall.header.update(header_attr)
-            self.waterfall.file_header.update(header_attr)
 
             container_attr = {
                 't_begin': 0,
@@ -766,15 +773,22 @@ class Frame(object):
                         key,
                         value)
 
-        # Have to manually flip in the frequency direction + add an extra
-        # dimension for polarization to work with Waterfall
-        self.waterfall.data = self.data[:, np.newaxis, ::-1]
-
-        # Set Waterfall metadata just in case these have been edited
+        # Format data correctly for saving into filterbank format
+        self.waterfall.data = self.data[:, np.newaxis, :]
+        if not self.ascending:
+            # Have to manually flip in the frequency direction
+            self.waterfall.data = self.waterfall.data[:, :, ::-1]
+            
+        # Edit header info for Waterfall in case these have been changed from Frame manipulations
         header_attr = {
-            'foff': self.df * -1e-6,
             'tsamp': self.dt,
+            'nchans': self.fchans,
+            'fch1': self.fch1 * 1e-6,
         }
+        if self.ascending:
+            header_attr['foff'] = self.df * 1e-6
+        else:
+            header_attr['foff'] = self.df * -1e-6
         self.waterfall.header.update(header_attr)
         self.waterfall.file_header.update(header_attr)
         

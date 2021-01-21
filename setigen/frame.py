@@ -661,13 +661,13 @@ class Frame(object):
         """
         Convert frequency to closest index in frame.
         """
-        return (self.fchans - 1) - int(np.round((self.fmax - unit_utils.get_value(frequency, u.Hz)) / self.df))
+        return np.round((unit_utils.get_value(frequency, u.Hz) - self.fmin) / self.df).astype(int)
 
     def get_frequency(self, index):
         """
         Convert index to frequency.
         """
-        return self.fmax - self.df * ((self.fchans - 1) - index)
+        return self.fmin + self.df * index
 
     def get_intensity(self, snr):
         """

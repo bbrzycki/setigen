@@ -6,17 +6,20 @@ def pfb_frontend(x, pfb_window, n_taps, n_chan):
     """
     Apply windowing function to create polyphase filterbank frontend.
     
-    TODO: right now this requires that len(x) is a multiple of (n_taps*n_chan).
-    Should relax this.
+    Follows description in Danny C. Price, Spectrometers and Polyphase Filterbanks in Radio Astronomy, 2016. Available online at: http://arxiv.org/abs/1607.03579.
     """
     W = int(len(x) / n_taps / n_chan)
-    x_p = x.reshape((W * n_taps, n_chan)).T
-    h_p = pfb_window.reshape((n_taps, n_chan)).T
-    x_summed = np.zeros((n_chan, n_taps * (W - 1)))
-    for t in range(0, n_taps * (W - 1)):
-        x_weighted = x_p[:, t:t + n_taps] * h_p
-        x_summed[:, t] = x_weighted.sum(axis=1)
-    return x_summed.T
+    
+    # Truncate data stream x to fit reshape step
+    x_p = x[:W * n_taps * n_chan].reshape((W * n_taps, n_chan))
+    h_p = pfb_window.reshape((n_taps, n_chan))
+    
+    # Resulting summed data array will be slightly shorter from windowing coeffs
+    x_summed = np.zeros(((W - 1) * n_taps + 1, n_chan))
+    for t in range(0, (W - 1) * n_taps + 1):
+        x_weighted = x_p[t:t + n_taps, :] * h_p
+        x_summed[t, :] = x_weighted.sum(axis=0)
+    return x_summed
 
 def get_pfb_window(n_taps, n_chan, window_fn='hamming'):
     """
@@ -62,3 +65,33 @@ def get_pfb_waterfall(pfb_voltages, n_int, fftlength, start_channel, num_channel
     XX_psd = XX_psd.mean(axis=1)
     
     return XX_psd
+
+
+def quantize_real(x, target_fwhm=30, n_bits=8):
+    """
+    Quantize real voltage data to integers with specified number of bits
+    and target FWHM range. 
+    """
+#     # Estimate sigma quickly
+#     data_sigma = np.std(pfb_voltages.flatten()[:10000])
+    data_sigma = np.std(x.flatten())
+    data_fwhm = 2 * np.sqrt(2 * np.log(2)) * data_sigma
+    
+    factor = target_fwhm / data_fwhm
+    
+    q_voltages = np.round(factor * x)
+    q_voltages[q_voltages < -2**(n_bits - 1)] = -2**(n_bits - 1)
+    q_voltages[q_voltages > 2**(n_bits - 1) - 1] = 2**(n_bits - 1) - 1
+    q_voltages = q_voltages.astype(int)
+    return q_voltages
+
+
+def quantize_complex(x, target_fwhm=30, n_bits=8):
+    """
+    Quantize complex voltage data to integers with specified number of bits
+    and target FWHM range. 
+    """
+    r, i = np.real(x), np.imag(x)
+    q_r = quantize_real(r, target_fwhm=target_fwhm, n_bits=n_bits)
+    q_i = quantize_real(i, target_fwhm=target_fwhm, n_bits=n_bits)
+    return q_r + q_i * 1j

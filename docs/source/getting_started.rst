@@ -85,9 +85,27 @@ We can also view this using blimpy's plotting style:
 
 .. image:: images/gs_obs_bl_render.png
 
+Usually, filterbank data is saved with frequencies in descending order, with the first
+frequency bin centered at :code:`fch1`. |setigen| works with data in increasing frequency
+order, and will reverse the data order when appropriate if the frame is initialized with such 
+an observation. However, if you are working with data or would like to synthesize
+data for which :code:`fch1` should be the minimum frequency, set :code:`ascending=True` when 
+initializing the Frame object. Note that if you initialize Frame using a filterbank file with
+frequencies in increasing order, you do not need to set :code:`ascending` manually.
+
+.. code-block:: python
+
+    frame = stg.Frame(fchans=1024*u.pixel,
+                      tchans=32*u.pixel,
+                      df=2.7939677238464355*u.Hz,
+                      dt=18.25361108*u.s,
+                      fch1=6095.214842353016*u.MHz,
+                      ascending=True)
+
 Assuming you have access to a data array, with corresponding resolution information, you can
-can also initialize a frame as follows. Just make sure that your data is arranged in order 
-of increasing frequency! 
+can also initialize a frame as follows. Just make sure that your data is already arranged in order 
+of increasing frequency; setting the :code:`ascending` parameter will only affect the frequency 
+values that are mapped to the provided data array.
 
 .. code-block:: python
 

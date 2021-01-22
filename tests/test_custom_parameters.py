@@ -20,6 +20,17 @@ def frame_setup_no_data():
 
 
 @pytest.fixture()
+def frame_setup_no_data_ascending():
+    frame = stg.Frame(fchans=1024*u.pixel,
+                      tchans=32*u.pixel,
+                      df=2.7939677238464355*u.Hz,
+                      dt=18.25361108*u.s,
+                      fch1=6095211984.124035,
+                      ascending=True)
+    return frame
+
+
+@pytest.fixture()
 def constant_signal_data():
     my_path = os.path.abspath(os.path.dirname(__file__))
     path = os.path.join(my_path, 'assets/test_frame_data.npy')
@@ -34,14 +45,42 @@ def test_setup_no_data(frame_setup_no_data):
 
     assert frame.df == pytest.approx(2.7939677238464355)
     assert frame.dt == pytest.approx(18.25361108)
-    assert frame.fmax == pytest.approx(6095214842.353016)
-    assert frame.fmin == pytest.approx(6095211981.330067)
+    assert (frame.fmax - 6095214842.353016) == pytest.approx(0)
+    assert (frame.fmin - 6095211984.124035) == pytest.approx(0)
 
     assert_allclose(frame.data, np.zeros((32, 1024)))
     assert frame.mean() == frame.noise_mean == 0
     assert frame.std() == frame.noise_std == 0
+    
+    
+def test_setup_no_data_ascending(frame_setup_no_data_ascending):
+    frame = copy.deepcopy(frame_setup_no_data_ascending)
+    assert frame.fchans == 1024
+    assert frame.tchans == 32
+    assert frame.shape == (32, 1024)
 
+    assert frame.df == pytest.approx(2.7939677238464355)
+    assert frame.dt == pytest.approx(18.25361108)
+    assert (frame.fmax - 6095214842.353016) == pytest.approx(0)
+    assert (frame.fmin - 6095211984.124035) == pytest.approx(0)
 
+    assert_allclose(frame.data, np.zeros((32, 1024)))
+    assert frame.mean() == frame.noise_mean == 0
+    assert frame.std() == frame.noise_std == 0
+    
+    
+def test_index_calc(frame_setup_no_data, frame_setup_no_data_ascending):
+    frame = copy.deepcopy(frame_setup_no_data)
+    frame1 = copy.deepcopy(frame_setup_no_data_ascending)
+    assert_allclose(frame.fs, frame1.fs)
+    assert frame.get_index(frame.fch1) == 1023
+    assert frame1.get_index(frame1.fch1) == 0
+    assert frame.get_index(6095213000) == frame1.get_index(6095213000)
+    assert frame.get_index(42) == frame1.get_index(42)
+    assert frame.get_frequency(200) == pytest.approx(6095212542.91758)
+    assert frame1.get_frequency(200) == pytest.approx(6095212542.91758)
+
+    
 def test_fil_io(frame_setup_no_data):
     frame = copy.deepcopy(frame_setup_no_data)
 

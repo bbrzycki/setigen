@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from .funcs import *
 from .voltage import *
+from . import voltage
 
 from .distributions import *
 from .waterfall_utils import *

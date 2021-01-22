@@ -15,8 +15,8 @@ def pfb_frontend(x, pfb_window, n_taps, n_chan):
     h_p = pfb_window.reshape((n_taps, n_chan))
     
     # Resulting summed data array will be slightly shorter from windowing coeffs
-    x_summed = np.zeros(((W - 1) * n_taps + 1, n_chan))
-    for t in range(0, (W - 1) * n_taps + 1):
+    x_summed = np.zeros(((W - 1) * n_taps, n_chan))
+    for t in range(0, (W - 1) * n_taps):
         x_weighted = x_p[t:t + n_taps, :] * h_p
         x_summed[t, :] = x_weighted.sum(axis=0)
     return x_summed

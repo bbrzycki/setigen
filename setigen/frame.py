@@ -65,8 +65,10 @@ class Frame(object):
             Frequency resolution (e.g. in u.Hz)
         dt : astropy.Quantity, optional
             Time resolution (e.g. in u.s)
-        fch1 : astropy.Quantity, optional (fmax)
-            Maximum frequency, as in filterbank file headers (e.g. in u.Hz)
+        fch1 : astropy.Quantity, optional
+            Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
+            If ascending=True, fch1 is the minimum frequency; if ascending=False 
+            (default), fch1 is the maximum frequency.
         data : ndarray, optional
             2D array of intensities to preload into frame
         ascending : bool, optional

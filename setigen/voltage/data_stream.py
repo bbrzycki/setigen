@@ -15,12 +15,14 @@ class DataStream(object):
     """
     
     def __init__(self,
-                 sample_rate=3*u.GHz):
+                 sample_rate=3*u.GHz,
+                 seed=None):
+        self.rng = np.random.default_rng(seed)
+        
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate
         
-        self.t_start = 0
-        self.next_t_start = 0
+        self.reset()
         
         # Hold functions that generate voltage values
         self.noise_sources = []
@@ -28,21 +30,33 @@ class DataStream(object):
         
     def _update_t(self, num_samples):
         self.t = self.next_t_start + np.linspace(0., 
-                                            num_samples * self.dt,
-                                            num_samples,
-                                            endpoint=False)
+                                                 num_samples * self.dt,
+                                                 num_samples,
+                                                 endpoint=False)
         
         self.t_start = self.t[0]
         self.next_t_start = self.t[-1] + self.dt
         
         self.v = np.zeros(num_samples)
+        
+    def reset(self):
+        self.next_t_start = self.t_start = 0
+        self.t = None
+        self.v = None
+        
+    def set_time(self, t):
+        self.next_t_start = self.t_start = t
+        
+    def add_time(self, t):
+        self.next_t_start += t
+        self.t_start += t
     
     def add_noise(self,
                   v_mean,
                   v_std):
-        noise_func = lambda t: np.random.normal(loc=v_mean, 
-                                                scale=v_std,
-                                                size=len(t))
+        noise_func = lambda t: self.rng.normal(loc=v_mean, 
+                                               scale=v_std,
+                                               size=len(t))
         self.noise_sources.append(noise_func)
         
     def add_signal(self,

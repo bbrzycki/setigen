@@ -1,10 +1,15 @@
 import sys
 import os.path
-import numpy as np
+try:
+    import cupy as xp
+except ImportError:
+    import numpy as xp
 import matplotlib.pyplot as plt
 
 from astropy import units as u
 from astropy.stats import sigma_clip
+
+import time
 
 from setigen import unit_utils
 
@@ -17,7 +22,7 @@ class DataStream(object):
     def __init__(self,
                  sample_rate=3*u.GHz,
                  seed=None):
-        self.rng = np.random.default_rng(seed)
+        self.rng = xp.random.RandomState(seed)
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate
@@ -29,7 +34,7 @@ class DataStream(object):
         self.signal_sources = []
         
     def _update_t(self, num_samples):
-        self.t = self.next_t_start + np.linspace(0., 
+        self.t = self.next_t_start + xp.linspace(0., 
                                                  num_samples * self.dt,
                                                  num_samples,
                                                  endpoint=False)
@@ -37,12 +42,13 @@ class DataStream(object):
         self.t_start = self.t[0]
         self.next_t_start = self.t[-1] + self.dt
         
-        self.v = np.zeros(num_samples)
+        self.v = xp.zeros(num_samples)
         
     def reset(self):
         self.next_t_start = self.t_start = 0
         self.t = None
         self.v = None
+        self.start_obs = True
         
     def set_time(self, t):
         self.next_t_start = self.t_start = t
@@ -68,16 +74,29 @@ class DataStream(object):
         
         def signal_func(t):
             center_freqs = f_start + drift_rate * self.t
-            return level * np.cos(2 * np.pi * t * center_freqs)
+            return level * xp.cos(2 * xp.pi * t * center_freqs)
         
         self.signal_sources.append(signal_func)
     
-    def get_samples(self, 
+    def get_samples(self,
                     num_samples):
         self._update_t(num_samples)
+        
+#         start = time.time()
+        
         for noise_func in self.noise_sources:
             self.v += noise_func(self.t)
+            
+#         print('noise',time.time() - start)
+#         start = time.time()
+            
         for signal_func in self.signal_sources:
             self.v += signal_func(self.t)   
+        
+#         print('signal',time.time() - start)
+#         start = time.time()
+
+        self.start_obs = False
+        
         return self.v
         

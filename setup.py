@@ -24,7 +24,7 @@ setuptools.setup(
        'astropy>=4.0',
        'blimpy>=2.0.0',
        'matplotlib>=3.1.3',
-       'sphinx-rtd-theme==0.4.3'
+       'sphinx-rtd-theme>=0.4.3'
     ],
     dependency_links=['https://github.com/h5py/h5py',
                       'https://github.com/kiyo-masui/bitshuffle'],

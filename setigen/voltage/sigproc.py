@@ -74,28 +74,7 @@ class ComplexQuantizer(object):
                                 target_fwhm=self.target_fwhm,
                                 num_bits=self.num_bits)
     
-# @jit(nopython=True) # Set "nopython" mode for best performance, equivalent to @njit
-# def pfb_frontend(x, pfb_window, num_taps, num_branches):
-#     """
-#     Apply windowing function to create polyphase filterbank frontend.
     
-#     Follows description in Danny C. Price, Spectrometers and Polyphase 
-#     Filterbanks in Radio Astronomy, 2016. Available online at: 
-#     http://arxiv.org/abs/1607.03579.
-#     """
-#     W = int(len(x) / num_taps / num_branches)
-    
-#     # Truncate data stream x to fit reshape step
-#     x_p = x[:W*num_taps*num_branches].reshape((W * num_taps, num_branches))
-#     h_p = pfb_window.reshape((num_taps, num_branches))
-    
-#     # Resulting summed data array will be slightly shorter from windowing coeffs
-#     x_summed = xp.zeros(((W - 1) * num_taps, num_branches))
-#     for t in range(0, (W - 1) * num_taps):
-#         x_weighted = x_p[t:t+num_taps, :] * h_p
-#         x_summed[t, :] = xp.sum(x_weighted, axis=0)
-#     return x_summed
-
 def pfb_frontend(x, pfb_window, num_taps, num_branches):
     """
     Apply windowing function to create polyphase filterbank frontend.
@@ -120,6 +99,7 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
 #         x_summed[t, :] = xp.sum(x_weighted, axis=0)
     return x_summed
 
+
 def get_pfb_window(num_taps, num_branches, window_fn='hamming'):
     """
     Get windowing function to multiply to time series data
@@ -131,6 +111,7 @@ def get_pfb_window(num_taps, num_branches, window_fn='hamming'):
                                window='rectangular')
     window *= sinc * num_branches
     return xp.asarray(window)
+
 
 def get_pfb_voltages(x, num_taps, num_branches, window_fn='hamming'):
     """
@@ -179,6 +160,7 @@ def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, int_factor=1, fftleng
     
     return XX_psd
 
+
 def get_waterfall_from_raw(raw_filename, block_size, num_chans, int_factor=1, fftlength=256):
     # produces waterfall from a raw file (only the first block)
     with open(raw_filename, "rb") as f:
@@ -209,19 +191,12 @@ def quantize_real(x, target_fwhm=32, num_bits=8):
     
     std_len = xp.amin(xp.array([10000, len(x)//10]))
     data_sigma = xp.std(x[:std_len])
-#     print(len(x))
-    
-#     print('-standard dev',time.time() - start)
-#     start = time.time()
     
     data_fwhm = 2 * xp.sqrt(2 * xp.log(2)) * data_sigma
     
     factor = target_fwhm / data_fwhm
     
     q_voltages = xp.around(factor * x)
-    
-#     print('-around',time.time() - start)
-#     start = time.time()
         
     q_voltages[q_voltages < -2**(num_bits - 1)] = -2**(num_bits - 1)
     q_voltages[q_voltages > 2**(num_bits - 1) - 1] = 2**(num_bits - 1) - 1
@@ -229,13 +204,7 @@ def quantize_real(x, target_fwhm=32, num_bits=8):
 #     q_voltages = xp.where(q_voltages < -2**(num_bits - 1), -2**(num_bits - 1), q_voltages)
 #     q_voltages = xp.where(q_voltages > 2**(num_bits - 1) - 1, 2**(num_bits - 1) - 1, q_voltages)
     
-#     print('-truncate',time.time() - start)
-#     start = time.time()
-    
     q_voltages = q_voltages.astype(int)
-    
-#     print('-as int',time.time() - start)
-#     start = time.time()
     
     return q_voltages
 

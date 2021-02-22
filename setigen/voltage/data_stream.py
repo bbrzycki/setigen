@@ -1,10 +1,7 @@
-import sys
-import os.path
 try:
     import cupy as xp
 except ImportError:
     import numpy as xp
-import matplotlib.pyplot as plt
 
 from astropy import units as u
 from astropy.stats import sigma_clip

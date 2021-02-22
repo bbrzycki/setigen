@@ -1,10 +1,7 @@
-import sys
-import os.path
 try:
     import cupy as xp
 except ImportError:
     import numpy as xp
-import matplotlib.pyplot as plt
 
 from astropy import units as u
 
@@ -24,21 +21,24 @@ class Antenna(object):
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         assert num_pols in [1, 2]
         self.num_pols = num_pols
+        self.start_obs = True
         
         self.x = data_stream.DataStream(sample_rate,
-                                        int(self.rng.randint(sys.maxsize)))
+                                        int(self.rng.randint(2**32)))
         
         if self.num_pols == 2:
             self.y = data_stream.DataStream(sample_rate,
-                                            int(self.rng.randint(sys.maxsize)))
+                                            int(self.rng.randint(2**32)))
         
         self.bg_cache = [None, None]
         
     def get_samples(self, num_samples):
         if self.num_pols == 2:
-            return self.x.get_samples(num_samples), self.y.get_samples(num_samples)
+            samples = [[self.x.get_samples(num_samples), self.y.get_samples(num_samples)]]
         else:
-            return self.x.get_samples(num_samples)
+            samples = [[self.x.get_samples(num_samples)]]
+        self.start_obs = False
+        return samples
 
         
 class MultiAntennaArray(object):
@@ -62,19 +62,17 @@ class MultiAntennaArray(object):
         self.num_pols = num_pols
         self.start_obs = True
         
-        
         self.x_bg = data_stream.DataStream(sample_rate,
-                                           int(self.rng.randint(sys.maxsize)))
-        
+                                           int(self.rng.randint(2**32)))
         if self.num_pols == 2:
             self.y_bg = data_stream.DataStream(sample_rate,
-                                               int(self.rng.randint(sys.maxsize)))
+                                               int(self.rng.randint(2**32)))
         
         self.antennas = []
         for i in range(self.num_antennas):
             antenna = Antenna(sample_rate,
                               num_pols,
-                              int(self.rng.randint(sys.maxsize)),
+                              int(self.rng.randint(2**32)),
                               delay=delays[i])
             self.antennas.append(antenna)
             
@@ -107,6 +105,11 @@ class MultiAntennaArray(object):
                     bg_y = xp.concatenate([antenna.bg_cache[1], self.y_bg.v])[:bg_num_samples]
                 antenna.bg_cache[1] = self.y_bg.v[bg_num_samples-antenna.delay:]
                 antenna.y.v += bg_y
-        self.start_obs = False
                 
-        return [[antenna.x.v, antenna.y.v] for antenna in self.antennas]
+        self.start_obs = False
+        if self.num_pols == 2:
+            return [[antenna.x.v, antenna.y.v] for antenna in self.antennas]
+        else:
+            return [[antenna.x.v] for antenna in self.antennas]
+            
+        

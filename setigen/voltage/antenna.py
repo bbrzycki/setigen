@@ -11,42 +11,74 @@ from . import data_stream
 
 class Antenna(object):
     def __init__(self,
-                 sample_rate,
+                 sample_rate=3*u.GHz,
+                 fch1=0*u.GHz,
+                 ascending=True,
                  num_pols=2,
+                 t_start=0,
                  seed=None,
                  delay=0):
         self.rng = xp.random.RandomState(seed)
         self.delay = delay
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
+        self.dt = 1 / self.sample_rate
+        
+        self.fch1 = unit_utils.get_value(fch1, u.Hz)
+        self.ascending = ascending
+        
         assert num_pols in [1, 2]
         self.num_pols = num_pols
+        
+        self.t_start = t_start
         self.start_obs = True
         
-        self.x = data_stream.DataStream(sample_rate,
-                                        int(self.rng.randint(2**32)))
+        self.x = data_stream.DataStream(sample_rate=self.sample_rate,
+                                        fch1=self.fch1,
+                                        ascending=self.ascending,
+                                        t_start=self.t_start,
+                                        seed=int(self.rng.randint(2**32)))
         
         if self.num_pols == 2:
-            self.y = data_stream.DataStream(sample_rate,
-                                            int(self.rng.randint(2**32)))
+            self.y = data_stream.DataStream(sample_rate=self.sample_rate,
+                                            fch1=self.fch1,
+                                            ascending=self.ascending,
+                                            t_start=self.t_start,
+                                            seed=int(self.rng.randint(2**32)))
         
         self.bg_cache = [None, None]
         
-    def get_samples(self, num_samples):
+    def add_time(self, t):
+        self.t_start += t
+        self.x.add_time(t)
         if self.num_pols == 2:
-            samples = [[self.x.get_samples(num_samples), self.y.get_samples(num_samples)]]
+            self.y.add_time(t)
+        
+    def get_samples(self, num_samples, total_obs_num_samples=None):
+        if self.num_pols == 2:
+            samples = [[self.x.get_samples(num_samples, 
+                                           total_obs_num_samples=total_obs_num_samples), 
+                        self.y.get_samples(num_samples, 
+                                           total_obs_num_samples=total_obs_num_samples)]]
         else:
-            samples = [[self.x.get_samples(num_samples)]]
+            samples = [[self.x.get_samples(num_samples, 
+                                           total_obs_num_samples=total_obs_num_samples)]]
+            
+        self.t_start += num_samples * self.dt
         self.start_obs = False
+        
         return samples
 
         
 class MultiAntennaArray(object):
     def __init__(self,
                  num_antennas,
-                 sample_rate,
+                 sample_rate=3*u.GHz,
+                 fch1=0*u.GHz,
+                 ascending=True,
                  num_pols=2,
                  delays=None,
+                 t_start=0,
                  seed=None):
         self.rng = xp.random.RandomState(seed)
         if delays is None:
@@ -58,25 +90,52 @@ class MultiAntennaArray(object):
         
         self.num_antennas = num_antennas
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
+        self.dt = 1 / self.sample_rate
+        
+        self.fch1 = unit_utils.get_value(fch1, u.Hz)
+        self.ascending = ascending
+        
         assert num_pols in [1, 2]
         self.num_pols = num_pols
+        
+        self.t_start = t_start
         self.start_obs = True
         
-        self.x_bg = data_stream.DataStream(sample_rate,
-                                           int(self.rng.randint(2**32)))
+        self.bg_x = data_stream.DataStream(sample_rate=self.sample_rate,
+                                           fch1=self.fch1,
+                                           ascending=self.ascending,
+                                           t_start=self.t_start,
+                                           seed=int(self.rng.randint(2**32)))
         if self.num_pols == 2:
-            self.y_bg = data_stream.DataStream(sample_rate,
-                                               int(self.rng.randint(2**32)))
+            self.bg_y = data_stream.DataStream(sample_rate=self.sample_rate,
+                                               fch1=self.fch1,
+                                               ascending=self.ascending,
+                                               t_start=self.t_start,
+                                               seed=int(self.rng.randint(2**32)))
         
         self.antennas = []
         for i in range(self.num_antennas):
-            antenna = Antenna(sample_rate,
-                              num_pols,
-                              int(self.rng.randint(2**32)),
+            antenna = Antenna(sample_rate=self.sample_rate,
+                              fch1=self.fch1,
+                              ascending=self.ascending,
+                              num_pols=self.num_pols,
+                              t_start=self.t_start,
+                              seed=int(self.rng.randint(2**32)),
                               delay=delays[i])
             self.antennas.append(antenna)
             
-    def get_samples(self, num_samples):
+    def add_time(self, t):
+        self.start_obs = True
+        self.t_start += t
+        self.bg_x.add_time(t)
+        if self.num_pols == 2:
+            self.bg_y.add_time(t)
+        for antenna in self.antennas:
+            antenna.start_obs = True
+            antenna.bg_cache = [None, None]
+            antenna.add_time(t)
+            
+    def get_samples(self, num_samples, total_obs_num_samples=None):
         # Check that num_samples is always larger than the maximum antenna delay
         assert num_samples > self.max_delay
         
@@ -84,29 +143,39 @@ class MultiAntennaArray(object):
             bg_num_samples = num_samples + self.max_delay
         else:
             bg_num_samples = num_samples
-        self.x_bg.get_samples(bg_num_samples)
+        self.bg_x.get_samples(bg_num_samples, total_obs_num_samples=total_obs_num_samples)
         if self.num_pols == 2:
-            self.y_bg.get_samples(bg_num_samples)
+            self.bg_y.get_samples(bg_num_samples, total_obs_num_samples=total_obs_num_samples)
         
+        # For each antenna, get samples from each pol data stream, adding background contributions 
+        # and caching voltages to account for varying antenna delays
         for antenna in self.antennas:
-            antenna.x.get_samples(num_samples)
+            antenna.x.bg_noise_std = self.bg_x.noise_std
+            antenna.x.get_samples(num_samples, total_obs_num_samples=total_obs_num_samples)
+            
             if self.start_obs:
-                bg_x = self.x_bg.v[self.max_delay-antenna.delay:bg_num_samples-antenna.delay]
+                bg_x_v = self.bg_x.v[self.max_delay-antenna.delay:bg_num_samples-antenna.delay]
             else:
-                bg_x = xp.concatenate([antenna.bg_cache[0], self.x_bg.v])[:bg_num_samples]
-            antenna.bg_cache[0] = self.x_bg.v[bg_num_samples-antenna.delay:]
-            antenna.x.v += bg_x
+                bg_x_v = xp.concatenate([antenna.bg_cache[0], self.bg_x.v])[:bg_num_samples]
+                
+            antenna.bg_cache[0] = self.bg_x.v[bg_num_samples-antenna.delay:]
+            antenna.x.v += bg_x_v
             
             if self.num_pols == 2:
-                antenna.y.get_samples(num_samples)
-                if self.start_obs:
-                    bg_y = self.y_bg.v[self.max_delay-antenna.delay:bg_num_samples-antenna.delay]
-                else:
-                    bg_y = xp.concatenate([antenna.bg_cache[1], self.y_bg.v])[:bg_num_samples]
-                antenna.bg_cache[1] = self.y_bg.v[bg_num_samples-antenna.delay:]
-                antenna.y.v += bg_y
+                antenna.y.bg_noise_std = self.bg_y.noise_std
+                antenna.y.get_samples(num_samples, total_obs_num_samples=total_obs_num_samples)
                 
+                if self.start_obs:
+                    bg_y_v = self.bg_y.v[self.max_delay-antenna.delay:bg_num_samples-antenna.delay]
+                else:
+                    bg_y_v = xp.concatenate([antenna.bg_cache[1], self.bg_y.v])[:bg_num_samples]
+                    
+                antenna.bg_cache[1] = self.bg_y.v[bg_num_samples-antenna.delay:]
+                antenna.y.v += bg_y_v
+                
+        self.t_start += num_samples * self.dt
         self.start_obs = False
+        
         if self.num_pols == 2:
             return [[antenna.x.v, antenna.y.v] for antenna in self.antennas]
         else:

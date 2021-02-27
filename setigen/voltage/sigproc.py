@@ -53,6 +53,7 @@ class PolyphaseFilterbank(object):
 class RealQuantizer(object):
     def __init__(self, target_fwhm=32, num_bits=8):
         self.target_fwhm = target_fwhm
+        self.target_sigma = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
         self.num_bits = num_bits
         
     def quantize(self, voltages):
@@ -67,6 +68,7 @@ class RealQuantizer(object):
 class ComplexQuantizer(object):
     def __init__(self, target_fwhm=32, num_bits=8):
         self.target_fwhm = target_fwhm
+        self.target_sigma = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
         self.num_bits = num_bits
         
     def quantize(self, voltages):
@@ -133,7 +135,7 @@ def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, int_factor=1, fftleng
     
     int_factor specifies the number of time samples to integrate.
     
-    Shape of pfb_voltages is (num_channels, time_samples).
+    Shape of pfb_voltages is (time_samples, num_channels).
     """
     
     XX_psd = np.zeros((pfb_voltages_x.shape[1], pfb_voltages_x.shape[0] // fftlength, fftlength))
@@ -142,27 +144,32 @@ def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, int_factor=1, fftleng
     if pfb_voltages_y is not None:
         pfb_voltages_list.append(pfb_voltages_y)
         
-    for pfb_voltages in pfb_voltages_x, pfb_voltages_y:
+    for pfb_voltages in pfb_voltages_list:
         X_samples = pfb_voltages.T
         X_samples = X_samples[:, :(X_samples.shape[1] // fftlength) * fftlength]
         X_samples = X_samples.reshape((X_samples.shape[0], X_samples.shape[1] // fftlength, fftlength))
-
+        print('hibefore', xp.std(xp.abs(X_samples[2, :, :])**2))
         XX = np.fft.fft(X_samples, fftlength, axis=2) 
         XX = np.fft.fftshift(XX, axes=2)
+        print('hi', xp.std(xp.abs(XX[2, :, 512:512*3])**2 / fftlength))
         XX_psd += np.abs(XX)**2 / fftlength
 
+    
+    print('hi1', xp.std(XX_psd), XX_psd.shape)
     XX_psd = np.concatenate(XX_psd, axis=1)
+    print('hi1', xp.std(XX_psd), XX_psd.shape)
     
     # Integrate over time, trimming if necessary
     XX_psd = XX_psd[:(XX_psd.shape[0] // int_factor) * int_factor]
     XX_psd = XX_psd.reshape(XX_psd.shape[0] // int_factor, int_factor, XX_psd.shape[1])
     XX_psd = XX_psd.mean(axis=1)
+    print('hi1', xp.std(XX_psd), XX_psd.shape)
     
     return XX_psd
 
 
 def get_waterfall_from_raw(raw_filename, block_size, num_chans, int_factor=1, fftlength=256):
-    # produces waterfall from a raw file (only the first block)
+    # produces waterfall from a raw file (only the first block), 2pol, 8bit
     with open(raw_filename, "rb") as f:
         i = 1
         chunk = f.read(80)
@@ -177,6 +184,11 @@ def get_waterfall_from_raw(raw_filename, block_size, num_chans, int_factor=1, ff
     rawbuffer = np.frombuffer(chunk, dtype=xp.int8).reshape((num_chans, -1))
     rawbuffer_x = rawbuffer[:, 0::4] + rawbuffer[:, 1::4] * 1j
     rawbuffer_y = rawbuffer[:, 2::4] + rawbuffer[:, 3::4] * 1j    
+    print(xp.std(np.real(rawbuffer_x))**2, xp.std(np.imag(rawbuffer_x))**2)
+    print(xp.std(np.abs(rawbuffer_x)**2))
+    print(xp.std(np.real(rawbuffer_y))**2, xp.std(np.imag(rawbuffer_y))**2)
+    print(xp.std(np.abs(rawbuffer_y)**2))
+    print(xp.std(np.abs(rawbuffer_x)**2+np.abs(rawbuffer_y)**2))
     return get_pfb_waterfall(rawbuffer_x.T, rawbuffer_y.T, int_factor, fftlength)
 
 
@@ -191,12 +203,13 @@ def quantize_real(x, target_fwhm=32, num_bits=8):
     
     std_len = xp.amin(xp.array([10000, len(x)//10]))
     data_sigma = xp.std(x[:std_len])
+    data_mean = xp.mean(x[:std_len])
     
     data_fwhm = 2 * xp.sqrt(2 * xp.log(2)) * data_sigma
     
     factor = target_fwhm / data_fwhm
     
-    q_voltages = xp.around(factor * x)
+    q_voltages = xp.around(factor * (x - data_mean))
         
     q_voltages[q_voltages < -2**(num_bits - 1)] = -2**(num_bits - 1)
     q_voltages[q_voltages > 2**(num_bits - 1) - 1] = 2**(num_bits - 1) - 1

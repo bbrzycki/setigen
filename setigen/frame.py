@@ -11,6 +11,7 @@ from astropy import units as u
 from astropy.stats import sigma_clip
 
 from blimpy import Waterfall
+from blimpy.io import sigproc
 
 from . import waterfall_utils
 from . import distributions
@@ -733,18 +734,19 @@ class Frame(object):
         self._update_waterfall()
         self.waterfall.plot_waterfall(logged=use_db)
 
-    def _update_waterfall(self):
+    def _update_waterfall(self, filename=None, max_load=1):
         # If entirely synthetic, base filterbank structure on existing sample data
         if self.waterfall is None:
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
-            self.waterfall = Waterfall(path)
+            self.waterfall = Waterfall(path, max_load=max_load)
             self.waterfall.header['source_name'] = 'Synthetic'
             self.waterfall.header['rawdatafile'] = 'Synthetic'
 
             container_attr = {
                 't_begin': 0,
                 't_end': self.tchans,
+                'file_size_bytes': self.tchans * self.fchans * self.waterfall.header['nbits'] / 8,
                 'n_channels_in_file': self.fchans,
                 'n_ints_in_file': self.tchans,
                 'file_shape': (self.tchans, 1, self.fchans),
@@ -794,6 +796,13 @@ class Frame(object):
         self.waterfall.header.update(header_attr)
         self.waterfall.file_header.update(header_attr)
         
+        if filename is not None:
+            if not os.path.isabs(filename):
+                filename = os.path.abspath(filename)
+            print(filename)
+            self.waterfall.container.filename = filename
+        self.waterfall.container.idx_data = len(sigproc.generate_sigproc_header(self.waterfall))
+        
     def _encode_bytestrings(self):
         for key in ['source_name', 'rawdatafile']:
             # Some data don't have these keys to begin with
@@ -816,29 +825,29 @@ class Frame(object):
         self._update_waterfall()
         return self.waterfall
 
-    def save_fil(self, filename):
+    def save_fil(self, filename, max_load=1):
         """
         Save frame data as a filterbank file (.fil).
         """
-        self._update_waterfall()
+        self._update_waterfall(filename=filename, max_load=max_load)
         self._encode_bytestrings()
         self.waterfall.write_to_fil(filename)
         self._decode_bytestrings()
 
-    def save_hdf5(self, filename):
+    def save_hdf5(self, filename, max_load=1):
         """
         Save frame data as an HDF5 file.
         """
-        self._update_waterfall()
+        self._update_waterfall(filename=filename, max_load=max_load)
         self._encode_bytestrings()
         self.waterfall.write_to_hdf5(filename)
         self._decode_bytestrings()
 
-    def save_h5(self, filename):
+    def save_h5(self, filename, max_load=1):
         """
         Save frame data as an HDF5 file.
         """
-        self.save_hdf5(filename)
+        self.save_hdf5(filename, max_load=max_load)
 
     def save_npy(self, filename):
         """

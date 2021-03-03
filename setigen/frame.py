@@ -799,7 +799,6 @@ class Frame(object):
         if filename is not None:
             if not os.path.isabs(filename):
                 filename = os.path.abspath(filename)
-            print(filename)
             self.waterfall.container.filename = filename
         self.waterfall.container.idx_data = len(sigproc.generate_sigproc_header(self.waterfall))
         

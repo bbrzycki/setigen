@@ -6,7 +6,7 @@ except ImportError:
     import numpy as xp
 import numpy as np
 
-from tqdm import tqdm, trange
+from tqdm import tqdm
 
 import time
 
@@ -59,11 +59,14 @@ def get_total_obs_num_samples(obs_length=None,
 class RawVoltageBackend(object):
     def __init__(self,
                  antenna_source,
-                 block_size=134217728,
-                 blocks_per_file=128,
                  digitizer=sigproc.RealQuantizer(),
                  filterbank=sigproc.PolyphaseFilterbank(),
-                 requantizer=sigproc.ComplexQuantizer()):
+                 requantizer=sigproc.ComplexQuantizer(),
+                 start_chan=0,
+                 num_chans=64,
+                 block_size=134217728,
+                 blocks_per_file=128,
+                 num_subblocks=32):
         self.antenna_source = antenna_source
         if isinstance(antenna_source, antenna.Antenna):
             self.num_antennas = 1
@@ -76,8 +79,11 @@ class RawVoltageBackend(object):
         self.sample_rate = self.antenna_source.sample_rate
         self.num_pols = self.antenna_source.num_pols
             
+        self.start_chan = start_chan
+        self.num_chans = num_chans
         self.block_size = block_size
         self.blocks_per_file = blocks_per_file
+        self.num_subblocks = num_subblocks
         
         self.digitizer = digitizer
         
@@ -100,7 +106,7 @@ class RawVoltageBackend(object):
     def _make_header(self, f, header_dict={}):
         my_path = os.path.abspath(os.path.dirname(__file__))
         path = os.path.join(my_path, 'header_template.txt')
-        with open('header_template.txt', 'r') as t:
+        with open(path, 'r') as t:
             template_lines = t.readlines()
             
         # Set header values determined by pipeline parameters
@@ -148,7 +154,8 @@ class RawVoltageBackend(object):
                      num_chans,
                      num_subblocks=1,
                      digitize=True,
-                     requantize=True):
+                     requantize=True,
+                     verbose=True):
         obsnchan = num_chans * self.num_antennas
         final_voltages = np.empty((obsnchan, int(self.block_size / obsnchan)))
     
@@ -169,7 +176,8 @@ class RawVoltageBackend(object):
             pbar.set_description('Subblocks')
 
             for subblock in range(num_subblocks):
-                tqdm.write(f'Creating subblock {subblock}...')
+                if verbose:
+                    tqdm.write(f'Creating subblock {subblock}...')
 
                 # Change num windows at the end if num_subblocks doesn't go in evenly
                 if T % subblock_T != 0 and subblock == num_subblocks - 1:
@@ -185,7 +193,7 @@ class RawVoltageBackend(object):
                                                              total_obs_num_samples=self.total_obs_num_samples)
 
                 for antenna in range(self.num_antennas):
-                    if self.is_antenna_array:
+                    if verbose and self.is_antenna_array:
                         tqdm.write(f'Creating antenna #{antenna}...')
                 
                     for pol in range(self.num_pols):
@@ -240,27 +248,31 @@ class RawVoltageBackend(object):
                raw_file_stem,
                obs_length=None, 
                num_blocks=None,
-               start_chan=0, 
-               num_chans=64, 
-               num_subblocks=1,
                length_mode='obs_length',
                header_dict={},
-               digitize=True):
+               digitize=True,
+               verbose=True):
         """
         length_mode can be 'obs_length' or 'num_blocks'
         """
         if length_mode == 'obs_length':
             if obs_length is None:
                 raise ValueError("Value not given for 'obs_length'.")
-            self.num_blocks = int(obs_length * abs(self.chan_bw) * self.num_antennas * num_chans * self.bytes_per_sample / self.block_size)
+            self.num_blocks = int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         elif length_mode == 'num_blocks':
             if num_blocks is None:
                 raise ValueError("Value not given for 'num_blocks'.")
             self.num_blocks = num_blocks
         else:
             raise ValueError("Invalid option given for 'length_mode'.")
-        self.obs_length = self.num_blocks * self.block_size / (self.num_antennas * num_chans * self.bytes_per_sample) * self.tbin
+        self.obs_length = self.num_blocks * self.block_size / (self.num_antennas * self.num_chans * self.bytes_per_sample) * self.tbin
         self.total_obs_num_samples = self.obs_length // self.tbin * self.num_branches
+        
+        # Mark each antenna and data stream as the start of the observation
+        self.antenna_source.reset_start()
+        
+        # Reset filterbank cache as well
+        self.filterbank.cache = [[None, None] for a in range(self.num_antennas)]
             
         # Collect data and record to disk
         num_files = int(xp.ceil(self.num_blocks / self.blocks_per_file))
@@ -276,23 +288,26 @@ class RawVoltageBackend(object):
                         blocks_to_write = self.blocks_per_file
 
                     # self.chan_bw was already adjusted for ascending or descending frequencies 
-                    center_freq = (start_chan + (num_chans - 1) / 2) * self.chan_bw
+                    center_freq = (self.start_chan + (self.num_chans - 1) / 2) * self.chan_bw
                     center_freq += self.antenna_source.fch1
                         
                     for j in range(blocks_to_write):
-                        tqdm.write(f'Creating block {j}...')
+                        if verbose:
+                            tqdm.write(f'Creating block {j}...')
                         # Set additional header values according to which band is recorded
-                        header_dict['OBSNCHAN'] = num_chans * self.num_antennas
+                        header_dict['OBSNCHAN'] = self.num_chans * self.num_antennas
                         header_dict['OBSFREQ'] = center_freq * 1e-6
-                        header_dict['OBSBW'] = self.chan_bw * num_chans * 1e-6
+                        header_dict['OBSBW'] = self.chan_bw * self.num_chans * 1e-6
                         self._make_header(f, header_dict)
 
-                        v = self.collect_data(start_chan=start_chan, 
-                                              num_chans=num_chans,
-                                              num_subblocks=num_subblocks,
+                        v = self.collect_data(start_chan=self.start_chan, 
+                                              num_chans=self.num_chans,
+                                              num_subblocks=self.num_subblocks,
                                               digitize=digitize, 
-                                              requantize=True)
+                                              requantize=True,
+                                              verbose=verbose)
 
                         f.write(xp.array(v, dtype=xp.int8).tobytes())
-                        tqdm.write(f'File {i}, block {j} recorded!')
+                        if verbose:
+                            tqdm.write(f'File {i}, block {j} recorded!')
                         pbar.update(1)

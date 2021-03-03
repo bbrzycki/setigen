@@ -38,6 +38,7 @@ class Antenna(object):
                                         ascending=self.ascending,
                                         t_start=self.t_start,
                                         seed=int(self.rng.randint(2**32)))
+        self.streams = [self.x]
         
         if self.num_pols == 2:
             self.y = data_stream.DataStream(sample_rate=self.sample_rate,
@@ -45,14 +46,22 @@ class Antenna(object):
                                             ascending=self.ascending,
                                             t_start=self.t_start,
                                             seed=int(self.rng.randint(2**32)))
+            self.streams.append(self.y)
         
         self.bg_cache = [None, None]
         
-    def add_time(self, t):
-        self.t_start += t
-        self.x.add_time(t)
+    def set_time(self, t):
+        self.start_obs = True
+        self.t_start = t
+        self.x.set_time(t)
         if self.num_pols == 2:
-            self.y.add_time(t)
+            self.y.set_time(t)
+        
+    def add_time(self, t):
+        self.set_time(self.t_start + t)
+        
+    def reset_start(self):
+        self.add_time(0)
         
     def get_samples(self, num_samples, total_obs_num_samples=None):
         if self.num_pols == 2:
@@ -85,7 +94,7 @@ class MultiAntennaArray(object):
             self.delays = xp.zeros(num_antennas)
         else:
             assert len(delays) == num_antennas
-            self.delays = xp.array(delays)
+            self.delays = xp.array(delays).astype(int)
         self.max_delay = int(xp.max(delays))
         
         self.num_antennas = num_antennas
@@ -106,12 +115,15 @@ class MultiAntennaArray(object):
                                            ascending=self.ascending,
                                            t_start=self.t_start,
                                            seed=int(self.rng.randint(2**32)))
+        self.bg_streams = [self.bg_x]
+        
         if self.num_pols == 2:
             self.bg_y = data_stream.DataStream(sample_rate=self.sample_rate,
                                                fch1=self.fch1,
                                                ascending=self.ascending,
                                                t_start=self.t_start,
                                                seed=int(self.rng.randint(2**32)))
+            self.bg_streams.append(self.bg_y)
         
         self.antennas = []
         for i in range(self.num_antennas):
@@ -124,16 +136,21 @@ class MultiAntennaArray(object):
                               delay=delays[i])
             self.antennas.append(antenna)
             
-    def add_time(self, t):
+    def set_time(self, t):
         self.start_obs = True
-        self.t_start += t
-        self.bg_x.add_time(t)
+        self.t_start = t
+        self.bg_x.set_time(t)
         if self.num_pols == 2:
-            self.bg_y.add_time(t)
+            self.bg_y.set_time(t)
         for antenna in self.antennas:
-            antenna.start_obs = True
             antenna.bg_cache = [None, None]
-            antenna.add_time(t)
+            antenna.set_time(t)
+        
+    def add_time(self, t):
+        self.set_time(self.t_start + t)
+        
+    def reset_start(self):
+        self.add_time(0)
             
     def get_samples(self, num_samples, total_obs_num_samples=None):
         # Check that num_samples is always larger than the maximum antenna delay

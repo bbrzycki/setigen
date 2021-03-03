@@ -53,10 +53,11 @@ class DataStream(object):
         self.v = xp.zeros(num_samples)
         
     def set_time(self, t):
+        self.start_obs = True
         self.t_start = t
         
     def add_time(self, t):
-        self.t_start += t
+        self.set_time(self.t_start + t)
     
     def add_noise(self, v_mean, v_std):
         noise_func = lambda ts: self.rng.normal(loc=v_mean, 

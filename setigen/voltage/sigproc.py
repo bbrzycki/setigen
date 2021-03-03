@@ -13,16 +13,17 @@ class PolyphaseFilterbank(object):
     Creates polyphase filterbank for coarse channelization of real voltage input data.
     """
     
-    def __init__(self, num_taps=8, num_branches=1024):
+    def __init__(self, num_taps=8, num_branches=1024, window_fn='hamming'):
         self.num_taps = num_taps
         self.num_branches = num_branches
+        self.window_fn = window_fn
         
         self.cache = [[None, None]]
         
         self._get_pfb_window()
         
     def _get_pfb_window(self):
-        self.window = get_pfb_window(self.num_taps, self.num_branches)
+        self.window = get_pfb_window(self.num_taps, self.num_branches, self.window_fn)
         
     def _pfb_frontend(self, x, pol=0, antenna=0):
         """
@@ -110,8 +111,9 @@ def get_pfb_window(num_taps, num_branches, window_fn='hamming'):
     window = scipy.signal.get_window(window_fn, num_taps * num_branches)
     sinc = scipy.signal.firwin(num_taps * num_branches, 
                                cutoff=1.0 / num_branches,
-                               window='rectangular')
-    window *= sinc * num_branches
+                               window='rectangular',
+                               scale=True)
+    window *= sinc
     return xp.asarray(window)
 
 
@@ -138,7 +140,7 @@ def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, int_factor=1, fftleng
     Shape of pfb_voltages is (time_samples, num_channels).
     """
     
-    XX_psd = np.zeros((pfb_voltages_x.shape[1], pfb_voltages_x.shape[0] // fftlength, fftlength))
+    XX_psd = xp.zeros((pfb_voltages_x.shape[1], pfb_voltages_x.shape[0] // fftlength, fftlength))
     
     pfb_voltages_list = [pfb_voltages_x]
     if pfb_voltages_y is not None:
@@ -148,22 +150,16 @@ def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, int_factor=1, fftleng
         X_samples = pfb_voltages.T
         X_samples = X_samples[:, :(X_samples.shape[1] // fftlength) * fftlength]
         X_samples = X_samples.reshape((X_samples.shape[0], X_samples.shape[1] // fftlength, fftlength))
-        print('hibefore', xp.std(xp.abs(X_samples[2, :, :])**2))
-        XX = np.fft.fft(X_samples, fftlength, axis=2) 
-        XX = np.fft.fftshift(XX, axes=2)
-        print('hi', xp.std(xp.abs(XX[2, :, 512:512*3])**2 / fftlength))
-        XX_psd += np.abs(XX)**2 / fftlength
+        XX = xp.fft.fft(X_samples, fftlength, axis=2) / fftlength**0.5
+        XX = xp.fft.fftshift(XX, axes=2)
+        XX_psd += xp.abs(XX)**2 
 
-    
-    print('hi1', xp.std(XX_psd), XX_psd.shape)
-    XX_psd = np.concatenate(XX_psd, axis=1)
-    print('hi1', xp.std(XX_psd), XX_psd.shape)
+    XX_psd = xp.concatenate(XX_psd, axis=1)
     
     # Integrate over time, trimming if necessary
     XX_psd = XX_psd[:(XX_psd.shape[0] // int_factor) * int_factor]
     XX_psd = XX_psd.reshape(XX_psd.shape[0] // int_factor, int_factor, XX_psd.shape[1])
-    XX_psd = XX_psd.mean(axis=1)
-    print('hi1', xp.std(XX_psd), XX_psd.shape)
+    XX_psd = XX_psd.sum(axis=1)
     
     return XX_psd
 
@@ -184,11 +180,6 @@ def get_waterfall_from_raw(raw_filename, block_size, num_chans, int_factor=1, ff
     rawbuffer = np.frombuffer(chunk, dtype=xp.int8).reshape((num_chans, -1))
     rawbuffer_x = rawbuffer[:, 0::4] + rawbuffer[:, 1::4] * 1j
     rawbuffer_y = rawbuffer[:, 2::4] + rawbuffer[:, 3::4] * 1j    
-    print(xp.std(np.real(rawbuffer_x))**2, xp.std(np.imag(rawbuffer_x))**2)
-    print(xp.std(np.abs(rawbuffer_x)**2))
-    print(xp.std(np.real(rawbuffer_y))**2, xp.std(np.imag(rawbuffer_y))**2)
-    print(xp.std(np.abs(rawbuffer_y)**2))
-    print(xp.std(np.abs(rawbuffer_x)**2+np.abs(rawbuffer_y)**2))
     return get_pfb_waterfall(rawbuffer_x.T, rawbuffer_y.T, int_factor, fftlength)
 
 

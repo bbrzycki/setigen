@@ -102,6 +102,8 @@ class RawVoltageBackend(object):
         self.num_bytes = self.num_bits // 8
         self.bytes_per_sample = 2 * self.num_pols * self.num_bits / 8
         self.total_obs_num_samples = None
+        
+        self.time_per_block = self.block_size / (self.num_antennas * self.num_chans * self.bytes_per_sample) * self.tbin
     
     def _make_header(self, f, header_dict={}):
         my_path = os.path.abspath(os.path.dirname(__file__))
@@ -265,7 +267,7 @@ class RawVoltageBackend(object):
             self.num_blocks = num_blocks
         else:
             raise ValueError("Invalid option given for 'length_mode'.")
-        self.obs_length = self.num_blocks * self.block_size / (self.num_antennas * self.num_chans * self.bytes_per_sample) * self.tbin
+        self.obs_length = self.num_blocks * self.time_per_block
         self.total_obs_num_samples = self.obs_length // self.tbin * self.num_branches
         
         # Mark each antenna and data stream as the start of the observation

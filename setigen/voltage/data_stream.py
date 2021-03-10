@@ -66,13 +66,13 @@ class DataStream(object):
         self.noise_std += v_std
         self.noise_sources.append(noise_func)
         
-    def add_signal(self,
-                   f_start, 
-                   drift_rate,
-                   level=None,
-                   snr=None,
-                   phase=0,
-                   mode='level'):
+    def add_constant_signal(self,
+                            f_start, 
+                            drift_rate,
+                            level=None,
+                            snr=None,
+                            phase=0,
+                            mode='level'):
         """
         mode can be 'level' or 'snr'
         """
@@ -104,6 +104,11 @@ class DataStream(object):
             return amplitude * xp.cos(2 * xp.pi * ts * center_freqs + phase)
         
         self.signal_sources.append(signal_func)
+        
+    def add_signal(self, signal_func):
+        def new_signal_func(ts, total_obs_num_samples=None):
+            return signal_func(ts)
+        self.signal_sources.append(new_signal_func)
     
     def get_samples(self,
                     num_samples,

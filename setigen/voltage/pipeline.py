@@ -268,7 +268,7 @@ class RawVoltageBackend(object):
         else:
             raise ValueError("Invalid option given for 'length_mode'.")
         self.obs_length = self.num_blocks * self.time_per_block
-        self.total_obs_num_samples = self.obs_length // self.tbin * self.num_branches
+        self.total_obs_num_samples = int(self.obs_length / self.tbin) * self.num_branches
         
         # Mark each antenna and data stream as the start of the observation
         self.antenna_source.reset_start()

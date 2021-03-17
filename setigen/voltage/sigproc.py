@@ -57,10 +57,38 @@ class RealQuantizer(object):
         self.target_sigma = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
         self.num_bits = num_bits
         
+#     def quantize(self, voltages):
+#         return quantize_real(voltages,
+#                              target_fwhm=self.target_fwhm,
+#                              num_bits=self.num_bits)
+    
     def quantize(self, voltages):
-        return quantize_real(voltages,
-                             target_fwhm=self.target_fwhm,
-                             num_bits=self.num_bits)
+        x = voltages
+        target_fwhm = self.target_fwhm
+        num_bits = self.num_bits
+        
+        std_len = xp.amin(xp.array([10000, len(x)//10]))
+        data_sigma = xp.std(x[:std_len])
+        data_mean = xp.mean(x[:std_len])
+        
+        self.data_sigma = data_sigma
+        self.data_mean = data_mean
+
+        data_fwhm = 2 * xp.sqrt(2 * xp.log(2)) * data_sigma
+
+        factor = target_fwhm / data_fwhm
+
+        q_voltages = xp.around(factor * (x - data_mean))
+
+        q_voltages[q_voltages < -2**(num_bits - 1)] = -2**(num_bits - 1)
+        q_voltages[q_voltages > 2**(num_bits - 1) - 1] = 2**(num_bits - 1) - 1
+
+    #     q_voltages = xp.where(q_voltages < -2**(num_bits - 1), -2**(num_bits - 1), q_voltages)
+    #     q_voltages = xp.where(q_voltages > 2**(num_bits - 1) - 1, 2**(num_bits - 1) - 1, q_voltages)
+
+        q_voltages = q_voltages.astype(int)
+
+        return q_voltages
     
     def digitize(self, voltages):
         return self.quantize(voltages)
@@ -94,7 +122,7 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
     
     # Resulting summed data array will be slightly shorter from windowing coeffs
     I = xp.expand_dims(xp.arange(num_taps), 0) + xp.expand_dims(xp.arange((W - 1) * num_taps), 0).T
-    x_summed = xp.sum(x_p[I] * h_p, axis=1)
+    x_summed = xp.sum(x_p[I] * h_p, axis=1) / num_taps
     
 #     x_summed = xp.zeros(((W - 1) * num_taps, num_branches))
 #     for t in range(0, (W - 1) * num_taps):
@@ -108,12 +136,11 @@ def get_pfb_window(num_taps, num_branches, window_fn='hamming'):
     Get windowing function to multiply to time series data
     according to a finite impulse response (FIR) filter.
     """ 
-    window = scipy.signal.get_window(window_fn, num_taps * num_branches)
-    sinc = scipy.signal.firwin(num_taps * num_branches, 
-                               cutoff=1.0 / num_branches,
-                               window='rectangular',
-                               scale=True)
-    window *= sinc
+    window = scipy.signal.firwin(num_taps * num_branches, 
+                                 cutoff=1.0 / num_branches,
+                                 window=window_fn,
+                                 scale=True)
+    window *= num_taps * num_branches
     return xp.asarray(window)
 
 

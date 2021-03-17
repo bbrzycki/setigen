@@ -115,7 +115,11 @@ class Frame(object):
             self.ascending = (self.waterfall.header['foff'] > 0)
             self.df = unit_utils.cast_value(abs(self.waterfall.header['foff']),
                                             u.MHz).to(u.Hz).value
-            self.fch1 = unit_utils.cast_value(self.waterfall.container.f_stop,
+            if self.ascending:
+                self.fch1 = self.waterfall.container.f_start
+            else:
+                self.fch1 = self.waterfall.container.f_stop
+            self.fch1 = unit_utils.cast_value(self.fch1,
                                               u.MHz).to(u.Hz).value
 
             # When multiple Stokes parameters are supported, this will have to

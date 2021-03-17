@@ -75,15 +75,16 @@ class DataStream(object):
                             mode='level'):
         """
         mode can be 'level' or 'snr'
+        phase is in radians
         """
         f_start = unit_utils.get_value(f_start, u.Hz)
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
         
         def signal_func(ts, total_obs_num_samples=None):
-            # Calculate adjusted center frequencies
-            center_freqs = f_start - self.fch1 + drift_rate * ts
+            # Calculate adjusted center frequencies, according to chirp
+            chirp_phase = 2 * xp.pi * ((f_start - self.fch1) * ts + 0.5 * drift_rate * ts**2)
             if not self.ascending:
-                center_freqs = -center_freqs
+                chirp_phase = -chirp_phase
                 
             if mode == 'level':
                 if level is None:
@@ -101,7 +102,7 @@ class DataStream(object):
             else:
                 raise ValueError("Invalid option given for 'mode'.")    
                 
-            return amplitude * xp.cos(2 * xp.pi * ts * center_freqs + phase)
+            return amplitude * xp.cos(chirp_phase + phase)
         
         self.signal_sources.append(signal_func)
         

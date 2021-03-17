@@ -120,7 +120,9 @@ class Frame(object):
 
             # When multiple Stokes parameters are supported, this will have to
             # be expanded.
-            self.data = waterfall_utils.get_data(self.waterfall)[:, ::-1]
+            self.data = waterfall_utils.get_data(self.waterfall)
+            if not self.ascending:
+                self.data = self.data[:, ::-1]
 
             self.dt = unit_utils.get_value(self.waterfall.header['tsamp'], u.s)
 

@@ -97,7 +97,7 @@ class Frame(object):
 
             if data is not None:
                 assert data.shape == self.shape
-                self.data = data
+                self.data = np.copy(data)
             else:
                 self.data = np.zeros(self.shape)
         elif waterfall:

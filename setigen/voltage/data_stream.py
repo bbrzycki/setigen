@@ -34,7 +34,6 @@ class DataStream(object):
         # For estimating SNR for signals
         self.noise_std = 0
         self.bg_noise_std = 0
-#         self.total_obs_num_samples = 0
         
         # Tracks start time of next sequence of data
         self.t_start = t_start
@@ -58,74 +57,81 @@ class DataStream(object):
         
     def add_time(self, t):
         self.set_time(self.t_start + t)
+        
+    def get_total_noise_std(self):
+        return xp.sqrt(self.noise_std**2 + self.bg_noise_std**2)
     
     def add_noise(self, v_mean, v_std):
         noise_func = lambda ts: self.rng.normal(loc=v_mean, 
                                                 scale=v_std,
                                                 size=len(ts))
-        self.noise_std += v_std
+        # Variances add, not standard deviations
+        self.noise_std = xp.sqrt(self.noise_std**2 + v_std**2)
         self.noise_sources.append(noise_func)
         
     def add_constant_signal(self,
                             f_start, 
                             drift_rate,
-                            level=None,
-                            snr=None,
-                            phase=0,
-                            mode='level'):
+                            level,
+                            phase=0):
         """
-        mode can be 'level' or 'snr'
         phase is in radians
         """
         f_start = unit_utils.get_value(f_start, u.Hz)
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
         
-        def signal_func(ts, total_obs_num_samples=None):
+        def signal_func(ts):
             # Calculate adjusted center frequencies, according to chirp
             chirp_phase = 2 * xp.pi * ((f_start - self.fch1) * ts + 0.5 * drift_rate * ts**2)
             if not self.ascending:
                 chirp_phase = -chirp_phase
-                
-            if mode == 'level':
-                if level is None:
-                    raise ValueError("Value not given for 'level'.")
-                amplitude = level
-            elif mode == 'snr':
-                if snr is None:
-                    raise ValueError("Value not given for 'snr'.")
-                if self.noise_std + self.bg_noise_std == 0:
-                    raise ValueError("No noise added to data stream.")
-                assert total_obs_num_samples > 0
-                amplitude = (snr * (self.noise_std + self.bg_noise_std) / xp.sqrt(total_obs_num_samples))**0.5
-#                 amplitude = snr * (self.noise_std + self.bg_noise_std) / xp.sqrt(total_obs_num_samples)
-                print(amplitude)
-            else:
-                raise ValueError("Invalid option given for 'mode'.")    
-                
-            return amplitude * xp.cos(chirp_phase + phase)
+            return level * xp.cos(chirp_phase + phase)
         
         self.signal_sources.append(signal_func)
         
     def add_signal(self, signal_func):
-        def new_signal_func(ts, total_obs_num_samples=None):
-            return signal_func(ts)
-        self.signal_sources.append(new_signal_func)
+        self.signal_sources.append(signal_func)
     
-    def get_samples(self,
-                    num_samples,
-                    total_obs_num_samples=None):
-        if total_obs_num_samples is not None:
-            self.total_obs_num_samples = total_obs_num_samples
-            
+    def get_samples(self, num_samples):
         self._update_t(num_samples)
         
         for noise_func in self.noise_sources:
             self.v += noise_func(self.ts)
             
         for signal_func in self.signal_sources:
-            self.v += signal_func(self.ts, total_obs_num_samples=total_obs_num_samples)  
+            self.v += signal_func(self.ts)  
 
         self.start_obs = False
         
         return self.v
+        
+        
+class BackgroundDataStream(DataStream):
+    """
+    Extends DataStream for background data in Antenna arrays.
+    """
+    
+    def __init__(self,
+                 sample_rate=3*u.GHz,
+                 fch1=0*u.GHz,
+                 ascending=True,
+                 t_start=0,
+                 seed=None,
+                 antenna_streams=[]):
+        super().__init__(sample_rate=sample_rate,
+                         fch1=fch1,
+                         ascending=ascending,
+                         t_start=t_start,
+                         seed=seed)
+        self.antenna_streams = antenna_streams
+        
+    def add_noise(self, v_mean, v_std):
+        noise_func = lambda ts: self.rng.normal(loc=v_mean, 
+                                                scale=v_std,
+                                                size=len(ts))
+        # Variances add, not standard deviations
+        self.noise_std = xp.sqrt(self.noise_std**2 + v_std**2)
+        for stream in self.antenna_streams:
+            stream.bg_noise_std = xp.sqrt(stream.bg_noise_std**2 + v_std**2)
+        self.noise_sources.append(noise_func)
         

@@ -63,15 +63,12 @@ class Antenna(object):
     def reset_start(self):
         self.add_time(0)
         
-    def get_samples(self, num_samples, total_obs_num_samples=None):
+    def get_samples(self, num_samples):
         if self.num_pols == 2:
-            samples = [[self.x.get_samples(num_samples, 
-                                           total_obs_num_samples=total_obs_num_samples), 
-                        self.y.get_samples(num_samples, 
-                                           total_obs_num_samples=total_obs_num_samples)]]
+            samples = [[self.x.get_samples(num_samples), 
+                        self.y.get_samples(num_samples)]]
         else:
-            samples = [[self.x.get_samples(num_samples, 
-                                           total_obs_num_samples=total_obs_num_samples)]]
+            samples = [[self.x.get_samples(num_samples)]]
             
         self.t_start += num_samples * self.dt
         self.start_obs = False
@@ -110,21 +107,6 @@ class MultiAntennaArray(object):
         self.t_start = t_start
         self.start_obs = True
         
-        self.bg_x = data_stream.DataStream(sample_rate=self.sample_rate,
-                                           fch1=self.fch1,
-                                           ascending=self.ascending,
-                                           t_start=self.t_start,
-                                           seed=int(self.rng.randint(2**32)))
-        self.bg_streams = [self.bg_x]
-        
-        if self.num_pols == 2:
-            self.bg_y = data_stream.DataStream(sample_rate=self.sample_rate,
-                                               fch1=self.fch1,
-                                               ascending=self.ascending,
-                                               t_start=self.t_start,
-                                               seed=int(self.rng.randint(2**32)))
-            self.bg_streams.append(self.bg_y)
-        
         self.antennas = []
         for i in range(self.num_antennas):
             antenna = Antenna(sample_rate=self.sample_rate,
@@ -135,6 +117,24 @@ class MultiAntennaArray(object):
                               seed=int(self.rng.randint(2**32)),
                               delay=delays[i])
             self.antennas.append(antenna)
+        
+        # Create background data streams and link relevant antenna data streams for tracking noise
+        self.bg_x = data_stream.BackgroundDataStream(sample_rate=self.sample_rate,
+                                                     fch1=self.fch1,
+                                                     ascending=self.ascending,
+                                                     t_start=self.t_start,
+                                                     seed=int(self.rng.randint(2**32)),
+                                                     antenna_streams=[antenna.x for antenna in self.antennas])
+        self.bg_streams = [self.bg_x]
+        
+        if self.num_pols == 2:
+            self.bg_y = data_stream.BackgroundDataStream(sample_rate=self.sample_rate,
+                                                         fch1=self.fch1,
+                                                         ascending=self.ascending,
+                                                         t_start=self.t_start,
+                                                         seed=int(self.rng.randint(2**32)),
+                                                         antenna_streams=[antenna.y for antenna in self.antennas])
+            self.bg_streams.append(self.bg_y)
             
     def set_time(self, t):
         self.start_obs = True
@@ -152,7 +152,7 @@ class MultiAntennaArray(object):
     def reset_start(self):
         self.add_time(0)
             
-    def get_samples(self, num_samples, total_obs_num_samples=None):
+    def get_samples(self, num_samples):
         # Check that num_samples is always larger than the maximum antenna delay
         assert num_samples > self.max_delay
         
@@ -160,15 +160,14 @@ class MultiAntennaArray(object):
             bg_num_samples = num_samples + self.max_delay
         else:
             bg_num_samples = num_samples
-        self.bg_x.get_samples(bg_num_samples, total_obs_num_samples=total_obs_num_samples)
+        self.bg_x.get_samples(bg_num_samples)
         if self.num_pols == 2:
-            self.bg_y.get_samples(bg_num_samples, total_obs_num_samples=total_obs_num_samples)
+            self.bg_y.get_samples(bg_num_samples)
         
         # For each antenna, get samples from each pol data stream, adding background contributions 
         # and caching voltages to account for varying antenna delays
         for antenna in self.antennas:
-            antenna.x.bg_noise_std = self.bg_x.noise_std
-            antenna.x.get_samples(num_samples, total_obs_num_samples=total_obs_num_samples)
+            antenna.x.get_samples(num_samples)
             
             if self.start_obs:
                 bg_x_v = self.bg_x.v[self.max_delay-antenna.delay:bg_num_samples-antenna.delay]
@@ -179,8 +178,7 @@ class MultiAntennaArray(object):
             antenna.x.v += bg_x_v
             
             if self.num_pols == 2:
-                antenna.y.bg_noise_std = self.bg_y.noise_std
-                antenna.y.get_samples(num_samples, total_obs_num_samples=total_obs_num_samples)
+                antenna.y.get_samples(num_samples)
                 
                 if self.start_obs:
                     bg_y_v = self.bg_y.v[self.max_delay-antenna.delay:bg_num_samples-antenna.delay]

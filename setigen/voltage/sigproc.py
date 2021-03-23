@@ -25,6 +25,16 @@ class PolyphaseFilterbank(object):
     def _get_pfb_window(self):
         self.window = get_pfb_window(self.num_taps, self.num_branches, self.window_fn)
         
+        # Somewhat arbitrary length to calculate spectral response, representing 
+        # fftlength in fine channelization. Only needed to estimate peak to mean response
+        length = 64 * self.num_taps
+        freq_response_x = xp.zeros(self.num_branches * length)
+        freq_response_x[:self.num_taps*self.num_branches] = self.window
+        h = xp.fft.fft(freq_response_x)
+        half_coarse_chan = (xp.abs(h)**2)[:length//2]+(xp.abs(h)**2)[length//2:length][::-1]
+        self.max_mean_ratio = xp.max(half_coarse_chan) / xp.mean(half_coarse_chan)
+        
+        
     def _pfb_frontend(self, x, pol=0, antenna=0):
         """
         Apply windowing function to create polyphase filterbank frontend.

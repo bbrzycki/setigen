@@ -54,8 +54,48 @@ def get_total_obs_num_samples(obs_length=None,
     else:
         raise ValueError("Invalid option given for 'length_mode'.")
     return num_blocks * block_size / (num_antennas * num_chans * bytes_per_sample) * num_branches
-                  
+
+
+def get_unit_drift_rate(raw_voltage_backend,
+                        fftlength=1048576,
+                        int_factor=1):
+    # Calculate drift rate corresponding to a one pixel shift in the final data product
+    df = raw_voltage_backend.chan_bw / fftlength
+    dt = raw_voltage_backend.tbin * fftlength * int_factor
+    return df / dt
+
+
+def get_intensity(snr, 
+                  raw_voltage_backend,
+                  obs_length=None, 
+                  num_blocks=None,
+                  length_mode='obs_length',
+                  fftlength=1048576,
+                  int_factor=1):
+    if length_mode == 'obs_length':
+        if obs_length is None:
+            raise ValueError("Value not given for 'obs_length'.")
+        num_blocks = raw_voltage_backend.get_num_blocks(obs_length)
+    elif length_mode == 'num_blocks':
+        if num_blocks is None:
+            raise ValueError("Value not given for 'num_blocks'.")
+        pass
+    else:
+        raise ValueError("Invalid option given for 'length_mode'.")
+            
+    # Get amplitude required for cosine signal to get required SNR
+    dt = raw_voltage_backend.tbin * fftlength * int_factor
+    tchans = int(raw_voltage_backend.time_per_block * num_blocks / dt)
     
+    chi_df = 2 * raw_voltage_backend.num_pols * int_factor
+#     main_mean = (raw_voltage_backend.requantizer.target_sigma)**2 * chi_df * raw_voltage_backend.filterbank.max_mean_ratio
+    
+    I_per_SNR = np.sqrt(2 / chi_df) / tchans**0.5
+ 
+    signal_level = 1 / (raw_voltage_backend.num_branches * fftlength / 4)**0.5 * (snr * I_per_SNR)**0.5 
+    return signal_level
+                  
+
 class RawVoltageBackend(object):
     def __init__(self,
                  antenna_source,
@@ -92,6 +132,8 @@ class RawVoltageBackend(object):
             self.filterbank.cache = [[None, None] for a in range(self.num_antennas)]
         self.num_taps = self.filterbank.num_taps
         self.num_branches = self.filterbank.num_branches
+        assert self.start_chan + self.num_chans <= self.num_branches // 2
+        
         self.tbin = self.num_branches / self.sample_rate
         self.chan_bw = 1 / self.tbin
         if not self.antenna_source.ascending:
@@ -104,6 +146,13 @@ class RawVoltageBackend(object):
         self.total_obs_num_samples = None
         
         self.time_per_block = self.block_size / (self.num_antennas * self.num_chans * self.bytes_per_sample) * self.tbin
+        
+        
+        self.sample_stage = 0
+        self.digitizer_stage = 0
+        self.filterbank_stage = 0
+        self.requantizer_stage = 0
+        
     
     def _make_header(self, f, header_dict={}):
         my_path = os.path.abspath(os.path.dirname(__file__))
@@ -191,8 +240,10 @@ class RawVoltageBackend(object):
                     num_samples = self.num_branches * self.num_taps * (W - 1)
                     
                 # Calculate the real voltage samples from each antenna
+                t = time.time()
                 antennas_v = self.antenna_source.get_samples(num_samples, 
                                                              total_obs_num_samples=self.total_obs_num_samples)
+                self.sample_stage += time.time() - t
 
                 for antenna in range(self.num_antennas):
                     if verbose and self.is_antenna_array:
@@ -202,14 +253,20 @@ class RawVoltageBackend(object):
                         v = antennas_v[antenna][pol]
 
                         if digitize:
+                            t = time.time()
                             v = self.digitizer.quantize(v)
+                            self.digitizer_stage += time.time() - t
 
+                        t = time.time()
                         v = self.filterbank.channelize(v, pol=pol, antenna=antenna)
                         # Drop out last coarse channel
                         v = v[:, :-1][:, start_chan:start_chan+num_chans]
+                        self.filterbank_stage += time.time() - t
 
                         if requantize:
+                            t = time.time()
                             v = self.requantizer.quantize(v)
+                            self.requantizer_stage += time.time() - t
 
                         # Convert to numpy array if using cupy
                         try:
@@ -245,6 +302,9 @@ class RawVoltageBackend(object):
                         pbar.update(1)
             
         return final_voltages    
+    
+    def get_num_blocks(self, obs_length):
+        return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         
     def record(self, 
                raw_file_stem,
@@ -260,7 +320,7 @@ class RawVoltageBackend(object):
         if length_mode == 'obs_length':
             if obs_length is None:
                 raise ValueError("Value not given for 'obs_length'.")
-            self.num_blocks = int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
+            self.num_blocks = self.get_num_blocks(obs_length)
         elif length_mode == 'num_blocks':
             if num_blocks is None:
                 raise ValueError("Value not given for 'num_blocks'.")

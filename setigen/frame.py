@@ -716,12 +716,15 @@ class Frame(object):
         Set custom metadata using a dictionary new_metadata.
         """
         self.metadata = new_metadata
-
-    def add_metadata(self, new_metadata):
+        
+    def update_metadata(self, new_metadata):
         """
         Append custom metadata using a dictionary new_metadata.
         """
         self.metadata.update(new_metadata)
+
+    def add_metadata(self, new_metadata):
+        self.update_metadata(new_metadata)
 
     def render(self, use_db=False):
         # Display frame data in waterfall format

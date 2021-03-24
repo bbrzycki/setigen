@@ -31,7 +31,7 @@ signal injection into large data frames.
     fchans = 1024
     tchans = 16
     df = 2.7939677238464355*u.Hz
-    dt = 18.25361108*u.s
+    dt = 18.253611008*u.s
     fch1 = 6095.214842353016*u.MHz
 
     # Generate the signal
@@ -75,7 +75,7 @@ SI units (Hz, s) without additional modifiers, in which case the above code woul
     fchans = 1024
     tchans = 16
     df = 2.7939677238464355
-    dt = 18.25361108
+    dt = 18.253611008
     fch1 = 6095.214842353016 * 10**6
 
     # Generate the signal
@@ -139,7 +139,7 @@ repetition, each example script will assume the same basic setup:
     fchans = 1024
     tchans = 16
     df = 2.7939677238464355*u.Hz
-    dt = 18.25361108*u.s
+    dt = 18.253611008*u.s
     fch1 = 6095.214842353016*u.MHz
 
     # Generate the signal
@@ -412,7 +412,7 @@ A minimal working example for adding noise is:
     fchans = 1024
     tchans = 16
     df = 2.7939677238464355*u.Hz
-    dt = 18.25361108*u.s
+    dt = 18.253611008*u.s
     fch1 = 6095.214842353016*u.MHz
 
     # Generate the signal
@@ -453,7 +453,7 @@ An example for adding Gaussian noise is:
     fchans = 1024
     tchans = 16
     df = 2.7939677238464355*u.Hz
-    dt = 18.25361108*u.s
+    dt = 18.253611008*u.s
     fch1 = 6095.214842353016*u.MHz
 
     # Generate the signal

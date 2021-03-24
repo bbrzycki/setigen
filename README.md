@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 frame = stg.Frame(fchans=1024*u.pixel,
                   tchans=32*u.pixel,
                   df=2.7939677238464355*u.Hz,
-                  dt=18.25361108*u.s,
+                  dt=18.253611008*u.s,
                   fch1=6095.214842353016*u.MHz)
 noise = frame.add_noise(x_mean=10, noise_type='chi2')
 signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(index=200),
@@ -63,7 +63,7 @@ import matplotlib.pyplot as plt
 frame = stg.Frame(fchans=1024*u.pixel,
                   tchans=16*u.pixel,
                   df=2.7939677238464355*u.Hz,
-                  dt=18.25361108*u.s,
+                  dt=18.253611008*u.s,
                   fch1=6095.214842353016*u.MHz)
 noise = frame.add_noise_from_obs()
 signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(index=200),

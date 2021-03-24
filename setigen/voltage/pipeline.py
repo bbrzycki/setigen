@@ -15,46 +15,6 @@ from . import sigproc
 from . import antenna
 
 
-def get_unit_drift_rate(raw_voltage_backend,
-                        fftlength=1048576,
-                        int_factor=1):
-    # Calculate drift rate corresponding to a one pixel shift in the final data product
-    df = raw_voltage_backend.chan_bw / fftlength
-    dt = raw_voltage_backend.tbin * fftlength * int_factor
-    return df / dt
-
-
-def get_intensity(snr, 
-                  raw_voltage_backend,
-                  obs_length=None, 
-                  num_blocks=None,
-                  length_mode='obs_length',
-                  fftlength=1048576,
-                  int_factor=1):
-    if length_mode == 'obs_length':
-        if obs_length is None:
-            raise ValueError("Value not given for 'obs_length'.")
-        num_blocks = raw_voltage_backend.get_num_blocks(obs_length)
-    elif length_mode == 'num_blocks':
-        if num_blocks is None:
-            raise ValueError("Value not given for 'num_blocks'.")
-        pass
-    else:
-        raise ValueError("Invalid option given for 'length_mode'.")
-            
-    # Get amplitude required for cosine signal to get required SNR
-    dt = raw_voltage_backend.tbin * fftlength * int_factor
-    tchans = int(raw_voltage_backend.time_per_block * num_blocks / dt)
-    
-    chi_df = 2 * raw_voltage_backend.num_pols * int_factor
-#     main_mean = (raw_voltage_backend.requantizer.target_sigma)**2 * chi_df * raw_voltage_backend.filterbank.max_mean_ratio
-    
-    I_per_SNR = np.sqrt(2 / chi_df) / tchans**0.5
- 
-    signal_level = 1 / (raw_voltage_backend.num_branches * fftlength / 4)**0.5 * (snr * I_per_SNR)**0.5 
-    return signal_level
-
-
 def format_header_line(key, value):
     if isinstance(value, str):
         value = f"'{value: <8}'"
@@ -65,35 +25,6 @@ def format_header_line(key, value):
         line = f"{key:<8}= {value:>20}"
     line = f"{line:<80}"
     return line
-
-
-def get_total_obs_num_samples(obs_length=None, 
-                              num_blocks=None, 
-                              num_antennas=1,
-                              sample_rate=3e9,
-                              block_size=134217728,
-                              num_bits=8,
-                              num_pols=2,
-                              num_branches=1024,
-                              num_chans=64, 
-                              length_mode='obs_length'):
-    """
-    length_mode can be 'obs_length' or 'num_blocks'
-    """
-    tbin = num_branches / sample_rate
-    chan_bw = 1 / tbin
-    bytes_per_sample = 2 * num_pols * num_bits / 8
-    if length_mode == 'obs_length':
-        if obs_length is None:
-            raise ValueError("Value not given for 'obs_length'.")
-        num_blocks = int(obs_length * chan_bw * num_antennas * num_chans * bytes_per_sample / block_size)
-    elif length_mode == 'num_blocks':
-        if num_blocks is None:
-            raise ValueError("Value not given for 'num_blocks'.")
-        pass
-    else:
-        raise ValueError("Invalid option given for 'length_mode'.")
-    return num_blocks * block_size / (num_antennas * num_chans * bytes_per_sample) * num_branches
 
 
 class RawVoltageBackend(object):
@@ -118,6 +49,8 @@ class RawVoltageBackend(object):
             raise ValueError("Invalid type provided for 'antenna_source'.")
         self.sample_rate = self.antenna_source.sample_rate
         self.num_pols = self.antenna_source.num_pols
+        self.fch1 = self.antenna_source.fch1
+        self.ascending = self.antenna_source.ascending
             
         self.start_chan = start_chan
         self.num_chans = num_chans
@@ -136,7 +69,7 @@ class RawVoltageBackend(object):
         
         self.tbin = self.num_branches / self.sample_rate
         self.chan_bw = 1 / self.tbin
-        if not self.antenna_source.ascending:
+        if not self.ascending:
             self.chan_bw = -self.chan_bw
         
         self.requantizer = requantizer
@@ -350,7 +283,7 @@ class RawVoltageBackend(object):
 
                     # self.chan_bw was already adjusted for ascending or descending frequencies 
                     center_freq = (self.start_chan + (self.num_chans - 1) / 2) * self.chan_bw
-                    center_freq += self.antenna_source.fch1
+                    center_freq += self.fch1
                         
                     for j in range(blocks_to_write):
                         if verbose:

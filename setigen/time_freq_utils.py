@@ -9,6 +9,28 @@ def db(x):
     return 10 * np.log10(x)
 
 
+def integrate_frame(frame, normalize=False):
+    """
+    Integrate over time using mean (not sum).
+    """
+    data = frame.data
+    if normalize:
+        m, s = frame.get_noise_stats()
+        data = (data - m) / (s / frame.tchans**0.5)
+    return np.mean(data, axis=0)
+
+
+def integrate_frame_subdata(data, frame=None, normalize=False):
+    """
+    Integrate a chunk of data assuming frame statistics using mean (not sum).
+    """
+    if normalize:
+        assert frame is not None
+        m, s = frame.get_noise_stats()
+        data = (data - m) / (s / frame.tchans**0.5)
+    return np.mean(data, axis=0)
+
+
 def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     """
     Normalize data per frequency channel so that the noise level in data is

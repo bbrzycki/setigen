@@ -97,7 +97,7 @@ class Frame(object):
 
             if data is not None:
                 assert data.shape == self.shape
-                self.data = data
+                self.data = np.copy(data)
             else:
                 self.data = np.zeros(self.shape)
         elif waterfall:
@@ -467,7 +467,7 @@ class Frame(object):
         >>> fchans = 1024
         >>> tchans = 32
         >>> df = 2.7939677238464355*u.Hz
-        >>> dt = tsamp = 18.25361108*u.s
+        >>> dt = tsamp = 18.253611008*u.s
         >>> fch1 = 6095.214842353016*u.MHz
         >>> frame = stg.Frame(fchans=fchans,
                               tchans=tchans,
@@ -720,12 +720,15 @@ class Frame(object):
         Set custom metadata using a dictionary new_metadata.
         """
         self.metadata = new_metadata
-
-    def add_metadata(self, new_metadata):
+        
+    def update_metadata(self, new_metadata):
         """
         Append custom metadata using a dictionary new_metadata.
         """
         self.metadata.update(new_metadata)
+
+    def add_metadata(self, new_metadata):
+        self.update_metadata(new_metadata)
 
     def render(self, use_db=False):
         # Display frame data in waterfall format

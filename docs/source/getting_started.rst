@@ -22,7 +22,7 @@ specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in th
     frame = stg.Frame(fchans=1024*u.pixel,
                       tchans=32*u.pixel,
                       df=2.7939677238464355*u.Hz,
-                      dt=18.25361108*u.s,
+                      dt=18.253611008*u.s,
                       fch1=6095.214842353016*u.MHz)
     noise = frame.add_noise(x_mean=10, noise_type='chi2')
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(index=200),
@@ -98,7 +98,7 @@ frequencies in increasing order, you do not need to set :code:`ascending` manual
     frame = stg.Frame(fchans=1024*u.pixel,
                       tchans=32*u.pixel,
                       df=2.7939677238464355*u.Hz,
-                      dt=18.25361108*u.s,
+                      dt=18.253611008*u.s,
                       fch1=6095.214842353016*u.MHz,
                       ascending=True)
 
@@ -111,7 +111,7 @@ values that are mapped to the provided data array.
 
     my_data = # your 2D array
     frame = stg.Frame.from_data(df=2.7939677238464355*u.Hz,
-                                dt=18.25361108*u.s,
+                                dt=18.253611008*u.s,
                                 fch1=6095.214842353016*u.MHz,
                                 data=my_data)
                                 

@@ -86,7 +86,7 @@ instead of functions.
     frame = stg.Frame(fchans=1024*u.pixel,
                       tchans=32*u.pixel,
                       df=2.7939677238464355*u.Hz,
-                      dt=18.25361108*u.s,
+                      dt=18.253611008*u.s,
                       fch1=6095.214842353016*u.MHz)
     frame.add_noise(x_mean=10)
 
@@ -152,7 +152,7 @@ frame manipulations for a large frame:
     frame = stg.Frame(fchans=2**20,
                       tchans=32,
                       df=2.7939677238464355*u.Hz,
-                      dt=18.25361108*u.s,
+                      dt=18.253611008*u.s,
                       fch1=6095.214842353016*u.MHz)
     times.append(time.time())
 
@@ -199,7 +199,7 @@ setting too small of a bounding frequency range can look like:
     frame = stg.Frame(fchans=1024*u.pixel,
                       tchans=32*u.pixel,
                       df=2.7939677238464355*u.Hz,
-                      dt=18.25361108*u.s,
+                      dt=18.253611008*u.s,
                       fch1=6095.214842353016*u.MHz)
     frame.add_noise(x_mean=10)
 
@@ -257,7 +257,7 @@ Here is an example of integration in action:
     frame = stg.Frame(fchans=1024*u.pixel,
                       tchans=32*u.pixel,
                       df=2.7939677238464355*u.Hz,
-                      dt=18.25361108*u.s,
+                      dt=18.253611008*u.s,
                       fch1=6095.214842353016*u.MHz)
     frame.add_noise(x_mean=10)
 

@@ -1,7 +1,14 @@
-try:
-    import cupy as xp
-except ImportError:
+import os
+
+GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
+if GPU_FLAG == '1':
+    try:
+        import cupy as xp
+    except ImportError:
+        import numpy as xp
+else:
     import numpy as xp
+    
 import numpy as np
 import scipy.signal
 import time
@@ -89,13 +96,7 @@ class RealQuantizer(object):
         factor = target_fwhm / data_fwhm
 
         q_voltages = xp.around(factor * (x - data_mean))
-
-        q_voltages[q_voltages < -2**(num_bits - 1)] = -2**(num_bits - 1)
-        q_voltages[q_voltages > 2**(num_bits - 1) - 1] = 2**(num_bits - 1) - 1
-
-    #     q_voltages = xp.where(q_voltages < -2**(num_bits - 1), -2**(num_bits - 1), q_voltages)
-    #     q_voltages = xp.where(q_voltages > 2**(num_bits - 1) - 1, 2**(num_bits - 1) - 1, q_voltages)
-
+        q_voltages = xp.clip(q_voltages, -2**(num_bits - 1), 2**(num_bits - 1) - 1)
         q_voltages = q_voltages.astype(int)
 
         return q_voltages
@@ -238,13 +239,7 @@ def quantize_real(x, target_fwhm=32, num_bits=8):
     factor = target_fwhm / data_fwhm
     
     q_voltages = xp.around(factor * (x - data_mean))
-        
-    q_voltages[q_voltages < -2**(num_bits - 1)] = -2**(num_bits - 1)
-    q_voltages[q_voltages > 2**(num_bits - 1) - 1] = 2**(num_bits - 1) - 1
-    
-#     q_voltages = xp.where(q_voltages < -2**(num_bits - 1), -2**(num_bits - 1), q_voltages)
-#     q_voltages = xp.where(q_voltages > 2**(num_bits - 1) - 1, 2**(num_bits - 1) - 1, q_voltages)
-    
+    q_voltages = xp.clip(q_voltages, -2**(num_bits - 1), 2**(num_bits - 1) - 1)
     q_voltages = q_voltages.astype(int)
     
     return q_voltages

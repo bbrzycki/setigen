@@ -1,6 +1,12 @@
-try:
-    import cupy as xp
-except ImportError:
+import os
+
+GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
+if GPU_FLAG == '1':
+    try:
+        import cupy as xp
+    except ImportError:
+        import numpy as xp
+else:
     import numpy as xp
 
 from astropy import units as u

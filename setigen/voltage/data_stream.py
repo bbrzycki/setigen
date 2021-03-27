@@ -44,6 +44,8 @@ class DataStream(object):
         # Tracks start time of next sequence of data
         self.t_start = t_start
         self.start_obs = True
+        self.ts = None
+        self.v = None
         
         # Hold functions that generate voltage values
         self.noise_sources = []
@@ -64,6 +66,20 @@ class DataStream(object):
     def add_time(self, t):
         self.set_time(self.t_start + t)
         
+    def update_noise(self, stats_calc_num_samples=10000):
+        """
+        Replace self.noise_std by calculating out a few samples and estimating the 
+        standard deviation of the voltages.
+        """
+        start_obs = self.start_obs
+        t_start = self.t_start
+        
+        v = self.get_samples(num_samples=stats_calc_num_samples)
+        _, self.noise_std = estimate_stats(v, stats_calc_num_samples=stats_calc_num_samples)
+        
+        self.start_obs = start_obs
+        self.t_start = t_start
+        
     def get_total_noise_std(self):
         return xp.sqrt(self.noise_std**2 + self.bg_noise_std**2)
     
@@ -71,6 +87,7 @@ class DataStream(object):
         noise_func = lambda ts: self.rng.normal(loc=v_mean, 
                                                 scale=v_std,
                                                 size=len(ts))
+        
         # Variances add, not standard deviations
         self.noise_std = xp.sqrt(self.noise_std**2 + v_std**2)
         self.noise_sources.append(noise_func)
@@ -105,8 +122,9 @@ class DataStream(object):
             self.v += noise_func(self.ts)
             
         for signal_func in self.signal_sources:
-            self.v += signal_func(self.ts)  
-
+            # Ensure that the array is of the correct type
+            self.v += xp.array(signal_func(self.ts))
+            
         self.start_obs = False
         
         return self.v
@@ -131,13 +149,30 @@ class BackgroundDataStream(DataStream):
                          seed=seed)
         self.antenna_streams = antenna_streams
         
-    def add_noise(self, v_mean, v_std):
-        noise_func = lambda ts: self.rng.normal(loc=v_mean, 
-                                                scale=v_std,
-                                                size=len(ts))
-        # Variances add, not standard deviations
-        self.noise_std = xp.sqrt(self.noise_std**2 + v_std**2)
+    def _set_all_bg_noise(self):
         for stream in self.antenna_streams:
-            stream.bg_noise_std = xp.sqrt(stream.bg_noise_std**2 + v_std**2)
-        self.noise_sources.append(noise_func)
+            stream.bg_noise_std = self.noise_std
         
+    def update_noise(self, stats_calc_num_samples=10000):
+        """
+        Replace self.noise_std by calculating out a few samples and estimating the 
+        standard deviation of the voltages.
+        """
+        DataStream.update_noise(self, stats_calc_num_samples=stats_calc_num_samples)
+        self._set_all_bg_noise()
+        
+    def add_noise(self, v_mean, v_std):
+        DataStream.add_noise(self, v_mean, v_std)
+        self._set_all_bg_noise()
+        
+        
+def estimate_stats(voltages, stats_calc_num_samples=10000):
+    """
+    Estimate mean and standard deviation, truncating to at most `stats_calc_num_samples` samples 
+    to reduce computation.
+    """
+    calc_len = xp.amin(xp.array([stats_calc_num_samples, len(voltages)]))
+    data_sigma = xp.std(voltages[:calc_len])
+    data_mean = xp.mean(voltages[:calc_len])
+    
+    return data_mean, data_sigma

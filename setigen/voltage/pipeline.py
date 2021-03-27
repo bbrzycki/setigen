@@ -16,7 +16,8 @@ from tqdm import tqdm
 import time
 
 from setigen import unit_utils
-from . import sigproc
+from . import polyphase_filterbank
+from . import quantization
 from . import antenna
 
 
@@ -35,11 +36,11 @@ def format_header_line(key, value):
 class RawVoltageBackend(object):
     def __init__(self,
                  antenna_source,
-                 digitizer=sigproc.RealQuantizer(),
-                 filterbank=sigproc.PolyphaseFilterbank(),
-                 requantizer=sigproc.ComplexQuantizer(),
-                 start_chan=0,
-                 num_chans=64,
+                 digitizer=quantization.RealQuantizer(),
+                 filterbank=polyphase_filterbank.PolyphaseFilterbank(),
+                 requantizer=quantization.ComplexQuantizer(),
+                 start_rec_chan=0,
+                 num_rec_chans=64,
                  block_size=134217728,
                  blocks_per_file=128,
                  num_subblocks=32):
@@ -57,8 +58,8 @@ class RawVoltageBackend(object):
         self.fch1 = self.antenna_source.fch1
         self.ascending = self.antenna_source.ascending
             
-        self.start_chan = start_chan
-        self.num_chans = num_chans
+        self.start_rec_chan = start_rec_chan
+        self.num_rec_chans = num_rec_chans
         self.block_size = block_size
         self.blocks_per_file = blocks_per_file
         self.num_subblocks = num_subblocks
@@ -70,7 +71,7 @@ class RawVoltageBackend(object):
             self.filterbank.cache = [[None, None] for a in range(self.num_antennas)]
         self.num_taps = self.filterbank.num_taps
         self.num_branches = self.filterbank.num_branches
-        assert self.start_chan + self.num_chans <= self.num_branches // 2
+        assert self.start_rec_chan + self.num_rec_chans <= self.num_branches // 2
         
         self.tbin = self.num_branches / self.sample_rate
         self.chan_bw = 1 / self.tbin
@@ -83,7 +84,7 @@ class RawVoltageBackend(object):
         self.bytes_per_sample = 2 * self.num_pols * self.num_bits / 8
         self.total_obs_num_samples = None
         
-        self.time_per_block = self.block_size / (self.num_antennas * self.num_chans * self.bytes_per_sample) * self.tbin
+        self.time_per_block = self.block_size / (self.num_antennas * self.num_rec_chans * self.bytes_per_sample) * self.tbin
         
         
         self.sample_stage = 0
@@ -139,18 +140,18 @@ class RawVoltageBackend(object):
         f.write(bytearray(512 - (80 * len(header_lines) % 512)))   
         
     def collect_data(self,
-                     start_chan,
-                     num_chans,
+                     start_rec_chan,
+                     num_rec_chans,
                      num_subblocks=1,
                      digitize=True,
                      requantize=True,
                      verbose=True):
-        obsnchan = num_chans * self.num_antennas
+        obsnchan = num_rec_chans * self.num_antennas
         final_voltages = np.empty((obsnchan, int(self.block_size / obsnchan)))
     
         # Make sure that block_size is appropriate
-        assert self.block_size % int(self.num_antennas * num_chans * self.num_taps * self.bytes_per_sample) == 0
-        T = int(self.block_size / (self.num_antennas * num_chans * self.bytes_per_sample))
+        assert self.block_size % int(self.num_antennas * num_rec_chans * self.num_taps * self.bytes_per_sample) == 0
+        T = int(self.block_size / (self.num_antennas * num_rec_chans * self.bytes_per_sample))
 
         W = int(xp.ceil(T / self.num_taps / num_subblocks)) + 1
         subblock_T = self.num_taps * (W - 1)
@@ -197,7 +198,7 @@ class RawVoltageBackend(object):
                         t = time.time()
                         v = self.filterbank.channelize(v, pol=pol, antenna=antenna)
                         # Drop out last coarse channel
-                        v = v[:, :-1][:, start_chan:start_chan+num_chans]
+                        v = v[:, :-1][:, start_rec_chan:start_rec_chan+num_rec_chans]
                         self.filterbank_stage += time.time() - t
 
                         if requantize:
@@ -213,7 +214,7 @@ class RawVoltageBackend(object):
                             R = xp.real(v).T
                             I = xp.imag(v).T
                             
-                        c_idx = antenna * num_chans + np.arange(0, num_chans)
+                        c_idx = antenna * num_rec_chans + np.arange(0, num_rec_chans)
                         if self.num_bits == 8:
                             if T % subblock_T != 0 and subblock == num_subblocks - 1:
                                 # Uses adjusted W
@@ -241,7 +242,7 @@ class RawVoltageBackend(object):
         return final_voltages    
     
     def get_num_blocks(self, obs_length):
-        return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
+        return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_rec_chans * self.bytes_per_sample / self.block_size)
         
     def record(self, 
                raw_file_stem,
@@ -287,20 +288,20 @@ class RawVoltageBackend(object):
                         blocks_to_write = self.blocks_per_file
 
                     # self.chan_bw was already adjusted for ascending or descending frequencies 
-                    center_freq = (self.start_chan + (self.num_chans - 1) / 2) * self.chan_bw
+                    center_freq = (self.start_rec_chan + (self.num_rec_chans - 1) / 2) * self.chan_bw
                     center_freq += self.fch1
                         
                     for j in range(blocks_to_write):
                         if verbose:
                             tqdm.write(f'Creating block {j}...')
                         # Set additional header values according to which band is recorded
-                        header_dict['OBSNCHAN'] = self.num_chans * self.num_antennas
+                        header_dict['OBSNCHAN'] = self.num_rec_chans * self.num_antennas
                         header_dict['OBSFREQ'] = center_freq * 1e-6
-                        header_dict['OBSBW'] = self.chan_bw * self.num_chans * 1e-6
+                        header_dict['OBSBW'] = self.chan_bw * self.num_rec_chans * 1e-6
                         self._make_header(f, header_dict)
 
-                        v = self.collect_data(start_chan=self.start_chan, 
-                                              num_chans=self.num_chans,
+                        v = self.collect_data(start_rec_chan=self.start_rec_chan, 
+                                              num_rec_chans=self.num_rec_chans,
                                               num_subblocks=self.num_subblocks,
                                               digitize=digitize, 
                                               requantize=True,

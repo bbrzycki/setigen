@@ -123,7 +123,11 @@ class DataStream(object):
             
         for signal_func in self.signal_sources:
             # Ensure that the array is of the correct type
-            self.v += xp.array(signal_func(self.ts))
+            signal_v = xp.array(signal_func(self.ts))
+            # If there are complex voltages, make sure to cast self.v to complex
+            if not xp.iscomplexobj(self.v) and xp.iscomplexobj(signal_v):
+                self.v = self.v.astype(complex)
+            self.v += signal_v
             
         self.start_obs = False
         

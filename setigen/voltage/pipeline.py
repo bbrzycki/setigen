@@ -198,7 +198,7 @@ class RawVoltageBackend(object):
                         t = time.time()
                         v = self.filterbank.channelize(v, pol=pol, antenna=antenna)
                         # Drop out last coarse channel
-                        v = v[:, :-1][:, start_chan:start_chan+num_chans]
+                        v = v[:, start_chan:start_chan+num_chans]
                         self.filterbank_stage += time.time() - t
 
                         if requantize:

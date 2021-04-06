@@ -38,8 +38,8 @@ class Frame(object):
                  df=None,
                  dt=None,
                  fch1=8*u.GHz,
-                 data=None,
-                 ascending=False):
+                 ascending=False,
+                 data=None):
         """
         Initializes a Frame object either from an existing .fil/.h5 file or
         from frame resolution / size.
@@ -70,14 +70,14 @@ class Frame(object):
             Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
             If ascending=True, fch1 is the minimum frequency; if ascending=False 
             (default), fch1 is the maximum frequency.
-        data : ndarray, optional
-            2D array of intensities to preload into frame
         ascending : bool, optional
             Specify whether frequencies should be in ascending order, so that 
             fch1 is the minimum frequency. Default is False, for which fch1
             is the maximum frequency. This is overwritten if a waterfall
             object is provided, where ascending will be automatically 
             determined by observational parameters.
+        data : ndarray, optional
+            2D array of intensities to preload into frame
         """
         if None not in [fchans, tchans, df, dt, fch1]:
             self.waterfall = None
@@ -150,13 +150,14 @@ class Frame(object):
         self.metadata = {}
 
     @classmethod
-    def from_data(cls, df, dt, fch1, data):
+    def from_data(cls, df, dt, fch1, ascending, data):
         tchans, fchans = data.shape
         return cls(fchans=fchans,
                    tchans=tchans,
                    df=df,
                    dt=dt,
                    fch1=fch1,
+                   ascending=ascending,
                    data=data)
 
     @classmethod

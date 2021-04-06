@@ -10,18 +10,29 @@ else:
     import numpy as xp
     
 import numpy as np
-import scipy.signal
 import time
 
 
-def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, int_factor=1, fftlength=256):
+def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, fftlength=256, int_factor=1):
     """
     Perform fine channelization on input complex voltages after filterbank,
     for single or dual polarizations. 
     
-    int_factor specifies the number of time samples to integrate.
+    Parameters
+    ----------
+    pfb_voltages_x : array
+        Complex voltages in first polarization, of shape (time_samples, num_chans)
+    pfb_voltages_y : array, optional
+        Complex voltages in second polarization, of shape (time_samples, num_chans)
+    fftlength : int
+        FFT length to be used in fine channelization
+    int_factor : int, optional
+        Integration factor to be used in fine channelization
     
-    Shape of pfb_voltages is (time_samples, num_channels).
+    Returns
+    -------
+    XX_psd : array
+        Finely channelized voltages
     """
     
     XX_psd = xp.zeros((pfb_voltages_x.shape[1], pfb_voltages_x.shape[0] // fftlength, fftlength))
@@ -49,7 +60,28 @@ def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, int_factor=1, fftleng
 
 
 def get_waterfall_from_raw(raw_filename, block_size, num_chans, int_factor=1, fftlength=256):
-    # produces waterfall from a raw file (only the first block), 2pol, 8bit
+    """ 
+    Produces waterfall data array from the first block of a dual-polarized, 8 bit RAW file. Lightweight 
+    function mainly for testing. 
+    
+    Parameters
+    ----------
+    raw_filename : str
+        Filename of GUPPI RAW file
+    block_size : int
+        Number of bytes in a data block
+    num_chans : int
+        Number of coarse channels saved in RAW file
+    fftlength : int
+        FFT length to be used in fine channelization
+    int_factor : int, optional
+        Integration factor to be used in fine channelization
+    
+    Returns
+    -------
+    XX_psd : array
+        Finely channelized voltages
+    """
     with open(raw_filename, "rb") as f:
         i = 1
         chunk = f.read(80)

@@ -103,8 +103,7 @@ frequencies in increasing order, you do not need to set :code:`ascending` manual
                       ascending=True)
 
 Assuming you have access to a data array, with corresponding resolution information, you can
-can also initialize a frame as follows. Just make sure that your data is already arranged in order 
-of increasing frequency; setting the :code:`ascending` parameter will only affect the frequency 
+can also initialize a frame as follows. Just make sure that your data is already arranged in the desired frequency order; setting the :code:`ascending` parameter will only affect the frequency 
 values that are mapped to the provided data array.
 
 .. code-block:: python
@@ -113,6 +112,7 @@ values that are mapped to the provided data array.
     frame = stg.Frame.from_data(df=2.7939677238464355*u.Hz,
                                 dt=18.253611008*u.s,
                                 fch1=6095.214842353016*u.MHz,
+                                ascending=True,
                                 data=my_data)
                                 
     frame.render()

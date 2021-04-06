@@ -57,7 +57,7 @@ class Frame(object):
         Parameters
         ----------
         waterfall : str or Waterfall, optional
-            Name of filterbank file or Waterfall object for preloading data.
+            Name of filterbank file or Waterfall object for preloading data
         fchans : int, optional
             Number of frequency samples
         tchans: int, optional

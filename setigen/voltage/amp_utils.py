@@ -2,7 +2,7 @@ import numpy as np
 
 
 def get_unit_drift_rate(raw_voltage_backend,
-                        fftlength=1048576,
+                        fftlength,
                         int_factor=1):
     """
     Calculate drift rate corresponding to a 1x1 pixel shift in the final data product.
@@ -13,7 +13,7 @@ def get_unit_drift_rate(raw_voltage_backend,
     ----------
     raw_voltage_backend : RawVoltageBackend
         Backend object to infer observation parameters
-    fftlength : int, optional
+    fftlength : int
         FFT length to be used in fine channelization
     int_factor : int, optional
         Integration factor to be used in fine channelization
@@ -30,14 +30,14 @@ def get_unit_drift_rate(raw_voltage_backend,
 
 def get_level(snr, 
               raw_voltage_backend,
+              fftlength,
               obs_length=None, 
               num_blocks=None,
-              length_mode='obs_length',
-              fftlength=1048576):
+              length_mode='obs_length',):
     """
     Calculate required signal level as a function of desired SNR, assuming initial noise 
     variance of 1. This is calculated for a single polarization. This further assumes the signal
-    is non-drifting and centered on a fine channel bin. 
+    is non-drifting and centered on a finely channelized bin. 
     
     Parameters
     ----------
@@ -45,14 +45,14 @@ def get_level(snr,
         Signal-to-noise ratio (SNR)
     raw_voltage_backend : RawVoltageBackend
         Backend object to infer observation parameters
+    fftlength : int, optional
+        FFT length to be used in fine channelization
     obs_length : float, optional
         Length of observation in seconds, if in `obs_length` mode
     num_blocks : int, optional
         Number of data blocks to record, if in `num_blocks` mode
     length_mode : str, optional
         Mode for specifying length of observation, either `obs_length` in seconds or `num_blocks` in data blocks
-    fftlength : int, optional
-        FFT length to be used in fine channelization
     
     Returns
     -------
@@ -89,7 +89,24 @@ def get_leakage_factor(f_start,
                        fftlength):
     """
     Get factor to scale up signal amplitude from spectral leakage based on the 
-    position of a signal in a fine channel
+    position of a signal in a fine channel. This calculates an inverse normalized 
+    sinc value based on the position of the signal with respect to finely channelized bins.
+    Since intensity goes as voltage squared, this gives a scaling proportional to 1/sinc^2 
+    in finely channelized data products; this is the standard fine channel spectral response.
+    
+    Parameters
+    ----------
+    f_start : float
+        Signal frequency, in Hz
+    raw_voltage_backend : RawVoltageBackend
+        Backend object to infer observation parameters
+    fftlength : int, optional
+        FFT length to be used in fine channelization
+    
+    Returns
+    -------
+    leakage_factor : float
+        Factor to multiply to signal level / amplitude
     """ 
     spectral_bin_frac = np.modf((f_start - raw_voltage_backend.fch1) / (raw_voltage_backend.chan_bw / fftlength))[0]
     spectral_bin_frac = np.min([spectral_bin_frac, 1 - spectral_bin_frac])

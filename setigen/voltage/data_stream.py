@@ -19,7 +19,10 @@ from setigen import unit_utils
 
 class DataStream(object):
     """
-    Facilitates the creation of synthetic raw voltage data.
+    Facilitates noise and signal injection in a real voltage time series data stream,
+    for a single polarization. Noise and signal sources are functions, saved as 
+    properties of the DataStream, so that individual samples can be queried using
+    get_samples(). 
     """
     
     def __init__(self,
@@ -28,6 +31,35 @@ class DataStream(object):
                  ascending=True,
                  t_start=0,
                  seed=None):
+        """
+        Initializes a DataStream object with a sampling rate and frequency range.
+
+        By default, `setigen.voltage` does not employ heterodyne mixing and filtering
+        to focus on a frequency bandwidth. Instead, the sensitive range is determined
+        by these parameters; starting at the frequency `fch1` and spanning the Nyquist 
+        range `sample_rate / 2` in the increasing or decreasing frequency direction,
+        as specified by `ascending`. Note that accordingly, the spectral response will
+        be susceptible to aliasing, so take care that the desired frequency range is
+        correct and that signals are injected at appropriate frequencies. 
+
+        Parameters
+        ----------
+        sample_rate : float, optional
+            Physical sample rate, in Hz, for collecting real voltage data
+        fch1 : astropy.Quantity, optional
+            Starting frequency of the first coarse channel, in Hz.
+            If ascending=True, fch1 is the minimum frequency; if ascending=False 
+            (default), fch1 is the maximum frequency.
+        ascending : bool, optional
+            Specify whether frequencies should be in ascending order, so that 
+            fch1 is the minimum frequency. Default is False, for which fch1
+            is the maximum frequency.
+        t_start : float, optional
+            Start time, in seconds
+        seed : int, optional
+            Integer seed between 0 and 2**32. If None, the random number generator
+            will use a random seed.
+        """
         self.rng = xp.random.RandomState(seed)
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
@@ -52,6 +84,9 @@ class DataStream(object):
         self.signal_sources = []
         
     def _update_t(self, num_samples):
+        """
+        Set array of times for voltage calculation, and reset voltage array.
+        """
         self.ts = self.t_start + xp.linspace(0., 
                                              num_samples * self.dt,
                                              num_samples,
@@ -60,16 +95,27 @@ class DataStream(object):
         self.v = xp.zeros(num_samples)
         
     def set_time(self, t):
+        """
+        Set start time before next set of samples.
+        """
         self.start_obs = True
         self.t_start = t
         
     def add_time(self, t):
+        """
+        Add time before next set of samples.
+        """
         self.set_time(self.t_start + t)
         
     def update_noise(self, stats_calc_num_samples=10000):
         """
         Replace self.noise_std by calculating out a few samples and estimating the 
         standard deviation of the voltages.
+
+        Parameters
+        ----------
+        stats_calc_num_samples : int, optional
+            Number of samples to use in estimating noise standard deviation
         """
         start_obs = self.start_obs
         t_start = self.t_start
@@ -81,6 +127,18 @@ class DataStream(object):
         self.t_start = t_start
         
     def get_total_noise_std(self):
+        """
+        Get the standard deviation of the noise. If this DataStream is part
+        of an array of Antennas, this will account for the background noise in the 
+        corresponding polarization.
+        
+        Note that if this DataStream has custom signals or noise, it might not
+        'know' what the noise standard deviation is. In this case, one should run
+        `DataStream.update_noise()` to update the DataStream's estimate for the noise.
+        Note that this actually runs `DataStream.get_samples()` for the calculation, so
+        if your custom signal functions have mutable properties, make sure to reset these
+        if necessary before saving out data. 
+        """
         return xp.sqrt(self.noise_std**2 + self.bg_noise_std**2)
     
     def add_noise(self, v_mean, v_std):

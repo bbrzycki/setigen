@@ -20,13 +20,13 @@ sys.path.insert(0, os.path.abspath('../../'))
 # -- Project information -----------------------------------------------------
 
 project = u'setigen'
-copyright = u'2018-2020, Bryan Brzycki'
+copyright = u'2018-2021, Bryan Brzycki'
 author = u'Bryan Brzycki'
 
 # The short X.Y version
-version = u'1.3'
+version = u'2.0'
 # The full version, including alpha/beta/rc tags
-release = u'1.3.2'
+release = u'2.0.0'
 
 
 # -- General configuration ---------------------------------------------------

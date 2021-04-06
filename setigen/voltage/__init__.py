@@ -5,5 +5,5 @@ from .antenna import *
 from .polyphase_filterbank import *
 from .quantization import *
 from .waterfall import *
-from .amp_utils import *
+from .level_utils import *
 from .backend import *

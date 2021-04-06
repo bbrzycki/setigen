@@ -34,7 +34,7 @@ class DataStream(object):
         """
         Initializes a DataStream object with a sampling rate and frequency range.
 
-        By default, `setigen.voltage` does not employ heterodyne mixing and filtering
+        By default, :code:`setigen.voltage` does not employ heterodyne mixing and filtering
         to focus on a frequency bandwidth. Instead, the sensitive range is determined
         by these parameters; starting at the frequency `fch1` and spanning the Nyquist 
         range `sample_rate / 2` in the increasing or decreasing frequency direction,
@@ -134,10 +134,11 @@ class DataStream(object):
         
         Note that if this DataStream has custom signals or noise, it might not
         'know' what the noise standard deviation is. In this case, one should run
-        `DataStream.update_noise()` to update the DataStream's estimate for the noise.
-        Note that this actually runs `DataStream.get_samples()` for the calculation, so
+        :func:`~setigen.voltage.data_stream.DataStream.update_noise()` to update the 
+        DataStream's estimate for the noise. Note that this actually runs 
+        :func:`~setigen.voltage.data_stream.DataStream.get_samples()` for the calculation, so
         if your custom signal functions have mutable properties, make sure to reset these
-        if necessary before saving out data. 
+        (if necessary) before saving out data. 
         """
         return xp.sqrt(self.noise_std**2 + self.bg_noise_std**2)
     

@@ -22,6 +22,21 @@ from . import antenna
 
 
 def format_header_line(key, value):
+    """
+    Format key, value pair as an 80 character RAW header line.
+    
+    Parameters
+    ----------
+    key : str
+        Header key
+    value : str or int or float
+        Header value
+        
+    Returns
+    -------
+    line : str
+        Formatted line
+    """
     if isinstance(value, str):
         value = f"'{value: <8}'"
         line = f"{key:<8}= {value:<20}"
@@ -34,6 +49,10 @@ def format_header_line(key, value):
 
 
 class RawVoltageBackend(object):
+    """
+    Central class that wraps around antenna sources and backend elements to facilitate the
+    creation of GUPPI RAW voltage files from synthetic real voltages.
+    """
     def __init__(self,
                  antenna_source,
                  digitizer=quantization.RealQuantizer(),
@@ -44,6 +63,35 @@ class RawVoltageBackend(object):
                  block_size=134217728,
                  blocks_per_file=128,
                  num_subblocks=32):
+        """
+        Initialize a RawVoltageBackend object, with an input antenna source (either Antenna or 
+        MultiAntennaArray), and backend elements (digitizer, filterbank, requantizer). Also, details 
+        behind the RAW file format and recording are specified on initialization, such as which
+        coarse channels are saved and the size of recording blocks.
+
+        Parameters
+        ----------
+        antenna_source : Antenna or MultiAntennaArray
+            Antenna or MultiAntennaArray, from which real voltage data is created
+        digitizer : RealQuantizer or ComplexQuantizer, optional
+            Quantizer used to digitize input voltages
+        filterbank : PolyphaseFilterbank, optional
+            Polyphase filterbank object used to channelize voltages
+        requantizer : ComplexQuantizer, optional
+            Quantizer used on complex channelized voltages
+        start_chan : int, optional
+            Index of first coarse channel to be recorded
+        num_chans : int, optional
+            Number of coarse channels to be recorded
+        block_size : int, optional
+            Recording block size, in bytes
+        blocks_per_file : int, optional
+            Number of blocks to be saved per RAW file
+        num_subblocks : int, optional
+            Number of partitions per block, used for computation. If `num_subblocks`=1, one block's worth
+            of data will be passed through the pipeline and recorded at once. Use this parameter to reduce 
+            memory load, especially when using GPU acceleration.
+        """
         self.antenna_source = antenna_source
         if isinstance(antenna_source, antenna.Antenna):
             self.num_antennas = 1
@@ -85,15 +133,27 @@ class RawVoltageBackend(object):
         self.total_obs_num_samples = None
         
         self.time_per_block = self.block_size / (self.num_antennas * self.num_chans * self.bytes_per_sample) * self.tbin
+    
+        # Make sure that block_size is appropriate
+        assert self.block_size % int(self.num_antennas * self.num_chans * self.num_taps * self.bytes_per_sample) == 0
         
-        
-        self.sample_stage = 0
-        self.digitizer_stage = 0
-        self.filterbank_stage = 0
-        self.requantizer_stage = 0
+        self.sample_stage_t = 0
+        self.digitizer_stage_t = 0
+        self.filterbank_stage_t = 0
+        self.requantizer_stage_t = 0
         
     
     def _make_header(self, f, header_dict={}):
+        """
+        Write all header lines out to file as bytes.
+        
+        Parameters
+        ----------
+        f : file handle
+            File handle of open RAW file
+        header_dict : dict, optional
+            Dictionary of header values to set. Use to overwrite non-essential header values or add custom ones.
+        """
         my_path = os.path.abspath(os.path.dirname(__file__))
         path = os.path.join(my_path, 'header_template.txt')
         with open(path, 'r') as t:
@@ -146,6 +206,33 @@ class RawVoltageBackend(object):
                      digitize=True,
                      requantize=True,
                      verbose=True):
+        """
+        General function to actually collect data from the antenna source and return coarsely channelized complex
+        voltages.
+        
+        Parameters
+        ----------
+        start_chan : int
+            Index of first coarse channel to be saved
+        num_chans : int
+            Number of coarse channels to be saved
+        num_subblocks : int, optional
+            Number of partitions per block, used for computation. If `num_subblocks`=1, one block's worth
+            of data will be passed through the pipeline and recorded at once. Use this parameter to reduce 
+            memory load, especially when using GPU acceleration.
+        digitize : bool, optional
+            Whether to quantize input voltages before the PFB
+        requantize : bool, optional
+            Whether to quantize output complex voltages after the PFB
+        verbose : bool, optional
+            Control whether tqdm prints progress messages 
+            
+        Returns
+        -------
+        final_voltages : array
+            Complex voltages formatted according to GUPPI RAW specifications; array of shape 
+            (num_chans * num_antennas, block_size / (num_chans * num_antennas))
+        """
         obsnchan = num_chans * self.num_antennas
         final_voltages = np.empty((obsnchan, int(self.block_size / obsnchan)))
     
@@ -159,8 +246,6 @@ class RawVoltageBackend(object):
         # Change num_subblocks if necessary
         num_subblocks = int(xp.ceil(T / subblock_T))
         subblock_t_len = int(subblock_T * self.bytes_per_sample)
-    
-#         mempool = xp.get_default_memory_pool()
         
         with tqdm(total=self.num_antennas*self.num_pols*num_subblocks, leave=False) as pbar:
             pbar.set_description('Subblocks')
@@ -181,7 +266,7 @@ class RawVoltageBackend(object):
                 # Calculate the real voltage samples from each antenna
                 t = time.time()
                 antennas_v = self.antenna_source.get_samples(num_samples)
-                self.sample_stage += time.time() - t
+                self.sample_stage_t += time.time() - t
 
                 for antenna in range(self.num_antennas):
                     if verbose and self.is_antenna_array:
@@ -193,18 +278,18 @@ class RawVoltageBackend(object):
                         if digitize:
                             t = time.time()
                             v = self.digitizer.quantize(v)
-                            self.digitizer_stage += time.time() - t
+                            self.digitizer_stage_t += time.time() - t
 
                         t = time.time()
                         v = self.filterbank.channelize(v, pol=pol, antenna=antenna)
                         # Drop out last coarse channel
                         v = v[:, start_chan:start_chan+num_chans]
-                        self.filterbank_stage += time.time() - t
+                        self.filterbank_stage_t += time.time() - t
 
                         if requantize:
                             t = time.time()
                             v = self.requantizer.quantize(v)
-                            self.requantizer_stage += time.time() - t
+                            self.requantizer_stage_t += time.time() - t
 
                         # Convert to numpy array if using cupy
                         try:
@@ -215,7 +300,7 @@ class RawVoltageBackend(object):
                             I = xp.imag(v).T
                             
                         c_idx = antenna * num_chans + np.arange(0, num_chans)
-                        if self.num_bits == 8:
+                        if self.num_bits == 8 or not requantize:
                             if T % subblock_T != 0 and subblock == num_subblocks - 1:
                                 # Uses adjusted W
                                 t_idx = subblock * subblock_t_len + 2 * pol + np.arange(0, self.num_taps * (W - 1) * 2 * self.num_pols, 2 * self.num_pols)
@@ -242,6 +327,10 @@ class RawVoltageBackend(object):
         return final_voltages    
     
     def get_num_blocks(self, obs_length):
+        """
+        Calculate the number of blocks required as a function of observation length, in seconds. Note that only an integer
+        number of blocks will be recorded, so the actual observation length may be shorter than the `obs_length` provided.
+        """
         return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         
     def record(self, 
@@ -253,7 +342,25 @@ class RawVoltageBackend(object):
                digitize=True,
                verbose=True):
         """
-        length_mode can be 'obs_length' or 'num_blocks'
+        General function to actually collect data from the antenna source and return coarsely channelized complex
+        voltages.
+        
+        Parameters
+        ----------
+        raw_file_stem : str
+            Filename or path stem; the suffix will be automatically appended
+        obs_length : float, optional
+            Length of observation in seconds, if in `obs_length` mode
+        num_blocks : int, optional
+            Number of data blocks to record, if in `num_blocks` mode
+        length_mode : str, optional
+            Mode for specifying length of observation, either `obs_length` in seconds or `num_blocks` in data blocks
+        header_dict : dict, optional
+            Dictionary of header values to set. Use to overwrite non-essential header values or add custom ones.
+        digitize : bool, optional
+            Whether to quantize input voltages before the PFB
+        verbose : bool, optional
+            Control whether tqdm prints progress messages 
         """
         if length_mode == 'obs_length':
             if obs_length is None:

@@ -3,7 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. |setigen| replace:: :mod:`setigen`
+.. |setigen| replace:: ``setigen``
+.. _setigen: https://github.com/bbrzycki/setigen
 .. |blimpy| replace:: ``blimpy``
 .. _blimpy: https://github.com/UCBerkeleySETI/blimpy
 
@@ -35,6 +36,7 @@ Table of Contents
    getting_started
    basics
    advanced
+   voltages
    setigen
    setigen.voltage
 

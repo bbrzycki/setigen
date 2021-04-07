@@ -115,7 +115,7 @@ class DataStream(object):
         Parameters
         ----------
         stats_calc_num_samples : int, optional
-            Number of samples to use in estimating noise standard deviation
+            Maximum number of samples for use in estimating noise standard deviation
         """
         start_obs = self.start_obs
         t_start = self.t_start
@@ -143,6 +143,19 @@ class DataStream(object):
         return xp.sqrt(self.noise_std**2 + self.bg_noise_std**2)
     
     def add_noise(self, v_mean, v_std):
+        """
+        Add Gaussian noise source to data stream. This essentially adds a lambda function that
+        gets the appropriate number of noise samples to add to the voltage array when 
+        :code:`get_samples()` is called. Updates noise property to reflect
+        added noise.
+        
+        Parameters
+        ----------
+        v_mean : float
+            Noise mean
+        v_std : float
+            Noise standard deviation
+        """
         noise_func = lambda ts: self.rng.normal(loc=v_mean, 
                                                 scale=v_std,
                                                 size=len(ts))
@@ -157,7 +170,18 @@ class DataStream(object):
                             level,
                             phase=0):
         """
-        phase is in radians
+        Adds a drifting cosine signal (linear chirp) as a signal source function. 
+        
+        Parameters
+        ----------
+        f_start : float
+            Starting signal frequency
+        drift_rate : float
+            Drift rate in Hz / s
+        level : float
+            Signal level or amplitude
+        phase : float
+            Phase, in radiations
         """
         f_start = unit_utils.get_value(f_start, u.Hz)
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
@@ -172,9 +196,18 @@ class DataStream(object):
         self.signal_sources.append(signal_func)
         
     def add_signal(self, signal_func):
+        """
+        Wrapper function to add a custom signal source function.
+        """
         self.signal_sources.append(signal_func)
     
     def get_samples(self, num_samples):
+        """
+        Retrieve voltage samples, based on noise and signal source functions.
+        
+        If custom signals add complex voltages, the voltage array will be cast to
+        complex type.
+        """
         self._update_t(num_samples)
         
         for noise_func in self.noise_sources:
@@ -205,6 +238,34 @@ class BackgroundDataStream(DataStream):
                  t_start=0,
                  seed=None,
                  antenna_streams=[]):
+        """
+        Initializes a BackgroundDataStream object with a sampling rate and frequency range.
+        The main extension is that we also pass in a list of DataStreams, belonging to all
+        the Antennas within a MultiAntennaArray, for the same corresponding polarization. 
+        When noise is added to a BackgroundDataStream, the noise standard deviation gets 
+        propagated to each Antenna DataStream via the :code:`DataStream.bg_noise_std` property.
+
+        Parameters
+        ----------
+        sample_rate : float, optional
+            Physical sample rate, in Hz, for collecting real voltage data
+        fch1 : astropy.Quantity, optional
+            Starting frequency of the first coarse channel, in Hz.
+            If ascending=True, fch1 is the minimum frequency; if ascending=False 
+            (default), fch1 is the maximum frequency.
+        ascending : bool, optional
+            Specify whether frequencies should be in ascending order, so that 
+            fch1 is the minimum frequency. Default is False, for which fch1
+            is the maximum frequency.
+        t_start : float, optional
+            Start time, in seconds
+        seed : int, optional
+            Integer seed between 0 and 2**32. If None, the random number generator
+            will use a random seed.
+        antenna_streams : list of DataStream objects
+            List of DataStreams, which belong to the Antennas in a MultiAntennaArray,
+            all corresponding to the same polarization
+        """
         super().__init__(sample_rate=sample_rate,
                          fch1=fch1,
                          ascending=ascending,
@@ -213,18 +274,41 @@ class BackgroundDataStream(DataStream):
         self.antenna_streams = antenna_streams
         
     def _set_all_bg_noise(self):
+        """
+        Helper function to set background noise standard deviation of each
+        antenna for the corresponding polarization equal to that of this stream.
+        """
         for stream in self.antenna_streams:
             stream.bg_noise_std = self.noise_std
         
     def update_noise(self, stats_calc_num_samples=10000):
         """
         Replace self.noise_std by calculating out a few samples and estimating the 
-        standard deviation of the voltages.
+        standard deviation of the voltages. Further, set all child antenna background
+        noise values.
+
+        Parameters
+        ----------
+        stats_calc_num_samples : int, optional
+            Maximum number of samples for use in estimating noise standard deviation
         """
         DataStream.update_noise(self, stats_calc_num_samples=stats_calc_num_samples)
         self._set_all_bg_noise()
         
     def add_noise(self, v_mean, v_std):
+        """
+        Add Gaussian noise source to data stream. This essentially adds a lambda function that
+        gets the appropriate number of noise samples to add to the voltage array when 
+        :code:`get_samples()` is called. Updates noise property to reflect
+        added noise. Further, set all child antenna background noise values.
+        
+        Parameters
+        ----------
+        v_mean : float
+            Noise mean
+        v_std : float
+            Noise standard deviation
+        """
         DataStream.add_noise(self, v_mean, v_std)
         self._set_all_bg_noise()
         
@@ -233,6 +317,20 @@ def estimate_stats(voltages, stats_calc_num_samples=10000):
     """
     Estimate mean and standard deviation, truncating to at most `stats_calc_num_samples` samples 
     to reduce computation.
+
+    Parameters
+    ----------
+    voltages : array
+        Array of voltages
+    stats_calc_num_samples : int, optional
+        Maximum number of samples for use in estimating noise statistics
+        
+    Returns
+    -------
+    data_mean : float
+        Mean of voltages
+    data_sigma : float
+        Standard deviation of voltages
     """
     calc_len = xp.amin(xp.array([stats_calc_num_samples, len(voltages)]))
     data_sigma = xp.std(voltages[:calc_len])

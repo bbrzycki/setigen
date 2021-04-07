@@ -36,7 +36,7 @@ Table of Contents
    basics
    advanced
    setigen
-   setigen_voltage
+   setigen.voltage
 
 Indices and tables
 ==================

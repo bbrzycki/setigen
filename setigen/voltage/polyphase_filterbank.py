@@ -16,10 +16,26 @@ import time
 
 class PolyphaseFilterbank(object):
     """
-    Creates polyphase filterbank for coarse channelization of real voltage input data.
+    Implement a polyphase filterbank (PFB) for coarse channelization of real voltage input data.
+    
+    Follows description in Danny C. Price, Spectrometers and Polyphase Filterbanks in 
+    Radio Astronomy, 2016. Available online at: http://arxiv.org/abs/1607.03579.
     """
     
     def __init__(self, num_taps=8, num_branches=1024, window_fn='hamming'):
+        """
+        Initialize a polyphase filterbank object, with a voltage sample cache that ensures that
+        consecutive sample retrievals get contiguous data (i.e. without introduced time delays).
+
+        Parameters
+        ----------
+        num_taps : int, optional
+            Number of PFB taps
+        num_branches : int, optional
+            Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+        window_fn : str, optional
+            Windowing function used for the PFB
+        """
         self.num_taps = num_taps
         self.num_branches = num_branches
         self.window_fn = window_fn
@@ -29,6 +45,9 @@ class PolyphaseFilterbank(object):
         self._get_pfb_window()
         
     def _get_pfb_window(self):
+        """
+        Creates and saves PFB windowing coefficients.
+        """
         self.window = get_pfb_window(self.num_taps, self.num_branches, self.window_fn)
         
         # Somewhat arbitrary length to calculate spectral response, representing 
@@ -42,9 +61,23 @@ class PolyphaseFilterbank(object):
         
     def _pfb_frontend(self, x, pol=0, antenna=0):
         """
-        Apply windowing function to create polyphase filterbank frontend.
-        
-        pol is either 0 or 1, for x and y polarizations.
+        Apply windowing function to create polyphase filterbank frontend. Remaining voltage samples
+        are cached.
+
+        Parameters
+        ----------
+        x : array
+            Array of voltages
+        pol : int, optional
+            Index specifying the polarization to which the PFB is applied, for x and y polarizations.
+        antenna : int, optional
+            Index specifying the antenna to which the PFB is applied. Default is 0, which works 
+            for single Antenna cases.
+            
+        Returns
+        -------
+        x_pfb : array
+            Array of voltages post-PFB weighting
         """
         # Cache last section of data, which is excluded in PFB step
         if self.cache[antenna][pol] is not None:
@@ -54,11 +87,29 @@ class PolyphaseFilterbank(object):
         return pfb_frontend(x, self.window, self.num_taps, self.num_branches)
         
     def channelize(self, x, pol=0, antenna=0):
+        """
+        Channelize input voltages by applying the PFB and taking a normalized FFT. 
+
+        Parameters
+        ----------
+        x : array
+            Array of voltages
+        pol : int, optional
+            Index specifying the polarization to which the PFB is applied, for x and y polarizations.
+        antenna : int, optional
+            Index specifying the antenna to which the PFB is applied. Default is 0, which works 
+            for single Antenna cases.
+            
+        Returns
+        -------
+        X_pfb : array
+            Post-FFT complex voltages
+        """
         x = self._pfb_frontend(x, pol=pol, antenna=antenna)
-        x_pfb = xp.fft.fft(x, 
+        X_pfb = xp.fft.fft(x, 
                            self.num_branches,
                            axis=1)[:, 0:self.num_branches//2] / self.num_branches**0.5
-        return x_pfb
+        return X_pfb
     
     
 def pfb_frontend(x, pfb_window, num_taps, num_branches):
@@ -68,6 +119,22 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
     Follows description in Danny C. Price, Spectrometers and Polyphase 
     Filterbanks in Radio Astronomy, 2016. Available online at: 
     http://arxiv.org/abs/1607.03579.
+    
+    Parameters
+    ----------
+    x : array
+        Array of voltages
+    pfb_window : array
+        Array of PFB windowing coefficients
+    num_taps : int
+        Number of PFB taps
+    num_branches : int
+        Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+            
+    Returns
+    -------
+    x_summed : array
+        Array of voltages post-PFB weighting
     """
     W = int(len(x) / num_taps / num_branches)
     
@@ -90,23 +157,53 @@ def get_pfb_window(num_taps, num_branches, window_fn='hamming'):
     """
     Get windowing function to multiply to time series data
     according to a finite impulse response (FIR) filter.
+
+    Parameters
+    ----------
+    num_taps : int
+        Number of PFB taps
+    num_branches : int
+        Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+    window_fn : str, optional
+        Windowing function used for the PFB
+            
+    Returns
+    -------
+    window : array
+        Array of PFB windowing coefficients
     """ 
     window = scipy.signal.firwin(num_taps * num_branches, 
                                  cutoff=1.0 / num_branches,
                                  window=window_fn,
                                  scale=True)
     window *= num_taps * num_branches
-    return xp.asarray(window)
+    return xp.array(window)
 
 
 def get_pfb_voltages(x, num_taps, num_branches, window_fn='hamming'):
     """
     Produce complex raw voltage data as a function of time and coarse channel.
+
+    Parameters
+    ----------
+    x : array
+        Array of voltages
+    num_taps : int
+        Number of PFB taps
+    num_branches : int
+        Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+    window_fn : str, optional
+        Windowing function used for the PFB
+            
+    Returns
+    -------
+    X_pfb : array
+        Post-FFT complex voltages
     """
     # Generate window coefficients
     win_coeffs = get_pfb_window(num_taps, num_branches, window_fn)
     
     # Apply frontend, take FFT, then take power (i.e. square)
     x_fir = pfb_frontend(x, win_coeffs, num_taps, num_branches)
-    x_pfb = xp.fft.rfft(x_fir, num_branches, axis=1) / num_branches**0.5
-    return x_pfb
+    X_pfb = xp.fft.rfft(x_fir, num_branches, axis=1) / num_branches**0.5
+    return X_pfb

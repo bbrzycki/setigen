@@ -206,6 +206,16 @@ class DataStream(object):
         
         If custom signals add complex voltages, the voltage array will be cast to
         complex type.
+        
+        Parameters
+        ----------
+        num_samples : int
+            Number of samples to get
+            
+        Returns
+        -------
+        v : array
+            Array of voltage samples
         """
         self._update_t(num_samples)
         

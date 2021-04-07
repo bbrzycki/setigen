@@ -107,7 +107,15 @@ class Antenna(object):
         """
         Retrieve voltage samples from each polarization.
         
-        Samples will be in an array of shape (1, num_pols, num_samples).
+        Parameters
+        ----------
+        num_samples : int
+            Number of samples to get
+            
+        Returns
+        -------
+        samples : array
+            Array of voltage samples, of shape (1, num_pols, num_samples)
         """
         if self.num_pols == 2:
             samples = [[self.x.get_samples(num_samples), 
@@ -249,7 +257,15 @@ class MultiAntennaArray(object):
         with the Antenna, according to the delay, so that regardless of `num_samples`, each Antenna 
         data stream has enough background samples to add.
         
-        Voltage samples will be in an array of shape (num_antennas, num_pols, num_samples).
+        Parameters
+        ----------
+        num_samples : int
+            Number of samples to get
+            
+        Returns
+        -------
+        samples : array
+            Array of voltage samples, of shape (num_antennas, num_pols, num_samples)
         """
         # Check that num_samples is always larger than the maximum antenna delay
         assert num_samples > self.max_delay

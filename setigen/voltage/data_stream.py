@@ -19,7 +19,7 @@ from setigen import unit_utils
 
 class DataStream(object):
     """
-    Facilitates noise and signal injection in a real voltage time series data stream,
+    Facilitate noise and signal injection in a real voltage time series data stream,
     for a single polarization. Noise and signal sources are functions, saved as 
     properties of the DataStream, so that individual samples can be queried using
     get_samples(). 
@@ -32,7 +32,7 @@ class DataStream(object):
                  t_start=0,
                  seed=None):
         """
-        Initializes a DataStream object with a sampling rate and frequency range.
+        Initialize a DataStream object with a sampling rate and frequency range.
 
         By default, :code:`setigen.voltage` does not employ heterodyne mixing and filtering
         to focus on a frequency bandwidth. Instead, the sensitive range is determined
@@ -239,7 +239,7 @@ class BackgroundDataStream(DataStream):
                  seed=None,
                  antenna_streams=[]):
         """
-        Initializes a BackgroundDataStream object with a sampling rate and frequency range.
+        Initialize a BackgroundDataStream object with a sampling rate and frequency range.
         The main extension is that we also pass in a list of DataStreams, belonging to all
         the Antennas within a MultiAntennaArray, for the same corresponding polarization. 
         When noise is added to a BackgroundDataStream, the noise standard deviation gets 

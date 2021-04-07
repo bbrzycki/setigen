@@ -26,7 +26,7 @@ from .funcs import bp_profiles
 
 class Frame(object):
     """
-    Facilitates the creation of entirely synthetic radio data (narrowband
+    Facilitate the creation of entirely synthetic radio data (narrowband
     signals + background noise) as well as signal injection into existing
     observations.
     """
@@ -41,7 +41,7 @@ class Frame(object):
                  ascending=False,
                  data=None):
         """
-        Initializes a Frame object either from an existing .fil/.h5 file or
+        Initialize a Frame object either from an existing .fil/.h5 file or
         from frame resolution / size.
 
         If you are initializing based on a .fil or .h5, pass in either the
@@ -693,7 +693,7 @@ class Frame(object):
 
     def get_snr(self, intensity):
         """
-        Calculates SNR from intensity.
+        Calculate SNR from intensity.
 
         Note that there must be noise present in the frame for this to make
         sense.

@@ -16,16 +16,47 @@ from . import data_stream
 
 
 class Antenna(object):
+    """
+    Models a radio antenna, with a DataStream per polarization (one or two). 
+    """
     def __init__(self,
                  sample_rate=3*u.GHz,
                  fch1=0*u.GHz,
                  ascending=True,
                  num_pols=2,
                  t_start=0,
-                 seed=None,
-                 delay=0):
+                 seed=None):
+        """
+        Initialize a DataStream object with a sampling rate and frequency range.
+
+        By default, :code:`setigen.voltage` does not employ heterodyne mixing and filtering
+        to focus on a frequency bandwidth. Instead, the sensitive range is determined
+        by these parameters; starting at the frequency `fch1` and spanning the Nyquist 
+        range `sample_rate / 2` in the increasing or decreasing frequency direction,
+        as specified by `ascending`. Note that accordingly, the spectral response will
+        be susceptible to aliasing, so take care that the desired frequency range is
+        correct and that signals are injected at appropriate frequencies. 
+
+        Parameters
+        ----------
+        sample_rate : float, optional
+            Physical sample rate, in Hz, for collecting real voltage data
+        fch1 : astropy.Quantity, optional
+            Starting frequency of the first coarse channel, in Hz.
+            If ascending=True, fch1 is the minimum frequency; if ascending=False 
+            (default), fch1 is the maximum frequency.
+        ascending : bool, optional
+            Specify whether frequencies should be in ascending order, so that 
+            fch1 is the minimum frequency. Default is False, for which fch1
+            is the maximum frequency.
+        t_start : float, optional
+            Start time, in seconds
+        seed : int, optional
+            Integer seed between 0 and 2**32. If None, the random number generator
+            will use a random seed.
+        """
         self.rng = xp.random.RandomState(seed)
-        self.delay = delay
+        self.delay = None
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate
@@ -120,8 +151,8 @@ class MultiAntennaArray(object):
                               ascending=self.ascending,
                               num_pols=self.num_pols,
                               t_start=self.t_start,
-                              seed=int(self.rng.randint(2**32)),
-                              delay=delays[i])
+                              seed=int(self.rng.randint(2**32)))
+            antenna.delay = delays[i]
             self.antennas.append(antenna)
         
         # Create background data streams and link relevant antenna data streams for tracking noise

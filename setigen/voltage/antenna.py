@@ -27,15 +27,8 @@ class Antenna(object):
                  t_start=0,
                  seed=None):
         """
-        Initialize a DataStream object with a sampling rate and frequency range.
-
-        By default, :code:`setigen.voltage` does not employ heterodyne mixing and filtering
-        to focus on a frequency bandwidth. Instead, the sensitive range is determined
-        by these parameters; starting at the frequency `fch1` and spanning the Nyquist 
-        range `sample_rate / 2` in the increasing or decreasing frequency direction,
-        as specified by `ascending`. Note that accordingly, the spectral response will
-        be susceptible to aliasing, so take care that the desired frequency range is
-        correct and that signals are injected at appropriate frequencies. 
+        Initialize an Antenna object, which creates DataStreams for each polarization, under
+        Antenna.x and Antenna.y (if there is a second polarization).
 
         Parameters
         ----------
@@ -46,9 +39,10 @@ class Antenna(object):
             If ascending=True, fch1 is the minimum frequency; if ascending=False 
             (default), fch1 is the maximum frequency.
         ascending : bool, optional
-            Specify whether frequencies should be in ascending order, so that 
-            fch1 is the minimum frequency. Default is False, for which fch1
-            is the maximum frequency.
+            Specify whether frequencies should be in ascending or descending order. Default 
+            is True, for which fch1 is the minimum frequency.
+        num_pols : int, optional
+            Number of polarizations, can be 1 or 2
         t_start : float, optional
             Start time, in seconds
         seed : int, optional
@@ -56,7 +50,6 @@ class Antenna(object):
             will use a random seed.
         """
         self.rng = xp.random.RandomState(seed)
-        self.delay = None
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate
@@ -85,9 +78,13 @@ class Antenna(object):
                                             seed=int(self.rng.randint(2**32)))
             self.streams.append(self.y)
         
+        self.delay = None
         self.bg_cache = [None, None]
         
     def set_time(self, t):
+        """
+        Set start time before next set of samples.
+        """
         self.start_obs = True
         self.t_start = t
         self.x.set_time(t)
@@ -95,12 +92,23 @@ class Antenna(object):
             self.y.set_time(t)
         
     def add_time(self, t):
+        """
+        Add time before next set of samples.
+        """
         self.set_time(self.t_start + t)
         
     def reset_start(self):
+        """
+        Reset the boolean that tracks whether this is the start of an observation.
+        """
         self.add_time(0)
         
     def get_samples(self, num_samples):
+        """
+        Retrieve voltage samples from each polarization.
+        
+        Samples will be in an array of shape (1, num_pols, num_samples).
+        """
         if self.num_pols == 2:
             samples = [[self.x.get_samples(num_samples), 
                         self.y.get_samples(num_samples)]]
@@ -110,10 +118,13 @@ class Antenna(object):
         self.t_start += num_samples * self.dt
         self.start_obs = False
         
-        return samples
+        return xp.array(samples)
 
         
 class MultiAntennaArray(object):
+    """
+    Models a radio antenna array, with list of Antennas, subject to user-specified sample delays.
+    """
     def __init__(self,
                  num_antennas,
                  sample_rate=3*u.GHz,
@@ -123,7 +134,37 @@ class MultiAntennaArray(object):
                  delays=None,
                  t_start=0,
                  seed=None):
+        """
+        Initialize a MultiAntennaArray object, which creates a list of Antenna objects, each with a specified
+        relative integer sample delay. Also creates background DataStreams to model coherent noise present in 
+        each Antenna, subject to that Antenna's delay. 
+
+        Parameters
+        ----------
+        num_antennas : int
+            Number of Antennas in the array
+        sample_rate : float, optional
+            Physical sample rate, in Hz, for collecting real voltage data
+        fch1 : astropy.Quantity, optional
+            Starting frequency of the first coarse channel, in Hz.
+            If ascending=True, fch1 is the minimum frequency; if ascending=False 
+            (default), fch1 is the maximum frequency.
+        ascending : bool, optional
+            Specify whether frequencies should be in ascending or descending order. Default 
+            is True, for which fch1 is the minimum frequency.
+        num_pols : int, optional
+            Number of polarizations, can be 1 or 2
+        delays : array, optional
+            Array of integers specifying relative delay offsets per array with respect to the coherent antenna 
+            array background. If None, uses 0 delay for all Antennas.
+        t_start : float, optional
+            Start time, in seconds
+        seed : int, optional
+            Integer seed between 0 and 2**32. If None, the random number generator
+            will use a random seed.
+        """
         self.rng = xp.random.RandomState(seed)
+        
         if delays is None:
             self.delays = xp.zeros(num_antennas)
         else:
@@ -174,6 +215,9 @@ class MultiAntennaArray(object):
             self.bg_streams.append(self.bg_y)
             
     def set_time(self, t):
+        """
+        Set start time before next set of samples.
+        """
         self.start_obs = True
         self.t_start = t
         self.bg_x.set_time(t)
@@ -184,12 +228,29 @@ class MultiAntennaArray(object):
             antenna.set_time(t)
         
     def add_time(self, t):
+        """
+        Add time before next set of samples.
+        """
         self.set_time(self.t_start + t)
         
     def reset_start(self):
+        """
+        Reset the boolean that tracks whether this is the start of an observation.
+        """
         self.add_time(0)
             
     def get_samples(self, num_samples):
+        """
+        Retrieve voltage samples from each antenna and polarization.
+        
+        First, background data stream voltages are computed. Then, for each Antenna, voltages
+        are retrieved per polarization and summed with the corresponding background voltages, subject
+        to that Antenna's sample delay. An appropriate number of background voltage samples are cached 
+        with the Antenna, according to the delay, so that regardless of `num_samples`, each Antenna 
+        data stream has enough background samples to add.
+        
+        Voltage samples will be in an array of shape (num_antennas, num_pols, num_samples).
+        """
         # Check that num_samples is always larger than the maximum antenna delay
         assert num_samples > self.max_delay
         
@@ -229,8 +290,9 @@ class MultiAntennaArray(object):
         self.start_obs = False
         
         if self.num_pols == 2:
-            return [[antenna.x.v, antenna.y.v] for antenna in self.antennas]
+            samples = [[antenna.x.v, antenna.y.v] for antenna in self.antennas]
         else:
-            return [[antenna.x.v] for antenna in self.antennas]
+            samples = [[antenna.x.v] for antenna in self.antennas]
+        return xp.array(samples)
             
         

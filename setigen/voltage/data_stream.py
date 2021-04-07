@@ -51,9 +51,8 @@ class DataStream(object):
             If ascending=True, fch1 is the minimum frequency; if ascending=False 
             (default), fch1 is the maximum frequency.
         ascending : bool, optional
-            Specify whether frequencies should be in ascending order, so that 
-            fch1 is the minimum frequency. Default is False, for which fch1
-            is the maximum frequency.
+            Specify whether frequencies should be in ascending or descending order. Default 
+            is True, for which fch1 is the minimum frequency.
         t_start : float, optional
             Start time, in seconds
         seed : int, optional
@@ -254,9 +253,8 @@ class BackgroundDataStream(DataStream):
             If ascending=True, fch1 is the minimum frequency; if ascending=False 
             (default), fch1 is the maximum frequency.
         ascending : bool, optional
-            Specify whether frequencies should be in ascending order, so that 
-            fch1 is the minimum frequency. Default is False, for which fch1
-            is the maximum frequency.
+            Specify whether frequencies should be in ascending or descending order. Default 
+            is True, for which fch1 is the minimum frequency.
         t_start : float, optional
             Start time, in seconds
         seed : int, optional

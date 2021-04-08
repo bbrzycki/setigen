@@ -5,11 +5,11 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='setigen',
-    version='1.4.3',
+    version='2.0.0',
     author='Bryan Brzycki',
     author_email='bbrzycki@berkeley.edu',
     description='SETI radio signal generator',
-    long_description='Python library for generating and injecting artificial narrow-band signals into time-frequency data',
+    long_description='Python library for generating and injecting artificial narrow-band signals into radio frequency data',
     long_description_content_type='text/markdown',
     url='https://github.com/bbrzycki/setigen',
     project_urls={
@@ -24,6 +24,7 @@ setuptools.setup(
        'astropy>=4.0',
        'blimpy>=2.0.0',
        'matplotlib>=3.1.3',
+       'tqdm>=4.47.0',
        'sphinx-rtd-theme>=0.4.3'
     ],
     dependency_links=['https://github.com/h5py/h5py',

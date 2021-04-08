@@ -26,7 +26,7 @@ from .funcs import bp_profiles
 
 class Frame(object):
     """
-    Facilitates the creation of entirely synthetic radio data (narrowband
+    Facilitate the creation of entirely synthetic radio data (narrowband
     signals + background noise) as well as signal injection into existing
     observations.
     """
@@ -38,10 +38,10 @@ class Frame(object):
                  df=None,
                  dt=None,
                  fch1=8*u.GHz,
-                 data=None,
-                 ascending=False):
+                 ascending=False,
+                 data=None):
         """
-        Initializes a Frame object either from an existing .fil/.h5 file or
+        Initialize a Frame object either from an existing .fil/.h5 file or
         from frame resolution / size.
 
         If you are initializing based on a .fil or .h5, pass in either the
@@ -57,7 +57,7 @@ class Frame(object):
         Parameters
         ----------
         waterfall : str or Waterfall, optional
-            Name of filterbank file or Waterfall object for preloading data.
+            Name of filterbank file or Waterfall object for preloading data
         fchans : int, optional
             Number of frequency samples
         tchans: int, optional
@@ -70,14 +70,14 @@ class Frame(object):
             Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
             If ascending=True, fch1 is the minimum frequency; if ascending=False 
             (default), fch1 is the maximum frequency.
-        data : ndarray, optional
-            2D array of intensities to preload into frame
         ascending : bool, optional
             Specify whether frequencies should be in ascending order, so that 
             fch1 is the minimum frequency. Default is False, for which fch1
             is the maximum frequency. This is overwritten if a waterfall
             object is provided, where ascending will be automatically 
             determined by observational parameters.
+        data : ndarray, optional
+            2D array of intensities to preload into frame
         """
         if None not in [fchans, tchans, df, dt, fch1]:
             self.waterfall = None
@@ -115,7 +115,11 @@ class Frame(object):
             self.ascending = (self.waterfall.header['foff'] > 0)
             self.df = unit_utils.cast_value(abs(self.waterfall.header['foff']),
                                             u.MHz).to(u.Hz).value
-            self.fch1 = unit_utils.cast_value(self.waterfall.container.f_stop,
+            if self.ascending:
+                self.fch1 = self.waterfall.container.f_start
+            else:
+                self.fch1 = self.waterfall.container.f_stop
+            self.fch1 = unit_utils.cast_value(self.fch1,
                                               u.MHz).to(u.Hz).value
 
             # When multiple Stokes parameters are supported, this will have to
@@ -146,13 +150,14 @@ class Frame(object):
         self.metadata = {}
 
     @classmethod
-    def from_data(cls, df, dt, fch1, data):
+    def from_data(cls, df, dt, fch1, ascending, data):
         tchans, fchans = data.shape
         return cls(fchans=fchans,
                    tchans=tchans,
                    df=df,
                    dt=dt,
                    fch1=fch1,
+                   ascending=ascending,
                    data=data)
 
     @classmethod
@@ -688,7 +693,7 @@ class Frame(object):
 
     def get_snr(self, intensity):
         """
-        Calculates SNR from intensity.
+        Calculate SNR from intensity.
 
         Note that there must be noise present in the frame for this to make
         sense.

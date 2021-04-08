@@ -3,7 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. |setigen| replace:: :mod:`setigen`
+.. |setigen| replace:: ``setigen``
+.. _setigen: https://github.com/bbrzycki/setigen
 .. |blimpy| replace:: ``blimpy``
 .. _blimpy: https://github.com/UCBerkeleySETI/blimpy
 
@@ -15,15 +16,17 @@ Welcome to setigen's documentation!
     :align: center
     :scale: 75
 
-|setigen| is a Python library for generating and injecting artificial
-narrow-band signals into time-frequency data. |setigen| interfaces
-primarily with data saved in two-dimensional NumPy arrays or filterbank files
-(:code:`.fil` extension).
+|setigen|_ is a Python library for generating and injecting artificial
+narrow-band signals into radio requency data. |setigen|_ interfaces
+primarily with two types of data: spectrograms or dynamic spectra, saved in two-dimensional NumPy arrays or filterbank files (:code:`.fil` extension), and raw voltages (GUPPI RAW files). Both data formats are instrumental to Breakthrough Listen's data collection and analysis pipelines.
 
-|setigen| allows the user to generate synthetic signals in the
-time-frequency domain. Furthermore, the user may inject these synthetic signals
-into real observational data using tools that rely on the |blimpy|_ package
-(maintained by Breakthrough Listen based at UC Berkeley).
+|setigen|_ allows the user to generate synthetic signals quickly in the
+time-frequency domain in the form of data Frames. Furthermore, the user may inject these synthetic signals
+into real observational data loaded from filterbank files. |setigen|_ plays well with the |blimpy|_ package.
+
+The :code:`setigen.voltage` module enables the synthesis of GUPPI RAW files via synthetic real voltage "observations" and a software signal processing pipeline that implements a polyphase filterbank, mirroring actual BL hardware. The voltage module supports single and multi-antenna RAW files, and can be GPU accelerated via CuPy. 
+
+Breakthrough Listen @ Berkeley: https://seti.berkeley.edu/listen/
 
 Table of Contents
 =================
@@ -35,7 +38,9 @@ Table of Contents
    getting_started
    basics
    advanced
+   voltages
    setigen
+   setigen.voltage
 
 Indices and tables
 ==================

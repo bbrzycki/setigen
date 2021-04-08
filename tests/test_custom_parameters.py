@@ -14,7 +14,7 @@ def frame_setup_no_data():
     frame = stg.Frame(fchans=1024*u.pixel,
                       tchans=32*u.pixel,
                       df=2.7939677238464355*u.Hz,
-                      dt=18.25361108*u.s,
+                      dt=18.253611008*u.s,
                       fch1=6095.214842353016*u.MHz)
     return frame
 
@@ -24,7 +24,7 @@ def frame_setup_no_data_ascending():
     frame = stg.Frame(fchans=1024*u.pixel,
                       tchans=32*u.pixel,
                       df=2.7939677238464355*u.Hz,
-                      dt=18.25361108*u.s,
+                      dt=18.253611008*u.s,
                       fch1=6095211984.124035,
                       ascending=True)
     return frame
@@ -44,7 +44,7 @@ def test_setup_no_data(frame_setup_no_data):
     assert frame.shape == (32, 1024)
 
     assert frame.df == pytest.approx(2.7939677238464355)
-    assert frame.dt == pytest.approx(18.25361108)
+    assert frame.dt == pytest.approx(18.253611008)
     assert (frame.fmax - 6095214842.353016) == pytest.approx(0)
     assert (frame.fmin - 6095211984.124035) == pytest.approx(0)
 
@@ -60,7 +60,7 @@ def test_setup_no_data_ascending(frame_setup_no_data_ascending):
     assert frame.shape == (32, 1024)
 
     assert frame.df == pytest.approx(2.7939677238464355)
-    assert frame.dt == pytest.approx(18.25361108)
+    assert frame.dt == pytest.approx(18.253611008)
     assert (frame.fmax - 6095214842.353016) == pytest.approx(0)
     assert (frame.fmin - 6095211984.124035) == pytest.approx(0)
 

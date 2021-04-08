@@ -34,3 +34,8 @@ Because of how the |bitshuffle| package was written, if you are working with HDF
     pip install git+https://github.com/kiyo-masui/bitshuffle
     
 Note: this can lead to |h5py| compatibility issues with older versions of Tensorflow. Some work-arounds: if possible, work primarily with filterbank files, or use multiple Python environments to separate data handling and Tensorflow work. 
+
+To use GPU with setigen.voltage
+-------------------------------
+
+:code:`setigen.voltage`'s GPU acceleration is powered by CuPy (https://docs.cupy.dev/en/stable/install.html). Installation is not required to use vanilla |setigen| or the voltage module, but it is highly recommended to accelerate voltage computations. While it isn't used directly by |setigen|, you may also find it helpful to install :code:`cusignal` (https://github.com/rapidsai/cusignal) for access to CUDA-enabled versions of :code:`scipy` functions when writing custom voltage signal source functions.

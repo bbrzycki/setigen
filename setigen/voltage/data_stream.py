@@ -60,6 +60,7 @@ class DataStream(object):
             will use a random seed.
         """
         self.rng = xp.random.RandomState(seed)
+        """Random number generator"""
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate

@@ -63,3 +63,49 @@ A minimal working example of the pipeline is as follows:
                header_dict={'HELLO': 'test_value',
                             'TELESCOP': 'GBT'},
                verbose=True)
+               
+GPU acceleration
+----------------
+
+The process of synthesizing real voltages at a high sample rate and passing through multiple signal processing steps can be very computationally expensive on a CPU. Accordingly, if you have access to a GPU, it is highly recommended to install CuPy, which performs the equivalent NumPy array operations on the GPU (https://docs.cupy.dev/en/stable/install.html). This is not necessary to run raw voltage generation, but will highly accelerate the pipeline. Once you have CuPy installed, to enable GPU acceleration, you must set `SETIGEN_ENABLE_GPU` to '1' in the shell or in Python via `os.environ`. It can also be useful to set `CUDA_VISIBLE_DEVICES` to specify which GPUs to use. The following enables GPU usage and specifies to use the GPU indexed as 0.
+
+.. code-block:: python
+
+    import os
+    os.environ['SETIGEN_ENABLE_GPU'] = '1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    
+Create multiple antenna RAW files
+---------------------------------
+
+To simulate interferometric pipelines, it may be useful to synthesize raw voltage data from multiple antennas. The MultiAntennaArray class supports exactly this, creating a list of sub-Antennas each with an associated integer delay (in time samples). In addition to the individual data streams that allow you to add noise and signals to each Antenna, there are "background" data streams :code:`bg_x` and :code:`bg_y` in MultiAntennaArray, representing common / correlated noise or RFI that each Antenna can see, subject to the (relative) delay. If there are no delays, the background data streams will be perfectly correlated for each antenna.
+
+Here's an example initialization for a 3 antenna array:
+
+.. code-block:: python
+
+    sample_rate = 3e9
+    delays = np.array([0, 1e-6, 2e-6]) * sample_rate
+    maa = stg.voltage.MultiAntennaArray(num_antennas=3,
+                                        sample_rate=sample_rate,
+                                        fch1=6*u.GHz,
+                                        ascending=False,
+                                        num_pols=2,
+                                        delays=delays)
+                                        
+Then, instead of passing a single Antenna into a RawVoltageBackend object, you pass in the MultiAntennaArray:
+
+.. code-block:: python
+
+    rvb = stg.voltage.RawVoltageBackend(maa,
+                                        digitizer=digitizer,
+                                        filterbank=filterbank,
+                                        requantizer=requantizer,
+                                        start_chan=0,
+                                        num_chans=64,
+                                        block_size=6291456,
+                                        blocks_per_file=128,
+                                        num_subblocks=32)
+                                        
+The RawVoltageBackend will get samples from each Antenna, accounting for the background data streams intrinsic to the MultiAntennaArray, subject to each Antenna's delays. 
+

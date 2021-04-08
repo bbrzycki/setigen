@@ -131,6 +131,23 @@ Signal source functions are Python functions that accept an array of times, in s
                          
 As custom signals are added, the :code:`DataStream.noise_std` parameter may no longer be accurate. In these cases, you may run :func:`~setigen.voltage.data_stream.DataStream.update_noise` to estimate the noise based on a few voltages calculated from all noise and signal sources. Then, the proper noise standard deviation can be produced via :code:`DataStream.get_total_noise_std()`.
 
+Quantizers
+^^^^^^^^^^
+
+The quantization classes are RealQuantizer and ComplexQuantizer. The latter actually uses the former for quantizing real and imaginary components independently. Quantization is run per polarization and antenna. 
+
+The quantizers attempt to map the voltage distribution to an ideal quantized normal distribution with a target FWHM. Voltages that extend past the range of integers representable by `num_bits` are clipped. The standard deviation of the voltage distribution is calculated as they are collected, on a subset of `stats_calc_num_samples` samples. By default, this calculation is run on every pass through the pipeline, but can be limited to periodic calculations using the `stats_calc_period` initialization parameter. If this is set to anything besides a positive integer, the calculation will only be run on the first call and never again (which saves a lot of computation, but may not be the most accurate if the voltage distribution changes over time).
+
+Polyphase filterbank
+^^^^^^^^^^^^^^^^^^^^
+
+The PolyphaseFilterbank class implements and applies a PFB to quantized input voltages. A good introduction to PFBs is Danny C. Price, Spectrometers and Polyphase Filterbanks in Radio Astronomy, 2016 (http://arxiv.org/abs/1607.03579), as well as an `accompanying Jupyter notebook <https://github.com/telegraphic/pfb_introduction/blob/master/pfb_introduction.ipynb>`_. 
+
+The main things to keep in mind when initializing a PolyphaseFilterbank object are:
+- `num_taps` controls the spectral profile of each individual coarse channel; the higher, the closer to an ideal response
+- `num_branches` controls the number of coarse channels; after the real FFT, we obtain `num_branches / 2` total coarse channels spanning the Nyquist range
+
+
     
 Creating multi-antenna RAW files
 --------------------------------
@@ -166,3 +183,40 @@ Then, instead of passing a single Antenna into a RawVoltageBackend object, you p
                                         
 The RawVoltageBackend will get samples from each Antenna, accounting for the background data streams intrinsic to the MultiAntennaArray, subject to each Antenna's delays. 
 
+
+Injecting signals at a desired SNR
+----------------------------------
+
+With noise and multiple signal processing operations, including an FFT, it can be a bit tricky to choose the correct amplitude of a cosine signal at the beginning of the pipeline to achieve a desired signal-to-noise ratio (SNR) in the final finely channelized intensity data products. :mod:`setigen.voltage.level_utils` has a few helper functions to facilitate this, depending on the nature of the desired cosine signal.
+
+Since the final SNR depends on the fine channelization FFT length and the time integration factor, as well as parameters inherent to the data production, we need external functions to help calculate an amplitude, or level, for our cosine signal. 
+
+First off, assume we are creating a non-drifting cosine signal. If the signal is at the center of a finely channelized frequency bin, :func:`~setigen.voltage.level_utils.get_level` gives the appropriate cosine amplitude to achieve a given SNR if the initial real Gaussian noise has a variance of 1:
+
+.. code-block:: python
+
+    fftlength = 1024
+    num_blocks = 1
+    signal_level = stg.voltage.get_level(snr=10, 
+                                         raw_voltage_backend=rvb,
+                                         fftlength=fftlength,
+                                         num_blocks=num_blocks,
+                                         length_mode='num_blocks')
+                                         
+If the noise in the DataStream doesn't have a variance of 1, we need to adjust this signal level by multiplying by :code:`DataStream.get_total_noise_std()`. Note that this method also works for data streams within Antennas that are part of MultiAntennaArrays, since it will automatically account for the background noise in the array. Since the noise power is squared during fine channelization, the signal amplitude should go linearly as a function of the standard deviation of the noise.
+
+If the signal is non-drifting, in general the spectral response will go as :code:`1/sinc^2(x)`, where :code:`x` is the fractional error off of the center of the spectral bin. To calculate the corresponding amount to adjust signal_level, you can use :func:`~setigen.voltage.level_utils.get_leakage_factor`. This technically calculates :code:`1/sinc(x)`, which is inherently squared naturally along with the cosine signal amplitude during fine channelization.
+
+To account for drift rates, it gets a bit more complicated; in general, if the drift rate is larger than a pixel by pixel slope of 1 in the final spectrogram data products, dividing the initial non-drifting power by that pixel by pixel slope will result in the new power. In other words, if `s` is the drift rate corresponding to a final pixel by pixel slope of 1, then a signal drifting by `2*s` will have half the SNR of the non-drifting signal. For a given RawVoltageBackend and reduced data product parameters `fftlength` and `int_factor` (integration factor), you can calculate `s` via :func:`~setigen.voltage.level_utils.get_unit_drift_rate`. However, the situation is much more complicated for drift rates between 0 and `s`, so setigen doesn't currently automatically calculate the requisite shift in power. Note that if you'd like to adjust the power for drift rates higher than `s`, you should adjust the amplitude (level) of the cosine signal by the square root of the relevant factor.
+
+An example accounting for multiple effects like these:
+
+.. code-block:: python
+
+    f_start = 6003.1e6
+    leakage_factor = stg.voltage.get_leakage_factor(f_start, rvb, fftlength)
+    for stream in antenna.streams:
+        level = stream.get_total_noise_std() * leakage_factor * signal_level
+        stream.add_constant_signal(f_start=f_start, 
+                                   drift_rate=0*u.Hz/u.s, 
+                                   level=level)

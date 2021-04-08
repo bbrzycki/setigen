@@ -143,11 +143,11 @@ The quantizers attempt to map the voltage distribution to an ideal quantized nor
 Polyphase filterbank
 ^^^^^^^^^^^^^^^^^^^^
 
-The PolyphaseFilterbank class implements and applies a PFB to quantized input voltages. A good introduction to PFBs is Danny C. Price 2016, "Spectrometers and Polyphase Filterbanks in Radio Astronomy" (http://arxiv.org/abs/1607.03579), as well as an `accompanying Jupyter notebook <https://github.com/telegraphic/pfb_introduction/blob/master/pfb_introduction.ipynb>`_. 
+The PolyphaseFilterbank class implements and applies a PFB to quantized input voltages. A good introduction to PFBs is Danny C. Price 2016, "Spectrometers and Polyphase Filterbanks in Radio Astronomy" (http://arxiv.org/abs/1607.03579), as well as the `accompanying Jupyter notebook <https://github.com/telegraphic/pfb_introduction/blob/master/pfb_introduction.ipynb>`_. 
 
 The main things to keep in mind when initializing a PolyphaseFilterbank object are:
 
-- `num_taps` controls the spectral profile of each individual coarse channel; the higher, the closer to an ideal response
+- `num_taps` controls the spectral profile of each individual coarse channel; the higher this is, the closer the spectral response gets to ideal
 - `num_branches` controls the number of coarse channels; after the real FFT, we obtain `num_branches / 2` total coarse channels spanning the Nyquist range
 
 

@@ -59,8 +59,8 @@ class DataStream(object):
             Integer seed between 0 and 2**32. If None, the random number generator
             will use a random seed.
         """
-        self.rng = xp.random.RandomState(seed)
-        """Random number generator"""
+        #: Random number generator
+        self.rng = xp.random.RandomState(seed) 
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate

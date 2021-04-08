@@ -2,9 +2,16 @@
 
 `setigen` is a Python library for generating and injecting artificial narrow-band signals into radio frequency data, by way of data formats used extensively by the [Breakthrough Listen (BL) team @ Berkeley](https://seti.berkeley.edu/listen/). 
 
+<p align="center">
+<img src="docs/source/images/flashy_synthetic.png" alt="Synthetic sine modulated signal + synthetic RFI signal"
+width="700" height="450"/>
+</p>
+
 The main module of `setigen` is based on creating synthetic spectrogram (dynamic spectra) data, showing intensity as a function of time and frequency. Observational data saved in filterbank files can be loaded into `setigen`, and synthetic signals can be easily injected on top and saved out to file. `setigen` works well with file handling via BL's [`blimpy`](https://github.com/UCBerkeleySETI/blimpy) package.
 
 The `setigen.voltage` module enables the synthesis of GUPPI RAW files via synthetic real voltage “observations” and a software signal processing pipeline that implements a polyphase filterbank, mirroring actual BL hardware. The voltage module supports single and multi-antenna RAW files, and can be GPU accelerated via CuPy.
+
+---
 
 ### Table of Contents
 - [Installation](#installation)
@@ -12,11 +19,6 @@ The `setigen.voltage` module enables the synthesis of GUPPI RAW files via synthe
     - [Guiding Principles](#guiding-principles)
     - [Minimal Working Example](#mwe-spectrogram)
 - [Raw Voltage Format - `setigen.voltage`](#voltage-format)
-
-<p align="center">
-<img src="docs/source/images/flashy_synthetic.png" alt="Synthetic sine modulated signal + synthetic RFI signal"
-width="700" height="450"/>
-</p>
 
 ## Installation <a name="installation"></a>
 

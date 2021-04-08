@@ -6,6 +6,8 @@ Voltage synthesis (setigen.voltage)
 
 The setigen.voltage_ module extends |setigen| to the voltage regime. Instead of directly synthesizing spectrogram data, we can produce real voltages, pass them through a software pipeline based on a polyphase filterbank, and record to file in GUPPI RAW format. As this process models actual hardware used by Breakthrough Listen for recording raw voltages, this enables lower level testing and experimentation.
 
+A set of tutorial walkthroughs can be found `here <https://github.com/bbrzycki/setigen/tree/master/jupyter-notebooks/voltage>`_.
+
 The basic pipeline structure
 ----------------------------
 
@@ -81,9 +83,9 @@ Details behind classes
 Adding noise and signal sources
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If your application uses two polarizations, an Antenna's data streams are available via the :code:`Antenna.x` and :code:`Antenna.y` attributes. For one polarization, only the former is available. We can inject noise and signal sources to these individual data streams.
+If your application uses two polarizations, an Antenna's data streams are available via the :code:`Antenna.x` and :code:`Antenna.y` attributes. For one polarization, only the former is available. We can inject noise and signal sources to these individual data streams. Note that you can still add signal sources after the RawVoltageBackend is created; real voltages are only computed at execution time.
 
-Real voltage noise injection is modeled as ideal Gaussian noise, and is computed at execution time:
+Real voltage noise is modeled as ideal Gaussian noise. Note that this actually stores a function with the DataStream that isn't evaluated until :code:`get_samples()` is actually called:
 
 .. code-block:: python
 
@@ -141,9 +143,10 @@ The quantizers attempt to map the voltage distribution to an ideal quantized nor
 Polyphase filterbank
 ^^^^^^^^^^^^^^^^^^^^
 
-The PolyphaseFilterbank class implements and applies a PFB to quantized input voltages. A good introduction to PFBs is Danny C. Price, Spectrometers and Polyphase Filterbanks in Radio Astronomy, 2016 (http://arxiv.org/abs/1607.03579), as well as an `accompanying Jupyter notebook <https://github.com/telegraphic/pfb_introduction/blob/master/pfb_introduction.ipynb>`_. 
+The PolyphaseFilterbank class implements and applies a PFB to quantized input voltages. A good introduction to PFBs is Danny C. Price 2016, "Spectrometers and Polyphase Filterbanks in Radio Astronomy" (http://arxiv.org/abs/1607.03579), as well as an `accompanying Jupyter notebook <https://github.com/telegraphic/pfb_introduction/blob/master/pfb_introduction.ipynb>`_. 
 
 The main things to keep in mind when initializing a PolyphaseFilterbank object are:
+
 - `num_taps` controls the spectral profile of each individual coarse channel; the higher, the closer to an ideal response
 - `num_branches` controls the number of coarse channels; after the real FFT, we obtain `num_branches / 2` total coarse channels spanning the Nyquist range
 
@@ -166,6 +169,17 @@ Here's an example initialization for a 3 antenna array:
                                         ascending=False,
                                         num_pols=2,
                                         delays=delays)
+                                        
+You can access both background data streams using the :code:`MultiAntennaArray.bg_streams` attribute:
+
+.. code-block:: python
+
+    for stream in maa.bg_streams:
+        stream.add_noise(v_mean=0,
+                         v_std=1)
+        stream.add_constant_signal(f_start=5998.9e6, 
+                                   drift_rate=0*u.Hz/u.s, 
+                                   level=0.0025)
                                         
 Then, instead of passing a single Antenna into a RawVoltageBackend object, you pass in the MultiAntennaArray:
 

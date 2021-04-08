@@ -1,4 +1,4 @@
-# setigen [![PyPI version](https://badge.fury.io/py/setigen.svg)](https://badge.fury.io/py/setigen) [![Build Status](https://travis-ci.org/bbrzycki/setigen.svg?branch=master)](https://travis-ci.org/bbrzycki/setigen) [![Documentation Status](https://readthedocs.org/projects/setigen/badge/?version=latest)](https://setigen.readthedocs.io/en/latest/?badge=latest)
+# setigen [![PyPI version](https://badge.fury.io/py/setigen.svg)](https://badge.fury.io/py/setigen) [![Build Status](https://travis-ci.org/bbrzycki/setigen.svg?branch=main)](https://travis-ci.org/bbrzycki/setigen) [![Documentation Status](https://readthedocs.org/projects/setigen/badge/?version=latest)](https://setigen.readthedocs.io/en/latest/?badge=latest)
 
 `setigen` is a Python library for generating and injecting artificial narrow-band signals into radio frequency data, by way of data formats used extensively by the [Breakthrough Listen (BL) team @ Berkeley](https://seti.berkeley.edu/listen/). 
 
@@ -119,7 +119,7 @@ plt.show()
 
 The `setigen.voltage` module extends `setigen` to the voltage regime. Instead of directly synthesizing spectrogram data, we can produce real voltages, pass them through a software pipeline based on a polyphase filterbank, and record to file in GUPPI RAW format. In turn, this data can then be reduced as usual using [`rawspec`](https://github.com/UCBerkeleySETI/rawspec). As this process models actual hardware used by Breakthrough Listen for recording raw voltages, this enables lower level testing and experimentation. The basic layout of a `setigen.voltage` pipeline is shown above.
 
-A simple example implementation may be written as follows. For more information, check out [the docs](https://setigen.readthedocs.io/en/master/voltages.html).
+A simple example implementation may be written as follows. For more information, check out [the docs](https://setigen.readthedocs.io/en/main/voltages.html).
 
 ```
 from astropy import units as u
@@ -164,6 +164,6 @@ rvb.record(raw_file_stem='example_1block',
            verbose=True)
 ```
 
-A set of tutorial walkthroughs can be found at: https://github.com/bbrzycki/setigen/tree/master/jupyter-notebooks/voltage.
+A set of tutorial walkthroughs can be found at: https://github.com/bbrzycki/setigen/tree/main/jupyter-notebooks/voltage.
  
 One unique application of the `setigen.voltage` pipeline is to ingest IQ data collected from an RTL-SDR dongle and create GUPPI RAW files accordingly: https://github.com/bbrzycki/rtlsdr-to-setigen. 

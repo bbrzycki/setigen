@@ -1,5 +1,5 @@
 .. |setigen| replace:: :mod:`setigen`
-.. _setigen.funcs: https://setigen.readthedocs.io/en/master/setigen.funcs.html
+.. _setigen.funcs: https://setigen.readthedocs.io/en/main/setigen.funcs.html
 
 Advanced topics
 ===============

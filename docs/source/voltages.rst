@@ -1,12 +1,12 @@
 .. |setigen| replace:: :mod:`setigen`
-.. _setigen.voltage: https://setigen.readthedocs.io/en/master/setigen.voltage.html
+.. _setigen.voltage: https://setigen.readthedocs.io/en/main/setigen.voltage.html
 
 Voltage synthesis (setigen.voltage)
 ===================================
 
 The setigen.voltage_ module extends |setigen| to the voltage regime. Instead of directly synthesizing spectrogram data, we can produce real voltages, pass them through a software pipeline based on a polyphase filterbank, and record to file in GUPPI RAW format. As this process models actual hardware used by Breakthrough Listen for recording raw voltages, this enables lower level testing and experimentation.
 
-A set of tutorial walkthroughs can be found `here <https://github.com/bbrzycki/setigen/tree/master/jupyter-notebooks/voltage>`_.
+A set of tutorial walkthroughs can be found `here <https://github.com/bbrzycki/setigen/tree/main/jupyter-notebooks/voltage>`_.
 
 The basic pipeline structure
 ----------------------------

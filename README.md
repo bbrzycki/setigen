@@ -3,7 +3,7 @@
 `setigen` is a Python library for generating and injecting artificial narrow-band signals into radio frequency data, by way of data formats used extensively by the [Breakthrough Listen (BL) team @ Berkeley](https://seti.berkeley.edu/listen/). 
 
 <p align="center">
-<img src="docs/source/images/flashy_synthetic.png" alt="Synthetic sine modulated signal + synthetic RFI signal"
+<img src="https://github.com/bbrzycki/setigen/blob/master/docs/source/images/flashy_synthetic.png" alt="Synthetic sine modulated signal + synthetic RFI signal"
 width="700" height="450"/>
 </p>
 
@@ -89,7 +89,7 @@ plt.show()
 This first adds chi-squared noise to the frame, and adds a constant intensity signal at 30 SNR (relative to the background noise). The result is:
 
 <p align="center">
-<img src="docs/source/images/example.png" alt="Example synthetic frame"
+<img src="https://github.com/bbrzycki/setigen/blob/master/docs/source/images/example.png" alt="Example synthetic frame"
 width="700" height="450"/>
 </p>
 
@@ -118,7 +118,7 @@ plt.show()
 ```
 
 <p align="center">
-<img src="docs/source/images/example_obs.png" alt="Example obs synthetic frame"
+<img src="https://github.com/bbrzycki/setigen/blob/master/docs/source/images/example_obs.png" alt="Example obs synthetic frame"
 width="700" height="450"/>
 </p>
 
@@ -126,7 +126,7 @@ width="700" height="450"/>
 ## Raw Voltage Format - `setigen.voltage` <a name="voltage-format"></a>
 
 <p align="center">
-<img src="docs/source/images/setigen_voltage_diagram_h.png" alt="setigen.voltage block diagram"/>
+<img src="https://github.com/bbrzycki/setigen/blob/master/docs/source/images/setigen_voltage_diagram_h.png" alt="setigen.voltage block diagram"/>
 </p>
 
 The `setigen.voltage` module extends `setigen` to the voltage regime. Instead of directly synthesizing spectrogram data, we can produce real voltages, pass them through a software pipeline based on a polyphase filterbank, and record to file in GUPPI RAW format. In turn, this data can then be reduced as usual using [`rawspec`](https://github.com/UCBerkeleySETI/rawspec). As this process models actual hardware used by Breakthrough Listen for recording raw voltages, this enables lower level testing and experimentation. The basic layout of a `setigen.voltage` pipeline is shown above.

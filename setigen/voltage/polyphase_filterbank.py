@@ -40,7 +40,7 @@ class PolyphaseFilterbank(object):
         self.num_branches = num_branches
         self.window_fn = window_fn
         
-        self.cache = [[None, None]]
+        self.cache = [[None, None]] # shape (num_antennas, num_pols)
         
         self._get_pfb_window()
         

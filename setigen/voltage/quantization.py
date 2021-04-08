@@ -56,50 +56,55 @@ class RealQuantizer(object):
         self.target_sigma = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
         self.num_bits = num_bits
         
-        self.data_mean = None
-        self.data_sigma = None
+        self.stats_cache = [[[None, None], [None, None]]] # shape (num_antennas, num_pols, 2)
+        self.stats_calc_indices = [[0, 0]] # shape (num_antennas, num_pols)
         
-        self.stats_calc_index = 0
         self.stats_calc_period = stats_calc_period
         self.stats_calc_num_samples = stats_calc_num_samples
     
-    def quantize(self, voltages):
+    def quantize(self, voltages, pol=0, antenna=0):
         """
-        Quantize input voltages. Save voltage mean and standard deviation as `self.data_mean` and
-        `self.data_sigma` for convenience.
+        Quantize input voltages. Cache voltage mean and standard deviation, per polarization and
+        per antenna.
         
         Parameters
         ----------
         voltages : array
             Array of real voltages
+        pol : int, optional
+            Index specifying the polarization to which the quantization is applied, for x and 
+            y polarizations.
+        antenna : int, optional
+            Index specifying the antenna to which the quantization is applied. Default is 0, 
+            which works for single Antenna cases.
             
         Returns
         -------
         q_voltages : array
             Array of quantized voltages
         """
-        if self.stats_calc_index == 0:
-            self.data_mean, self.data_sigma = data_stream.estimate_stats(voltages, 
-                                                                         self.stats_calc_num_samples)
+        if self.stats_calc_indices[antenna][pol] == 0:
+            self.stats_cache[antenna][pol] = data_stream.estimate_stats(voltages,
+                                                                        self.stats_calc_num_samples)
             
         q_voltages = quantize_real(voltages, 
                                    target_fwhm=self.target_fwhm,
                                    num_bits=self.num_bits,
-                                   data_mean=self.data_mean,
-                                   data_sigma=self.data_sigma,
+                                   data_mean=self.stats_cache[antenna][pol][0],
+                                   data_sigma=self.stats_cache[antenna][pol][1],
                                    stats_calc_num_samples=self.stats_calc_num_samples)
         
-        self.stats_calc_index += 1
-        if self.stats_calc_index == self.stats_calc_period:
-            self.stats_calc_index = 0
+        self.stats_calc_indices[antenna][pol] += 1
+        if self.stats_calc_indices[antenna][pol] == self.stats_calc_period:
+            self.stats_calc_indices[antenna][pol] = 0
 
         return q_voltages
     
-    def digitize(self, voltages):
+    def digitize(self, voltages, pol=0, antenna=0):
         """
         Quantize input voltages. Wrapper for :code:`quantize()`.
         """
-        return self.quantize(voltages)
+        return self.quantize(voltages, pol=pol, antenna=antenna)
     
     
 class ComplexQuantizer(object):
@@ -132,10 +137,8 @@ class ComplexQuantizer(object):
         self.target_sigma = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
         self.num_bits = num_bits
         
-        self.data_mean_r = None
-        self.data_sigma_r = None
-        self.data_mean_i = None
-        self.data_sigma_i = None
+        self.stats_cache_r = [[[None, None], [None, None]]] # shape (num_antennas, num_pols, 2)
+        self.stats_cache_i = [[[None, None], [None, None]]] # shape (num_antennas, num_pols, 2)
         
         self.stats_calc_period = stats_calc_period
         self.stats_calc_num_samples = stats_calc_num_samples
@@ -149,26 +152,32 @@ class ComplexQuantizer(object):
                                          stats_calc_period=stats_calc_period,
                                          stats_calc_num_samples=stats_calc_num_samples)
         
-    def quantize(self, voltages):
+    def quantize(self, voltages, pol=0, antenna=0):
         """
-        Quantize input complex voltages. Save voltage mean and standard deviation for each component
-        as `self.data_mean_r, self.data_mean_i` and `self.data_sigma_r, self.data_sigma_i` for convenience.
+        Quantize input complex voltages. Cache voltage means and standard deviations, per 
+        polarization and per antenna.
         
         Parameters
         ----------
         voltages : array
             Array of complex voltages
+        pol : int, optional
+            Index specifying the polarization to which the quantization is applied, for x and 
+            y polarizations.
+        antenna : int, optional
+            Index specifying the antenna to which the quantization is applied. Default is 0, 
+            which works for single Antenna cases.
             
         Returns
         -------
         q_voltages : array
             Array of complex quantized voltages
         """
-        q_r = self.quantizer_r.quantize(xp.real(voltages))
-        q_i = self.quantizer_i.quantize(xp.imag(voltages))
+        q_r = self.quantizer_r.quantize(xp.real(voltages), pol=pol, antenna=antenna)
+        q_i = self.quantizer_i.quantize(xp.imag(voltages), pol=pol, antenna=antenna)
         
-        self.data_mean_r, self.data_sigma_r = self.quantizer_r.data_mean, self.quantizer_r.data_sigma
-        self.data_mean_i, self.data_sigma_i = self.quantizer_i.data_mean, self.quantizer_i.data_sigma
+        self.stats_cache_r = self.quantizer_r.stats_cache
+        self.stats_cache_i = self.quantizer_i.stats_cache
         
         return q_r + q_i * 1j
 

@@ -113,10 +113,19 @@ class RawVoltageBackend(object):
         self.num_subblocks = num_subblocks
         
         self.digitizer = digitizer
+        if self.is_antenna_array:
+            if isinstance(self.digitizer, quantization.RealQuantizer):
+                self.digitizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
+                self.digitizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
+            elif isinstance(self.digitizer, quantization.ComplexQuantizer):
+                for sub_quantizer in [self.digitizer.quantizer_r, self.digitizer.quantizer_i]:
+                    sub_quantizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
+                    sub_quantizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
         
         self.filterbank = filterbank
+        assert isinstance(self.filterbank, polyphase_filterbank.PolyphaseFilterbank)
         if self.is_antenna_array:
-            self.filterbank.cache = [[None, None] for a in range(self.num_antennas)]
+            self.filterbank.cache = [[None] * self.num_pols] * self.num_antennas
         self.num_taps = self.filterbank.num_taps
         self.num_branches = self.filterbank.num_branches
         assert self.start_chan + self.num_chans <= self.num_branches // 2
@@ -127,6 +136,11 @@ class RawVoltageBackend(object):
             self.chan_bw = -self.chan_bw
         
         self.requantizer = requantizer
+        assert isinstance(self.requantizer, quantization.ComplexQuantizer)
+        if self.is_antenna_array:
+            for sub_quantizer in [self.requantizer.quantizer_r, self.requantizer.quantizer_i]:
+                sub_quantizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
+                sub_quantizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
         self.num_bits = self.requantizer.num_bits
         self.num_bytes = self.num_bits // 8
         self.bytes_per_sample = 2 * self.num_pols * self.num_bits / 8
@@ -277,7 +291,7 @@ class RawVoltageBackend(object):
 
                         if digitize:
                             t = time.time()
-                            v = self.digitizer.quantize(v)
+                            v = self.digitizer.quantize(v, pol=pol, antenna=antenna)
                             self.digitizer_stage_t += time.time() - t
 
                         t = time.time()
@@ -288,7 +302,7 @@ class RawVoltageBackend(object):
 
                         if requantize:
                             t = time.time()
-                            v = self.requantizer.quantize(v)
+                            v = self.requantizer.quantize(v, pol=pol, antenna=antenna)
                             self.requantizer_stage_t += time.time() - t
 
                         # Convert to numpy array if using cupy

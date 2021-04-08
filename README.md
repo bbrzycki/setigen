@@ -35,7 +35,7 @@ git clone git@github.com:bbrzycki/setigen.git
 python setup.py install
 ```
 
-The `setigen.voltage` module can further be GPU accelerated, via CuPy (https://docs.cupy.dev/en/stable/install.html). CuPy is not strictly required to use the voltage module, but it reduces compute time significantly. If CuPy is installed, enable `setigen` GPU usage either by setting the `SETIGEN_ENABLE_GPU` environmental variable to 1 or doing so in Python:
+The `setigen.voltage` module specifically can be GPU accelerated, via CuPy (https://docs.cupy.dev/en/stable/install.html). CuPy is not strictly required to use the voltage module, but it reduces compute time significantly. If CuPy is installed, enable `setigen` GPU usage either by setting the `SETIGEN_ENABLE_GPU` environmental variable to 1 or doing so in Python:
 
 ```
 import os

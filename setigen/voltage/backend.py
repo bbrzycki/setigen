@@ -171,7 +171,8 @@ class RawVoltageBackend(object):
         my_path = os.path.abspath(os.path.dirname(__file__))
         path = os.path.join(my_path, 'header_template.txt')
         with open(path, 'r') as t:
-            template_lines = t.readlines()
+            # Exclude END line
+            template_lines = t.readlines()[:-1]
             
         # Set header values determined by pipeline parameters
         if 'TELESCOP' not in header_dict:
@@ -193,17 +194,26 @@ class RawVoltageBackend(object):
         header_dict['TBIN'] = self.tbin
         if self.is_antenna_array:
             header_dict['NANTS'] = self.num_antennas
+        header_dict['OBSNCHAN'] = self.num_chans * self.num_antennas
+        header_dict['OBSBW'] = self.chan_bw * self.num_chans * 1e-6
+
+        # Compute center frequency of recorded data
+        # self.chan_bw was already adjusted for ascending or descending frequencies 
+        center_freq = (self.start_chan + (self.num_chans - 1) / 2) * self.chan_bw
+        center_freq += self.fch1
+        header_dict['OBSFREQ'] = center_freq * 1e-6
         
         header_lines = []
         used_keys = set()
-        for i in range(len(template_lines) - 1):
+        for i in range(len(template_lines)):
             key = template_lines[i][:8].strip()
             used_keys.add(key)
             if key in header_dict:
                 header_lines.append(format_header_line(key, header_dict[key]))
             else:
-                # Cut newline character
+                # Cut newline character, use default header value
                 header_lines.append(template_lines[i][:-1])
+        # Add new key value pairs
         for key in header_dict.keys() - used_keys:
             header_lines.append(format_header_line(key, header_dict[key]))
         header_lines.append(f"{'END':<80}")
@@ -213,13 +223,13 @@ class RawVoltageBackend(object):
             f.write(f"{line:<80}".encode())
         f.write(bytearray(512 - (80 * len(header_lines) % 512)))   
         
-    def collect_data(self,
-                     start_chan,
-                     num_chans,
-                     num_subblocks=1,
-                     digitize=True,
-                     requantize=True,
-                     verbose=True):
+    def collect_data_block(self,
+                           start_chan,
+                           num_chans,
+                           num_subblocks=1,
+                           digitize=True,
+                           requantize=True,
+                           verbose=True):
         """
         General function to actually collect data from the antenna source and return coarsely channelized complex
         voltages. Collects one block of data.
@@ -407,26 +417,19 @@ class RawVoltageBackend(object):
                         blocks_to_write = self.num_blocks % self.blocks_per_file
                     else:
                         blocks_to_write = self.blocks_per_file
-
-                    # self.chan_bw was already adjusted for ascending or descending frequencies 
-                    center_freq = (self.start_chan + (self.num_chans - 1) / 2) * self.chan_bw
-                    center_freq += self.fch1
                         
                     for j in range(blocks_to_write):
                         if verbose:
                             tqdm.write(f'Creating block {j}...')
-                        # Set additional header values according to which band is recorded
-                        header_dict['OBSNCHAN'] = self.num_chans * self.num_antennas
-                        header_dict['OBSFREQ'] = center_freq * 1e-6
-                        header_dict['OBSBW'] = self.chan_bw * self.num_chans * 1e-6
+                            
                         self._make_header(f, header_dict)
 
-                        v = self.collect_data(start_chan=self.start_chan, 
-                                              num_chans=self.num_chans,
-                                              num_subblocks=self.num_subblocks,
-                                              digitize=digitize, 
-                                              requantize=True,
-                                              verbose=verbose)
+                        v = self.collect_data_block(start_chan=self.start_chan, 
+                                                    num_chans=self.num_chans,
+                                                    num_subblocks=self.num_subblocks,
+                                                    digitize=digitize, 
+                                                    requantize=True,
+                                                    verbose=verbose)
 
                         f.write(xp.array(v, dtype=xp.int8).tobytes())
                         if verbose:

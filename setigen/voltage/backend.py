@@ -222,7 +222,7 @@ class RawVoltageBackend(object):
                      verbose=True):
         """
         General function to actually collect data from the antenna source and return coarsely channelized complex
-        voltages.
+        voltages. Collects one block of data.
         
         Parameters
         ----------

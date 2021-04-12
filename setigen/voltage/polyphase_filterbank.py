@@ -44,6 +44,14 @@ class PolyphaseFilterbank(object):
         
         self._get_pfb_window()
         
+    def _reset_cache(self):
+        """
+        Clear sample cache.
+        """
+        for i in range(len(self.cache)):
+            for j in range(len(self.cache[0])):
+                self.cache[i][j] = None
+        
     def _get_pfb_window(self):
         """
         Creates and saves PFB windowing coefficients.

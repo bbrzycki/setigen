@@ -25,7 +25,8 @@ class Antenna(object):
                  ascending=True,
                  num_pols=2,
                  t_start=0,
-                 seed=None):
+                 seed=None,
+                 **kwargs):
         """
         Initialize an Antenna object, which creates DataStreams for each polarization, under
         Antenna.x and Antenna.y (if there is a second polarization).
@@ -141,7 +142,8 @@ class MultiAntennaArray(object):
                  num_pols=2,
                  delays=None,
                  t_start=0,
-                 seed=None):
+                 seed=None,
+                 **kwargs):
         """
         Initialize a MultiAntennaArray object, which creates a list of Antenna objects, each with a specified
         relative integer sample delay. Also creates background DataStreams to model coherent noise present in 

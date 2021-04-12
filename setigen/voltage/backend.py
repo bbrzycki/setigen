@@ -14,38 +14,13 @@ import numpy as np
 from tqdm import tqdm
 
 import time
+import copy
 
 from setigen import unit_utils
+from . import raw_utils
 from . import polyphase_filterbank
 from . import quantization
 from . import antenna
-
-
-def format_header_line(key, value):
-    """
-    Format key, value pair as an 80 character RAW header line.
-    
-    Parameters
-    ----------
-    key : str
-        Header key
-    value : str or int or float
-        Header value
-        
-    Returns
-    -------
-    line : str
-        Formatted line
-    """
-    if isinstance(value, str):
-        value = f"'{value: <8}'"
-        line = f"{key:<8}= {value:<20}"
-    else:
-        if key == 'TBIN':
-            value = f"{value:.14E}"
-        line = f"{key:<8}= {value:>20}"
-    line = f"{line:<80}"
-    return line
 
 
 class RawVoltageBackend(object):
@@ -113,21 +88,34 @@ class RawVoltageBackend(object):
         self.num_subblocks = num_subblocks
         
         self.digitizer = digitizer
-        if self.is_antenna_array:
-            if isinstance(self.digitizer, quantization.RealQuantizer):
-                self.digitizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
-                self.digitizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
-            elif isinstance(self.digitizer, quantization.ComplexQuantizer):
-                for sub_quantizer in [self.digitizer.quantizer_r, self.digitizer.quantizer_i]:
-                    sub_quantizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
-                    sub_quantizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
+        
+        if isinstance(self.digitizer, quantization.RealQuantizer) or isinstance(self.digitizer, quantization.ComplexQuantizer):
+            self.digitizer = [[copy.deepcopy(self.digitizer) 
+                               for i in range(self.num_pols)]
+                              for j in range(self.num_antennas)]
+        
+        
+        
+#         if self.is_antenna_array:
+#             if isinstance(self.digitizer, quantization.RealQuantizer):
+#                 self.digitizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
+#                 self.digitizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
+#             elif isinstance(self.digitizer, quantization.ComplexQuantizer):
+#                 for sub_quantizer in [self.digitizer.quantizer_r, self.digitizer.quantizer_i]:
+#                     sub_quantizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
+#                     sub_quantizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
         
         self.filterbank = filterbank
-        assert isinstance(self.filterbank, polyphase_filterbank.PolyphaseFilterbank)
-        if self.is_antenna_array:
-            self.filterbank.cache = [[None] * self.num_pols] * self.num_antennas
-        self.num_taps = self.filterbank.num_taps
-        self.num_branches = self.filterbank.num_branches
+        
+        if isinstance(self.filterbank, polyphase_filterbank.PolyphaseFilterbank):
+            self.filterbank = [[copy.deepcopy(self.filterbank) 
+                                for i in range(self.num_pols)]
+                               for j in range(self.num_antennas)]
+#         assert isinstance(self.filterbank, polyphase_filterbank.PolyphaseFilterbank)
+#         if self.is_antenna_array:
+#             self.filterbank.cache = [[None] * self.num_pols] * self.num_antennas
+        self.num_taps = self.filterbank[0][0].num_taps
+        self.num_branches = self.filterbank[0][0].num_branches
         assert self.start_chan + self.num_chans <= self.num_branches // 2
         
         self.tbin = self.num_branches / self.sample_rate
@@ -136,12 +124,17 @@ class RawVoltageBackend(object):
             self.chan_bw = -self.chan_bw
         
         self.requantizer = requantizer
-        assert isinstance(self.requantizer, quantization.ComplexQuantizer)
-        if self.is_antenna_array:
-            for sub_quantizer in [self.requantizer.quantizer_r, self.requantizer.quantizer_i]:
-                sub_quantizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
-                sub_quantizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
-        self.num_bits = self.requantizer.num_bits
+        
+        if isinstance(self.requantizer, quantization.ComplexQuantizer):
+            self.requantizer = [[copy.deepcopy(self.requantizer) 
+                                 for i in range(self.num_pols)]
+                                for j in range(self.num_antennas)]
+#         assert isinstance(self.requantizer, quantization.ComplexQuantizer)
+#         if self.is_antenna_array:
+#             for sub_quantizer in [self.requantizer.quantizer_r, self.requantizer.quantizer_i]:
+#                 sub_quantizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
+#                 sub_quantizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
+        self.num_bits = self.requantizer[0][0].num_bits
         self.num_bytes = self.num_bits // 8
         self.bytes_per_sample = 2 * self.num_pols * self.num_bits / 8
         self.total_obs_num_samples = None
@@ -209,13 +202,13 @@ class RawVoltageBackend(object):
             key = template_lines[i][:8].strip()
             used_keys.add(key)
             if key in header_dict:
-                header_lines.append(format_header_line(key, header_dict[key]))
+                header_lines.append(raw_utils.format_header_line(key, header_dict[key]))
             else:
                 # Cut newline character, use default header value
                 header_lines.append(template_lines[i][:-1])
         # Add new key value pairs
         for key in header_dict.keys() - used_keys:
-            header_lines.append(format_header_line(key, header_dict[key]))
+            header_lines.append(raw_utils.format_header_line(key, header_dict[key]))
         header_lines.append(f"{'END':<80}")
         
         # Write each line with space and zero padding
@@ -301,18 +294,18 @@ class RawVoltageBackend(object):
 
                         if digitize:
                             t = time.time()
-                            v = self.digitizer.quantize(v, pol=pol, antenna=antenna)
+                            v = self.digitizer[antenna][pol].quantize(v)#, pol=pol, antenna=antenna)
                             self.digitizer_stage_t += time.time() - t
 
                         t = time.time()
-                        v = self.filterbank.channelize(v, pol=pol, antenna=antenna)
+                        v = self.filterbank[antenna][pol].channelize(v)#, pol=pol, antenna=antenna)
                         # Drop out last coarse channel
                         v = v[:, start_chan:start_chan+num_chans]
                         self.filterbank_stage_t += time.time() - t
 
                         if requantize:
                             t = time.time()
-                            v = self.requantizer.quantize(v, pol=pol, antenna=antenna)
+                            v = self.requantizer[antenna][pol].quantize(v)#, pol=pol, antenna=antenna)
                             self.requantizer_stage_t += time.time() - t
 
                         # Convert to numpy array if using cupy
@@ -403,7 +396,12 @@ class RawVoltageBackend(object):
         self.antenna_source.reset_start()
         
         # Reset filterbank cache as well
-        self.filterbank.cache = [[None, None] for a in range(self.num_antennas)]
+        for antenna in range(self.num_antennas):
+            for pol in range(self.num_pols):
+                self.digitizer[antenna][pol]._reset_cache()
+                self.filterbank[antenna][pol]._reset_cache()
+                self.requantizer[antenna][pol]._reset_cache()
+#         self.filterbank.cache = [[None, None] for a in range(self.num_antennas)]
             
         # Collect data and record to disk
         num_files = int(xp.ceil(self.num_blocks / self.blocks_per_file))

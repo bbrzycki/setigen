@@ -151,6 +151,9 @@ class Frame(object):
 
     @classmethod
     def from_data(cls, df, dt, fch1, ascending, data):
+        """
+        Instantiate Frame using a data array.
+        """
         tchans, fchans = data.shape
         return cls(fchans=fchans,
                    tchans=tchans,
@@ -162,6 +165,9 @@ class Frame(object):
 
     @classmethod
     def from_waterfall(cls, waterfall):
+        """
+        Instantiate Frame using a filterbank file or blimpy Waterfall object.
+        """
         return cls(waterfall=waterfall)
 
     def __getstate__(self):

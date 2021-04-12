@@ -21,6 +21,7 @@ class RealQuantizer(object):
     Implement a quantizer for input voltages.
     """
     def __init__(self,
+                 target_mean=0,
                  target_fwhm=32, 
                  num_bits=8, 
                  stats_calc_period=1,
@@ -52,8 +53,9 @@ class RealQuantizer(object):
         stats_calc_num_samples : int, optional
             Maximum number of samples for use in estimating noise statistics
         """
+        self.target_mean = target_mean
         self.target_fwhm = target_fwhm
-        self.target_sigma = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
+        self.target_std = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
         self.num_bits = num_bits
         
         self.stats_cache = [[[None, None], [None, None]]] # shape (num_antennas, num_pols, 2)
@@ -61,6 +63,16 @@ class RealQuantizer(object):
         
         self.stats_calc_period = stats_calc_period
         self.stats_calc_num_samples = stats_calc_num_samples
+        
+    def _reset_cache(self):
+        """
+        Clear statistics and indices caches.
+        """
+        for i in range(len(self.stats_cache)):
+            for j in range(len(self.stats_cache[0])):
+                self.stats_calc_indices[i][j] = 0
+                self.stats_cache[i][j] = [None, None]
+        
     
     def quantize(self, voltages, pol=0, antenna=0):
         """
@@ -88,10 +100,11 @@ class RealQuantizer(object):
                                                                         self.stats_calc_num_samples)
             
         q_voltages = quantize_real(voltages, 
-                                   target_fwhm=self.target_fwhm,
+                                   target_mean=self.target_mean,
+                                   target_std=self.target_std,
                                    num_bits=self.num_bits,
                                    data_mean=self.stats_cache[antenna][pol][0],
-                                   data_sigma=self.stats_cache[antenna][pol][1],
+                                   data_std=self.stats_cache[antenna][pol][1],
                                    stats_calc_num_samples=self.stats_calc_num_samples)
         
         self.stats_calc_indices[antenna][pol] += 1
@@ -112,6 +125,7 @@ class ComplexQuantizer(object):
     Implement a quantizer for complex voltages, using a pair of RealQuantizers.
     """
     def __init__(self,
+                 target_mean=0,
                  target_fwhm=32, 
                  num_bits=8,
                  stats_calc_period=1,
@@ -133,8 +147,9 @@ class ComplexQuantizer(object):
         stats_calc_num_samples : int, optional
             Maximum number of samples for use in estimating noise statistics
         """
+        self.target_mean = target_mean
         self.target_fwhm = target_fwhm
-        self.target_sigma = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
+        self.target_std = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
         self.num_bits = num_bits
         
         self.stats_cache_r = [[[None, None], [None, None]]] # shape (num_antennas, num_pols, 2)
@@ -143,14 +158,27 @@ class ComplexQuantizer(object):
         self.stats_calc_period = stats_calc_period
         self.stats_calc_num_samples = stats_calc_num_samples
         
-        self.quantizer_r = RealQuantizer(target_fwhm=target_fwhm,
+        self.quantizer_r = RealQuantizer(target_mean=target_mean,
+                                         target_fwhm=target_fwhm,
                                          num_bits=num_bits,
                                          stats_calc_period=stats_calc_period,
                                          stats_calc_num_samples=stats_calc_num_samples)
-        self.quantizer_i = RealQuantizer(target_fwhm=target_fwhm,
+        self.quantizer_i = RealQuantizer(target_mean=target_mean,
+                                         target_fwhm=target_fwhm,
                                          num_bits=num_bits,
                                          stats_calc_period=stats_calc_period,
                                          stats_calc_num_samples=stats_calc_num_samples)
+        
+    def _reset_cache(self):
+        """
+        Clear statistics and indices caches.
+        """
+        for i in range(len(self.stats_cache_r)):
+            for j in range(len(self.stats_cache_r[0])):
+                self.stats_cache_r[i][j] = 0
+                self.stats_cache_i[i][j] = [None, None]
+        self.quantizer_r._reset_cache()
+        self.quantizer_i._reset_cache()
         
     def quantize(self, voltages, pol=0, antenna=0):
         """
@@ -183,27 +211,30 @@ class ComplexQuantizer(object):
 
 
 def quantize_real(x,
-                  target_fwhm=32, 
+                  target_mean=0,
+                  target_std=32/(2*xp.sqrt(2*xp.log(2))), 
                   num_bits=8,
                   data_mean=None,
-                  data_sigma=None,
+                  data_std=None,
                   stats_calc_num_samples=10000):
     """
     Quantize real voltage data to integers with specified number of bits
-    and target FWHM range. 
+    and target statistics. 
 
     Parameters
     ----------
     x : array
         Array of voltages
-    target_fwhm : float, optional
-        Target FWHM
+    target_mean : float, optional
+        Target mean for voltages
+    target_std : float, optional
+        Target standard deviation for voltages
     num_bits : int, optional
         Number of bits to quantize to. Quantized voltages will span -2**(num_bits - 1) 
         to 2**(num_bits - 1) - 1, inclusive.
     data_mean : float, optional
         Mean of input voltages, if already known
-    data_sigma : float, optional
+    data_std : float, optional
         Standard deviation of input voltages, if already known. If None, estimates mean and
         standard deviation automatically.
     stats_calc_num_samples : int, optional
@@ -214,14 +245,16 @@ def quantize_real(x,
     q_voltages : array
         Array of quantized voltages
     """
-    if data_sigma is None:
-        data_mean, data_sigma = data_stream.estimate_stats(x, stats_calc_num_samples)
+    if data_std is None:
+        data_mean, data_std = data_stream.estimate_stats(x, stats_calc_num_samples)
     
-    data_fwhm = 2 * xp.sqrt(2 * xp.log(2)) * data_sigma
+    if data_mean == 0:
+        print('mean is 0!')
+        factor = 0
+    else:
+        factor = target_std / data_std
     
-    factor = target_fwhm / data_fwhm
-    
-    q_voltages = xp.around(factor * (x - data_mean))
+    q_voltages = xp.around(factor * (x - data_mean) + target_mean)
     q_voltages = xp.clip(q_voltages, -2**(num_bits - 1), 2**(num_bits - 1) - 1)
     q_voltages = q_voltages.astype(int)
     
@@ -229,7 +262,8 @@ def quantize_real(x,
 
 
 def quantize_complex(x, 
-                     target_fwhm=32, 
+                     target_mean=0,
+                     target_std=32/(2*xp.sqrt(2*xp.log(2))), 
                      num_bits=8, 
                      stats_calc_num_samples=10000):
     """
@@ -240,8 +274,10 @@ def quantize_complex(x,
     ----------
     x : array
         Array of complex voltages
-    target_fwhm : float, optional
-        Target FWHM
+    target_mean : float, optional
+        Target mean for voltages
+    target_std : float, optional
+        Target standard deviation for voltages
     num_bits : int, optional
         Number of bits to quantize to. Quantized voltages will span -2**(num_bits - 1) 
         to 2**(num_bits - 1) - 1, inclusive.
@@ -256,12 +292,14 @@ def quantize_complex(x,
     r, i = xp.real(x), xp.imag(x)
     
     q_r = quantize_real(r, 
-                        target_fwhm=target_fwhm, 
+                        target_mean=target_mean,
+                        target_std=target_std, 
                         num_bits=num_bits,
                         stats_calc_num_samples=stats_calc_num_samples)
     
     q_i = quantize_real(i, 
-                        target_fwhm=target_fwhm, 
+                        target_mean=target_mean,
+                        target_std=target_std, 
                         num_bits=num_bits,
                         stats_calc_num_samples=stats_calc_num_samples)
     

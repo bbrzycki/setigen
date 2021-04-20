@@ -1,1 +1,2 @@
 include setigen/assets/*
+include setigen/voltage/*.txt

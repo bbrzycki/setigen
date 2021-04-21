@@ -40,17 +40,30 @@ class PolyphaseFilterbank(object):
         self.num_branches = num_branches
         self.window_fn = window_fn
         
-        self.cache = [[None, None]] # shape (num_antennas, num_pols)
+        self.cache = None #[[None, None]] # shape (num_antennas, num_pols)
         
         self._get_pfb_window()
+        
+        # Estimate stds after channelizing Gaussian with mean 0, std 1
+        self._get_channelized_stds()
         
     def _reset_cache(self):
         """
         Clear sample cache.
         """
-        for i in range(len(self.cache)):
-            for j in range(len(self.cache[0])):
-                self.cache[i][j] = None
+#         for i in range(len(self.cache)):
+#             for j in range(len(self.cache[0])):
+#                 self.cache[i][j] = None
+        self.cache = None
+                
+    def _get_channelized_stds(self):
+        """
+        Estimate standard deviations in real and imaginary components after channelizing
+        a zero-mean Gaussian distribution with variance 1. 
+        """
+        sample_v = xp.random.normal(0, 1, self.num_branches * 10000)
+        v_pfb = self.channelize(sample_v, use_cache=False)
+        self.channelized_stds = xp.array([v_pfb.real.std(), v_pfb.imag.std()])
         
     def _get_pfb_window(self):
         """
@@ -67,34 +80,7 @@ class PolyphaseFilterbank(object):
         half_coarse_chan = (xp.abs(h)**2)[:length//2]+(xp.abs(h)**2)[length//2:length][::-1]
         self.max_mean_ratio = xp.max(half_coarse_chan) / xp.mean(half_coarse_chan)
         
-    def _pfb_frontend(self, x, pol=0, antenna=0):
-        """
-        Apply windowing function to create polyphase filterbank frontend. Remaining voltage samples
-        are cached.
-
-        Parameters
-        ----------
-        x : array
-            Array of voltages
-        pol : int, optional
-            Index specifying the polarization to which the PFB is applied, for x and y polarizations.
-        antenna : int, optional
-            Index specifying the antenna to which the PFB is applied. Default is 0, which works 
-            for single Antenna cases.
-            
-        Returns
-        -------
-        x_pfb : array
-            Array of voltages post-PFB weighting
-        """
-        # Cache last section of data, which is excluded in PFB step
-        if self.cache[antenna][pol] is not None:
-            x = xp.concatenate([self.cache[antenna][pol], x])
-        self.cache[antenna][pol] = x[-self.num_taps*self.num_branches:]
-        
-        return pfb_frontend(x, self.window, self.num_taps, self.num_branches)
-        
-    def channelize(self, x, pol=0, antenna=0):
+    def channelize(self, x, use_cache=True):
         """
         Channelize input voltages by applying the PFB and taking a normalized FFT. 
 
@@ -102,18 +88,19 @@ class PolyphaseFilterbank(object):
         ----------
         x : array
             Array of voltages
-        pol : int, optional
-            Index specifying the polarization to which the PFB is applied, for x and y polarizations.
-        antenna : int, optional
-            Index specifying the antenna to which the PFB is applied. Default is 0, which works 
-            for single Antenna cases.
             
         Returns
         -------
         X_pfb : array
             Post-FFT complex voltages
         """
-        x = self._pfb_frontend(x, pol=pol, antenna=antenna)
+        if use_cache:
+            # Cache last section of data, which is excluded in PFB step
+            if self.cache is not None:
+                x = xp.concatenate([self.cache, x])
+            self.cache = x[-self.num_taps*self.num_branches:]
+        
+        x = pfb_frontend(x, self.window, self.num_taps, self.num_branches)
         X_pfb = xp.fft.fft(x, 
                            self.num_branches,
                            axis=1)[:, 0:self.num_branches//2] / self.num_branches**0.5

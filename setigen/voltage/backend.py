@@ -175,6 +175,36 @@ class RawVoltageBackend(object):
 #                   requantizer=quantization.ComplexQuantizer(),
                   start_chan=0,
                   num_subblocks=32):
+        """
+        Initialize a RawVoltageBackend object, using existing RAW data as a background for
+        signal insertion and recording. Compared to normal initialization, some parameters are inferred 
+        from the input data.
+
+        Parameters
+        ----------
+        input_file_stem : str
+            Filename or path stem to input RAW data
+        antenna_source : Antenna or MultiAntennaArray
+            Antenna or MultiAntennaArray, from which real voltage data is created
+        digitizer : RealQuantizer or ComplexQuantizer, or list, optional
+            Quantizer used to digitize input voltages. Either a single object to be used as a template
+            for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
+        filterbank : PolyphaseFilterbank, or list, optional
+            Polyphase filterbank object used to channelize voltages. Either a single object to be used as a 
+            template for each antenna and polarization, or a 2D list of filterbank objects of shape 
+            (num_antennas, num_pols).
+        start_chan : int, optional
+            Index of first coarse channel to be recorded
+        num_subblocks : int, optional
+            Number of partitions per block, used for computation. If `num_subblocks`=1, one block's worth
+            of data will be passed through the pipeline and recorded at once. Use this parameter to reduce 
+            memory load, especially when using GPU acceleration.
+            
+        Returns
+        -------
+        backend : RawVoltageBackend
+            Created backend object
+        """
         requantizer=quantization.ComplexQuantizer()
         
         raw_params = raw_utils.get_raw_params(input_file_stem=input_file_stem,
@@ -489,7 +519,7 @@ class RawVoltageBackend(object):
                verbose=True):
         """
         General function to actually collect data from the antenna source and return coarsely channelized complex
-        voltages.
+        voltages. If input data is provided, only as much data as is in the input will be generated.
         
         Parameters
         ----------

@@ -21,7 +21,7 @@ from setigen import unit_utils
 from . import raw_utils
 from . import polyphase_filterbank
 from . import quantization
-from . import antennas
+from . import antenna as v_antenna
 
 
 class RawVoltageBackend(object):
@@ -73,10 +73,10 @@ class RawVoltageBackend(object):
             memory load, especially when using GPU acceleration.
         """
         self.antenna_source = antenna_source
-        if isinstance(antenna_source, antennas.Antenna):
+        if isinstance(antenna_source, v_antenna.Antenna):
             self.num_antennas = 1
             self.is_antenna_array = False
-        elif isinstance(antenna_source, antennas.MultiAntennaArray):
+        elif isinstance(antenna_source, v_antenna.MultiAntennaArray):
             self.num_antennas = self.antenna_source.num_antennas
             self.is_antenna_array = True
         else:

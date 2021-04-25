@@ -58,8 +58,8 @@ class RealQuantizer(object):
         self.target_std = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
         self.num_bits = num_bits
         
-        self.stats_cache = [None, None] #[[[None, None], [None, None]]] # shape (num_antennas, num_pols, 2)
-        self.stats_calc_indices = 0 #[[0, 0]] # shape (num_antennas, num_pols)
+        self.stats_cache = [None, None]
+        self.stats_calc_indices = 0 
         
         self.stats_calc_period = stats_calc_period
         self.stats_calc_num_samples = stats_calc_num_samples
@@ -68,10 +68,6 @@ class RealQuantizer(object):
         """
         Clear statistics and indices caches.
         """
-#         for i in range(len(self.stats_cache)):
-#             for j in range(len(self.stats_cache[0])):
-#                 self.stats_calc_indices[i][j] = 0
-#                 self.stats_cache[i][j] = [None, None]
         self.stats_calc_indices = 0
         self.stats_cache = [None, None]
                 
@@ -108,16 +104,12 @@ class RealQuantizer(object):
         q_voltages : array
             Array of quantized voltages
         """
-#         if self.stats_calc_indices[antenna][pol] == 0:
         if self.stats_calc_indices == 0:
             self.stats_cache = data_stream.estimate_stats(voltages, self.stats_calc_num_samples)
-#             self.stats_cache[antenna][pol] = data_stream.estimate_stats(voltages,
-#                                                                         self.stats_calc_num_samples)
             
         if custom_std is not None:
             data_std = custom_std
         else:
-#             data_std = self.stats_cache[antenna][pol][1]
             data_std = self.stats_cache[1]
         q_voltages = quantize_real(voltages, 
                                    target_mean=self.target_mean,
@@ -172,8 +164,8 @@ class ComplexQuantizer(object):
         self.target_std = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
         self.num_bits = num_bits
         
-        self.stats_cache_r = [None, None] #[[[None, None], [None, None]]] # shape (num_antennas, num_pols, 2)
-        self.stats_cache_i = [None, None] #[[[None, None], [None, None]]] # shape (num_antennas, num_pols, 2)
+        self.stats_cache_r = [None, None]
+        self.stats_cache_i = [None, None] 
         
         self.stats_calc_period = stats_calc_period
         self.stats_calc_num_samples = stats_calc_num_samples
@@ -193,10 +185,6 @@ class ComplexQuantizer(object):
         """
         Clear statistics and indices caches.
         """
-#         for i in range(len(self.stats_cache_r)):
-#             for j in range(len(self.stats_cache_r[0])):
-#                 self.stats_cache_r[i][j] = [None, None]
-#                 self.stats_cache_i[i][j] = [None, None]
         self.stats_cache_r = [None, None]
         self.stats_cache_i = [None, None]
         self.quantizer_r._reset_cache()

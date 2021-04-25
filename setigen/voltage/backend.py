@@ -49,12 +49,16 @@ class RawVoltageBackend(object):
         ----------
         antenna_source : Antenna or MultiAntennaArray
             Antenna or MultiAntennaArray, from which real voltage data is created
-        digitizer : RealQuantizer or ComplexQuantizer, optional
-            Quantizer used to digitize input voltages
-        filterbank : PolyphaseFilterbank, optional
-            Polyphase filterbank object used to channelize voltages
-        requantizer : ComplexQuantizer, optional
-            Quantizer used on complex channelized voltages
+        digitizer : RealQuantizer or ComplexQuantizer, or list, optional
+            Quantizer used to digitize input voltages. Either a single object to be used as a template
+            for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
+        filterbank : PolyphaseFilterbank, or list, optional
+            Polyphase filterbank object used to channelize voltages. Either a single object to be used as a 
+            template for each antenna and polarization, or a 2D list of filterbank objects of shape 
+            (num_antennas, num_pols).
+        requantizer : ComplexQuantizer, or list, optional
+            Quantizer used on complex channelized voltages. Either a single object to be used as a template
+            for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
         start_chan : int, optional
             Index of first coarse channel to be recorded
         num_chans : int, optional
@@ -103,15 +107,6 @@ class RawVoltageBackend(object):
         else:
             raise TypeError('Digitizer is incorrect type!')
         
-#         if self.is_antenna_array:
-#             if isinstance(self.digitizer, quantization.RealQuantizer):
-#                 self.digitizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
-#                 self.digitizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
-#             elif isinstance(self.digitizer, quantization.ComplexQuantizer):
-#                 for sub_quantizer in [self.digitizer.quantizer_r, self.digitizer.quantizer_i]:
-#                     sub_quantizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
-#                     sub_quantizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
-        
         self.filterbank = filterbank
         if isinstance(self.filterbank, polyphase_filterbank.PolyphaseFilterbank):
             self.filterbank = [[copy.deepcopy(self.filterbank) 
@@ -127,9 +122,6 @@ class RawVoltageBackend(object):
         else:
             raise TypeError('Filterbank is incorrect type!')
             
-#         assert isinstance(self.filterbank, polyphase_filterbank.PolyphaseFilterbank)
-#         if self.is_antenna_array:
-#             self.filterbank.cache = [[None] * self.num_pols] * self.num_antennas
         self.num_taps = self.filterbank[0][0].num_taps
         self.num_branches = self.filterbank[0][0].num_branches
         assert self.start_chan + self.num_chans <= self.num_branches // 2
@@ -153,11 +145,6 @@ class RawVoltageBackend(object):
                     assert isinstance(self.requantizer, quantization.ComplexQuantizer)
         else:
             raise TypeError('Requantizer is incorrect type!')
-#         assert isinstance(self.requantizer, quantization.ComplexQuantizer)
-#         if self.is_antenna_array:
-#             for sub_quantizer in [self.requantizer.quantizer_r, self.requantizer.quantizer_i]:
-#                 sub_quantizer.stats_cache = [[[None, None]] * self.num_pols] * self.num_antennas
-#                 sub_quantizer.stats_calc_indices = [[0] * self.num_pols] * self.num_antennas
         self.num_bits = self.requantizer[0][0].num_bits
         self.num_bytes = self.num_bits // 8
         self.bytes_per_sample = 2 * self.num_pols * self.num_bits // 8
@@ -425,11 +412,11 @@ class RawVoltageBackend(object):
 
                         if digitize:
                             t = time.time()
-                            v = self.digitizer[antenna][pol].quantize(v)#, pol=pol, antenna=antenna)
+                            v = self.digitizer[antenna][pol].quantize(v)
                             self.digitizer_stage_t += time.time() - t
 
                         t = time.time()
-                        v = self.filterbank[antenna][pol].channelize(v)#, pol=pol, antenna=antenna)
+                        v = self.filterbank[antenna][pol].channelize(v)
                         v = v[:, self.start_chan:self.start_chan+self.num_chans]
                         self.filterbank_stage_t += time.time() - t
 
@@ -447,7 +434,7 @@ class RawVoltageBackend(object):
                                 # If digitizing real voltages, scale up by the appropriate factor
                                 if digitize:
                                     custom_stds *= self.digitizer[antenna][pol].target_std
-                                v = self.requantizer[antenna][pol].quantize(v, custom_stds=custom_stds)#, pol=pol, antenna=antenna):
+                                v = self.requantizer[antenna][pol].quantize(v, custom_stds=custom_stds)
                                 
                                 self.requantizer[antenna][pol].quantizer_r.target_mean = temp_mean_r
                                 self.requantizer[antenna][pol].quantizer_i.target_mean = temp_mean_i
@@ -459,7 +446,7 @@ class RawVoltageBackend(object):
                                 input_v = xp.array(input_v)
                                 v += input_v.T
                                 
-                            v = self.requantizer[antenna][pol].quantize(v)#, pol=pol, antenna=antenna)
+                            v = self.requantizer[antenna][pol].quantize(v)
                             self.requantizer_stage_t += time.time() - t
 
                         # Convert to numpy array if using cupy
@@ -556,7 +543,6 @@ class RawVoltageBackend(object):
                 self.digitizer[antenna][pol]._reset_cache()
                 self.filterbank[antenna][pol]._reset_cache()
                 self.requantizer[antenna][pol]._reset_cache()
-#         self.filterbank.cache = [[None, None] for a in range(self.num_antennas)]
             
         # Collect data and record to disk
         num_files = int(xp.ceil(self.num_blocks / self.blocks_per_file))

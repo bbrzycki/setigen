@@ -40,7 +40,7 @@ class PolyphaseFilterbank(object):
         self.num_branches = num_branches
         self.window_fn = window_fn
         
-        self.cache = None #[[None, None]] # shape (num_antennas, num_pols)
+        self.cache = None
         
         self._get_pfb_window()
         
@@ -51,9 +51,6 @@ class PolyphaseFilterbank(object):
         """
         Clear sample cache.
         """
-#         for i in range(len(self.cache)):
-#             for j in range(len(self.cache[0])):
-#                 self.cache[i][j] = None
         self.cache = None
                 
     def _get_channelized_stds(self):

@@ -19,7 +19,7 @@ First, we have an Antenna, which contains DataStreams for each polarization (1 o
 
 The main backend elements are the digitizer, filterbank, and requantizer. The digitizer quantizes input voltages to a desired number of bits, and a desired full width at half maximum (FWHM) in the quantized voltage space. The filterbank implements a software polyphase filterbank, coarsely channelizing input voltages. The requantizer takes the resulting complex voltages, and quantizes each component to either 8 or 4 bits, suitable for saving into GUPPI RAW format. 
 
-All of these elements are wrapped into the RawVoltageBackend, which connects each piece together. The main method RawVoltageBackend.record() automatically retrieves real voltages as needed and passes them through each backend element, finally saving out the quantized complex voltages to disk.
+All of these elements are wrapped into the RawVoltageBackend, which connects each piece together. The main method :code:`RawVoltageBackend.record()` automatically retrieves real voltages as needed and passes them through each backend element, finally saving out the quantized complex voltages to disk.
 
 A minimal working example of the pipeline is as follows:
 
@@ -59,7 +59,7 @@ A minimal working example of the pipeline is as follows:
                                         blocks_per_file=128,
                                         num_subblocks=32)
                                         
-    rvb.record(raw_file_stem='example_1block',
+    rvb.record(output_file_stem='example_1block',
                num_blocks=1, 
                length_mode='num_blocks',
                header_dict={'HELLO': 'test_value',
@@ -69,7 +69,7 @@ A minimal working example of the pipeline is as follows:
 Using GPU acceleration
 ----------------------
 
-The process of synthesizing real voltages at a high sample rate and passing through multiple signal processing steps can be very computationally expensive on a CPU. Accordingly, if you have access to a GPU, it is highly recommended to install CuPy, which performs the equivalent NumPy array operations on the GPU (https://docs.cupy.dev/en/stable/install.html). This is not necessary to run raw voltage generation, but will highly accelerate the pipeline. Once you have CuPy installed, to enable GPU acceleration, you must set `SETIGEN_ENABLE_GPU` to '1' in the shell or in Python via `os.environ`. It can also be useful to set `CUDA_VISIBLE_DEVICES` to specify which GPUs to use. The following enables GPU usage and specifies to use the GPU indexed as 0.
+The process of synthesizing real voltages at a high sample rate and passing through multiple signal processing steps can be very computationally expensive on a CPU. Accordingly, if you have access to a GPU, it is highly recommended to install CuPy, which performs the equivalent NumPy array operations on the GPU (https://docs.cupy.dev/en/stable/install.html). This is not necessary to run raw voltage generation, but will highly accelerate the pipeline. Once you have CuPy installed, to enable GPU acceleration, you must set :code:`SETIGEN_ENABLE_GPU` to '1' in the shell or in Python via :code:`os.environ`. It can also be useful to set :code:`CUDA_VISIBLE_DEVICES` to specify which GPUs to use. The following enables GPU usage and specifies to use the GPU indexed as 0.
 
 .. code-block:: python
 
@@ -133,6 +133,8 @@ Signal source functions are Python functions that accept an array of times, in s
                          
 As custom signals are added, the :code:`DataStream.noise_std` parameter may no longer be accurate. In these cases, you may run :func:`~setigen.voltage.data_stream.DataStream.update_noise` to estimate the noise based on a few voltages calculated from all noise and signal sources. Then, the proper noise standard deviation can be produced via :code:`DataStream.get_total_noise_std()`.
 
+You may also check out these example notebooks: `03_custom_signals.ipynb <https://github.com/bbrzycki/setigen/blob/main/jupyter-notebooks/voltage/03_custom_signals.ipynb>`_ and `04_custom_signals_estimate_noise.ipynb <https://github.com/bbrzycki/setigen/blob/main/jupyter-notebooks/voltage/04_custom_signals_estimate_noise.ipynb>`_.
+
 Quantizers
 ^^^^^^^^^^
 
@@ -150,7 +152,12 @@ The main things to keep in mind when initializing a PolyphaseFilterbank object a
 - `num_taps` controls the spectral profile of each individual coarse channel; the higher this is, the closer the spectral response gets to ideal
 - `num_branches` controls the number of coarse channels; after the real FFT, we obtain `num_branches / 2` total coarse channels spanning the Nyquist range
 
+Voltage backend
+^^^^^^^^^^^^^^^
 
+The RawVoltageBackend class connects the various components in the pipeline, allowing us to "record" only as much data as we currently need. 
+
+Behind the scenes, the backend actually uses a separate instance of each backend element per antenna and polarization. For example, if the backend is initialized with a single object instance for each the digitizer, filterbank, and requantizer, the backend object will make deep copies for each polarization in each antenna. This is done so that quantization (scaling) calculations are done independently for separate polarizations and antennas. Alternatively, you can initialize the backend with 2D lists of shape (num_antennas, num_pols) for each backend element, if, for example, there are variations in the desired `target_mean` and `target_fwhm` parameters. 
     
 Creating multi-antenna RAW files
 --------------------------------
@@ -197,6 +204,8 @@ Then, instead of passing a single Antenna into a RawVoltageBackend object, you p
                                         
 The RawVoltageBackend will get samples from each Antenna, accounting for the background data streams intrinsic to the MultiAntennaArray, subject to each Antenna's delays. 
 
+You may also check out this example notebook: `01_multi_antenna_raw_file_gen.ipynb <https://github.com/bbrzycki/setigen/blob/main/jupyter-notebooks/voltage/01_multi_antenna_raw_file_gen.ipynb>`_.
+
 
 Injecting signals at a desired SNR
 ----------------------------------
@@ -234,3 +243,50 @@ An example accounting for multiple effects like these:
         stream.add_constant_signal(f_start=f_start, 
                                    drift_rate=0*u.Hz/u.s, 
                                    level=level)
+
+You may also check out this example notebook: `05_raw_file_gen_snr.ipynb <https://github.com/bbrzycki/setigen/blob/main/jupyter-notebooks/voltage/05_raw_file_gen_snr.ipynb>`_.
+                                   
+
+Injecting signals starting from existing RAW files
+--------------------------------------------------
+
+In addition to recording entirely synthetic voltage data, we can also inject signals onto existing RAW files. This approach is somehwat limited, since the data in existing RAW files have necessarily already been digitized, channelized, and requantized using hardware at the telescope; we cannot add the time series real voltage signals. 
+
+Instead, we can use parameters from the RAW data to create synthetic data streams, and add the corresponding complex RAW voltages together as our "injection". Of course, we want to make sure the synthetic data properties match those of the RAW files, so we have a helper function :code:`get_raw_params` that returns a dictionary with relevant properties. Note that we still need to specify which coarse channel the recorded data starts from, since this isn't saved in the header.
+
+.. code-block:: python
+
+    start_chan = 0
+    input_file_stem = 'example_snr'
+
+    raw_params = stg.voltage.get_raw_params(input_file_stem=input_file_stem,
+                                            start_chan=start_chan)
+
+    antenna = stg.voltage.Antenna(sample_rate=sample_rate,
+                                  **raw_params)
+
+To then create a RawVoltageBackend, we use the class method :code:`RawVoltageBackend.from_data()`, where `input_file_stem` is the filename stem as used by :code:`rawspec`. 
+
+.. code-block:: python
+
+    rvb = stg.voltage.RawVoltageBackend.from_data(input_file_stem=input_file_stem,
+                                                  antenna_source=antenna,
+                                                  digitizer=digitizer,
+                                                  filterbank=filterbank,
+                                                  start_chan=start_chan,
+                                                  num_subblocks=32)
+
+There are a few things to keep in mind here. Since we don't have access to the original noise distribution in real voltage space for the recorded RAW data (as it was quantized), it may be tough to inject at specific SNR levels. Also, if we create an Antenna with only cosine-like signals, the distribution of voltages will look highly non-Gaussian. So, if we attempt to digitize or requantize this normally, we risk distorting the data and introducing artifacts. To avoid this, if the Antenna has no injected Gaussian noise source, we can run :code:`RawVoltageBackend.record()` with parameter :code:`digitize=False`. Then, the signals will be channelized and quantized as if they were embedded in zero-mean Gaussian noise with standard deviation 1. Now, if there *is* a noise source, you can leave :code:`digitize=True` (the default).
+
+.. code-block:: python
+
+    rvb.record(output_file_stem='example_snr_input',
+               header_dict={'TELESCOP': 'GBT'},
+               digitize=False,
+               verbose=True)
+               
+In the :code:`record()` call, if no `num_blocks` or `obs_length` is specified, data will be recorded matching the total length / size of the input data. You may specify these parameters to record a smaller amount of data (starting from the beginning of the input), but of course you can't produce a longer recording than what is present in the input. 
+
+Behind the scenes, at each iteration, the backend will read in a full data block from disk, and set requantizer statistics (target mean, target standard deviation) for each (antenna, polarization) pair for the real and imaginary quantizer components. Then, the synthetic data passing through the pipeline is requantized to the corresponding standard deviations in each complex component, but instead of centering to the target mean, they are centered to zero mean. This is so that when we add the synthetic data to the existing data, we don't change the overall voltage means. After these are added together, we finally requantize once more with the same requantizers, to the target mean and standard deviations. This procedure is done to match the existing data statistics and magnitudes as best as possible.
+
+You may also check out this example notebook: `06_starting_from_existing_raw_files.ipynb <https://github.com/bbrzycki/setigen/blob/main/jupyter-notebooks/voltage/06_starting_from_existing_raw_files.ipynb>`_.

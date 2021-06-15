@@ -17,6 +17,7 @@ from . import waterfall_utils
 from . import distributions
 from . import sample_from_obs
 from . import unit_utils
+from . import frame_utils
 
 from .funcs import paths
 from .funcs import t_profiles

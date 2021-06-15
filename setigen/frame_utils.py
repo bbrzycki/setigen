@@ -12,6 +12,8 @@ def db(x):
 def render(data):
     """
     Display frame data in waterfall format.
+    
+    data is a 2D numpy array.
     """ 
     plt.imshow(data,
                aspect='auto',

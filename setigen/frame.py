@@ -733,17 +733,25 @@ class Frame(object):
         self.update_metadata(new_metadata)
 
     def render(self, use_db=False):
-        # Display frame data in waterfall format
-        plt.imshow(self.get_data(use_db=use_db),
-                   aspect='auto',
-                   interpolation='none')
-        plt.colorbar()
-        plt.xlabel('Frequency (px)')
-        plt.ylabel('Time (px)')
+        """
+        Display frame data in waterfall format.
+        """ 
+        frame_utils.render(self.get_data(use_db=use_db))
 
     def bl_render(self, use_db=True):
         self._update_waterfall()
         self.waterfall.plot_waterfall(logged=use_db)
+        
+    def integrate(self, mode='t'):
+        """
+        Integrate along either time ('t') or frequency('f') axes. Uses mean
+        instead of sum.
+        """
+        if mode == 'f':
+            axis = 1
+        else:
+            axis = 0
+        return np.mean(self.data, axis=axis)
 
     def _update_waterfall(self, filename=None, max_load=1):
         # If entirely synthetic, base filterbank structure on existing sample data

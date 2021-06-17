@@ -1,5 +1,7 @@
 import sys
 import os.path
+from copy import deepcopy
+
 import numpy as np
 import matplotlib.pyplot as plt
 try:
@@ -164,6 +166,74 @@ class Frame(object):
     @classmethod
     def from_waterfall(cls, waterfall):
         return cls(waterfall=waterfall)
+    
+    @classmethod
+    def from_backend_params(cls,
+                            fchans,
+                            tchans=None, 
+                            obs_length=300, 
+                            sample_rate=3e9, 
+                            num_branches=1024,
+                            fftlength=1048576,
+                            int_factor=None,
+                            fch1=8*u.GHz,
+                            ascending=False):
+        """
+        Create frame based on backend / software related parameters.
+        
+        Parameters
+        ----------
+        fchans : int
+            Number of frequency samples
+        tchans: int, optional
+            Number of time samples. May instead set integration factor `int_factor` to determine
+            size of time axis.
+        obs_length : float, optional
+            Length of observation in seconds
+        sample_rate : float, optional
+            Physical sample rate, in Hz, for collecting real voltage data
+        num_branches : int, optional
+            Number of PFB branches. Note that this corresponds to `num_branches / 2` coarse channels.
+        fftlength : int, optional
+            FFT length to be used in fine channelization
+        int_factor : int, optional
+            Integration factor used in fine channelization. Alternate way of determining frame size
+            other than directly setting `tchans`.
+        fch1 : astropy.Quantity, optional
+            Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
+            If ascending=True, fch1 is the minimum frequency; if ascending=False 
+            (default), fch1 is the maximum frequency.
+        ascending : bool, optional
+            Specify whether frequencies should be in ascending order, so that 
+            fch1 is the minimum frequency. Default is False, for which fch1
+            is the maximum frequency.
+            
+        Returns
+        -------
+        frame : Frame
+            Frame object with appropriate dimensions.
+        """
+        chan_bw = sample_rate / num_branches
+        df = chan_bw / fftlength
+
+        if tchans is not None:
+            max_dt = obs_length / tchans
+            int_factor = int(max_dt * df)
+        elif int_factor is None:
+            raise ValueError("Value not given for either tchans or int_factor.")
+        dt = int_factor / df
+
+        frame = cls(fchans=fchans,
+                    tchans=tchans,
+                    df=df,
+                    dt=dt,
+                    fch1=fch1,
+                    ascending=ascending)
+        return frame
+        
+    
+    def copy(self):
+        return deepcopy(self)
 
     def __getstate__(self):
         # Exclude waterfall Waterfall object from pickle, since it uses open threads, which
@@ -708,6 +778,9 @@ class Frame(object):
 
     def get_info(self):
         return vars(self)
+    
+    def get_params(self):
+        return self.df, self.dt, self.fch1, self.ascending
 
     def get_data(self, use_db=False):
         if use_db:

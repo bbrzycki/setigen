@@ -231,13 +231,20 @@ class Frame(object):
                     ascending=ascending)
         return frame
         
-    
     def copy(self):
-        return deepcopy(self)
+        """
+        Returns identical copy of frame.
+        """
+        c_frame = deepcopy(self)
+        # Note that since the __getstate__ function is overwritten, we need to
+        # add back the waterfall object.
+        if self.waterfall is not None:
+            c_frame.waterfall = deepcopy(self.waterfall)
+        return c_frame
 
     def __getstate__(self):
         # Exclude waterfall Waterfall object from pickle, since it uses open threads, which
-        # can't be pickled
+        # can't be pickled -- note that this affects copy!
         state = self.__dict__.copy()
         state['waterfall'] = None
         return state
@@ -815,17 +822,40 @@ class Frame(object):
         self._update_waterfall()
         self.waterfall.plot_waterfall(logged=use_db)
         
-    def integrate(self, mode='t'):
+    def get_slice(self, l_bound, r_bound):
+        s_data = self.data[:, l_bound:r_bound]
+    
+        # Match frequency to truncated frame
+        if self.ascending:
+            fch1 = self.fs[l_bound]
+        else:
+            fch1 = self.fs[r_bound]
+
+        s_frame = self.copy()
+        s_frame.tchans, s_frame.fchans = s_frame.shape = s_data.shape
+        s_frame.data = s_data
+        s_frame.fch1 = fch1
+
+        s_frame._update_fs()
+        s_frame._update_ts()
+        s_frame._update_noise_frame_stats()
+
+        return s_frame
+        
+    def integrate(self, axis='t', mode='mean'):
         """
         Integrate along either time ('t') or frequency('f') axes. Uses mean
-        instead of sum.
+        instead of sum. Mode is either 'mean' or 'sum'.
         """
-        if mode == 'f':
+        if axis == 'f':
             axis = 1
         else:
             axis = 0
-        return np.mean(self.data, axis=axis)
-
+        if mode[0] == 's':
+            return np.sum(self.data, axis=axis)
+        else:
+            return np.mean(self.data, axis=axis)
+        
     def _update_waterfall(self, filename=None, max_load=1):
         # If entirely synthetic, base filterbank structure on existing sample data
         if self.waterfall is None:

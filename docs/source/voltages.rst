@@ -69,7 +69,18 @@ A minimal working example of the pipeline is as follows:
 Using GPU acceleration
 ----------------------
 
-The process of synthesizing real voltages at a high sample rate and passing through multiple signal processing steps can be very computationally expensive on a CPU. Accordingly, if you have access to a GPU, it is highly recommended to install CuPy, which performs the equivalent NumPy array operations on the GPU (https://docs.cupy.dev/en/stable/install.html). This is not necessary to run raw voltage generation, but will highly accelerate the pipeline. Once you have CuPy installed, to enable GPU acceleration, you must set :code:`SETIGEN_ENABLE_GPU` to '1' in the shell or in Python via :code:`os.environ`. It can also be useful to set :code:`CUDA_VISIBLE_DEVICES` to specify which GPUs to use. The following enables GPU usage and specifies to use the GPU indexed as 0.
+The process of synthesizing real voltages at a high sample rate and passing through multiple signal processing steps can be very computationally expensive on a CPU. Accordingly, if you have access to a GPU, it is highly recommended to install CuPy, which performs the equivalent NumPy array operations on the GPU (https://docs.cupy.dev/en/stable/install.html). This is not necessary to run raw voltage generation, but will highly accelerate the pipeline. 
+
+Once you have CuPy installed, to enable GPU acceleration, you must set :code:`SETIGEN_ENABLE_GPU` to '1' in the shell or in Python via :code:`os.environ`. It can also be useful to set :code:`CUDA_VISIBLE_DEVICES` to specify which GPUs to use. The following enables GPU usage and specifies to use the GPU indexed as 0.
+
+In Bash:
+
+.. code-block:: bash
+
+    export SETIGEN_ENABLE_GPU=1
+    export CUDA_VISIBLE_DEVICES=0
+    
+In Python:
 
 .. code-block:: python
 

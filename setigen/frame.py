@@ -812,24 +812,34 @@ class Frame(object):
     def add_metadata(self, new_metadata):
         self.update_metadata(new_metadata)
 
-    def render(self, use_db=False):
+    def render(self, use_db=False, cb=True):
         """
         Display frame data in waterfall format.
+        
+        Parameters
+        ----------
+        use_db : bool
+            Whether to convert data to dB
+        cb : bool
+            Whether to display colorbar
         """ 
-        frame_utils.render(self.get_data(use_db=use_db))
+        frame_utils.render(self.get_data(use_db=use_db), cb=cb)
 
     def bl_render(self, use_db=True):
         self._update_waterfall()
         self.waterfall.plot_waterfall(logged=use_db)
         
-    def get_slice(self, l_bound, r_bound):
-        s_data = self.data[:, l_bound:r_bound]
+    def get_slice(self, l, r):
+        """
+        Slice frame data with left and right index bounds.
+        """
+        s_data = self.data[:, l:r]
     
         # Match frequency to truncated frame
         if self.ascending:
-            fch1 = self.fs[l_bound]
+            fch1 = self.fs[l]
         else:
-            fch1 = self.fs[r_bound]
+            fch1 = self.fs[r]
 
         s_frame = self.copy()
         s_frame.tchans, s_frame.fchans = s_frame.shape = s_data.shape

@@ -9,16 +9,21 @@ def db(x):
     return 10 * np.log10(x)
 
 
-def render(data):
+def render(data, cb=True):
     """
     Display frame data in waterfall format.
     
-    data is a 2D numpy array.
+    Parameters
+    ----------
+    data : 2D numpy array
+    cb : bool
+        Whether to display colorbar
     """ 
     plt.imshow(data,
                aspect='auto',
                interpolation='none')
-    plt.colorbar()
+    if cb:
+        plt.colorbar()
     plt.xlabel('Frequency (px)')
     plt.ylabel('Time (px)')
     

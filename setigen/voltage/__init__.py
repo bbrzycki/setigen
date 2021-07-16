@@ -6,4 +6,5 @@ from .polyphase_filterbank import *
 from .quantization import *
 from .waterfall import *
 from .level_utils import *
+from .raw_utils import *
 from .backend import *

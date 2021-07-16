@@ -31,7 +31,7 @@ def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
 
     Returns
     -------
-    split : Waterfall
+    waterfall : Waterfall
         A blimpy Waterfall object containing a smaller section of the data
     """
 

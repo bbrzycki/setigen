@@ -111,7 +111,7 @@ def test_raw_creation(antenna_setup,
                                   level=0.002,
                                   phase=np.pi/2)
     
-    rvb.record(raw_file_stem='example_1block',
+    rvb.record(output_file_stem='example_1block',
                num_blocks=1, 
                length_mode='num_blocks',
                header_dict={'HELLO': 'test_value',

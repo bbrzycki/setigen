@@ -1,5 +1,14 @@
 import numpy as np
 
+fwhm_m = 2 * np.sqrt(2 * np.log(2))
+
+def fwhm(sigma):
+    """
+    Get full width at half maximum (FWHM) for a provided sigma / 
+    standard deviation, assuming a Gaussian distribution.
+    """
+    return fwhm_m * sigma
+    
 
 def gaussian(x_mean, x_std, shape):
     return np.random.normal(x_mean, x_std, shape)

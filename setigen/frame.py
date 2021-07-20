@@ -852,15 +852,14 @@ class Frame(object):
             fch1 = self.fs[l]
         else:
             fch1 = self.fs[r - 1]
-
-        s_frame = self.copy()
-        s_frame.tchans, s_frame.fchans = s_frame.shape = s_data.shape
-        s_frame.data = s_data
-        s_frame.fch1 = fch1
-
-        s_frame._update_fs()
-        s_frame._update_ts()
-        s_frame._update_noise_frame_stats()
+        
+        s_frame = self.from_data(self.df, 
+                                 self.dt, 
+                                 fch1, 
+                                 self.ascending,
+                                 s_data,
+                                 metadata=self.metadata,
+                                 waterfall=self.check_waterfall())
 
         return s_frame
         

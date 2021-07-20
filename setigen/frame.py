@@ -1,6 +1,6 @@
 import sys
 import os.path
-from copy import deepcopy
+import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -153,15 +153,26 @@ class Frame(object):
         self.metadata = {}
 
     @classmethod
-    def from_data(cls, df, dt, fch1, ascending, data):
+    def from_data(cls, df, dt, fch1, ascending, data, metadata={}, waterfall=None):
+        """
+        Initialize Frame more directly from 2D numpy array of data.
+        
+        Optional parameters: metadata, waterfall. Metadata is a dictionary of 
+        feature you'd like to be associated with the frame. Waterfall is optional
+        if the data is derived from another frame object (accessed via 
+        frame.get_waterfall()) or a blimpy waterfall object.
+        """
         tchans, fchans = data.shape
-        return cls(fchans=fchans,
-                   tchans=tchans,
-                   df=df,
-                   dt=dt,
-                   fch1=fch1,
-                   ascending=ascending,
-                   data=data)
+        frame = cls(fchans=fchans,
+                    tchans=tchans,
+                    df=df,
+                    dt=dt,
+                    fch1=fch1,
+                    ascending=ascending,
+                    data=data)
+        frame.set_metadata(metadata)
+        frame.waterfall = copy.deepcopy(waterfall)
+        return frame
 
     @classmethod
     def from_waterfall(cls, waterfall):
@@ -235,11 +246,12 @@ class Frame(object):
         """
         Returns identical copy of frame.
         """
-        c_frame = deepcopy(self)
+        c_frame = copy.deepcopy(self)
         # Note that since the __getstate__ function is overwritten, we need to
         # add back the waterfall object.
-        if self.waterfall is not None:
-            c_frame.waterfall = deepcopy(self.waterfall)
+        waterfall = self.get_waterfall()
+        if waterfall is not None:
+            c_frame.waterfall = copy.deepcopy(waterfall)
         return c_frame
 
     def __getstate__(self):
@@ -955,6 +967,17 @@ class Frame(object):
         """
         self._update_waterfall()
         return self.waterfall
+    
+    def check_waterfall(self):
+        """
+        If an associated Waterfall object exists, update and return it. Otherwise,
+        return None. Useful to chain with setigen.Frame.from_data() if manipulating
+        completely synthetic data.
+        """
+        if self.waterfall is None:
+            return None
+        else:
+            return self.get_waterfall()
 
     def save_fil(self, filename, max_load=1):
         """

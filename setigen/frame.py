@@ -839,7 +839,7 @@ class Frame(object):
         if self.ascending:
             fch1 = self.fs[l]
         else:
-            fch1 = self.fs[r]
+            fch1 = self.fs[r - 1]
 
         s_frame = self.copy()
         s_frame.tchans, s_frame.fchans = s_frame.shape = s_data.shape

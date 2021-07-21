@@ -835,11 +835,23 @@ class Frame(object):
         cb : bool
             Whether to display colorbar
         """ 
-        frame_utils.render(self.get_data(use_db=use_db), cb=cb)
+        frame_utils.render(self.get_data(), use_db=use_db, cb=cb)
 
     def bl_render(self, use_db=True):
         self._update_waterfall()
         self.waterfall.plot_waterfall(logged=use_db)
+        
+    def plot(self, use_db=False, cb=True):
+        """
+        Wrapper for render().
+        """
+        self.render(use_db=use_db, cb=cb)
+        
+    def bl_plot(self, use_db=True):
+        """
+        Wrapper for bl_render().
+        """
+        self.bl_render(use_db=use_db)
         
     def get_slice(self, l, r):
         """

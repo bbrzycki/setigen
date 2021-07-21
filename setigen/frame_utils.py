@@ -9,16 +9,20 @@ def db(x):
     return 10 * np.log10(x)
 
 
-def render(data, cb=True):
+def render(data, use_db=False, cb=True):
     """
     Display frame data in waterfall format.
     
     Parameters
     ----------
     data : 2D numpy array
+    use_db : bool
+        Option to convert intensities to dB.
     cb : bool
         Whether to display colorbar
     """ 
+    if use_db:
+        data = db(data)
     plt.imshow(data,
                aspect='auto',
                interpolation='none')

@@ -799,7 +799,12 @@ class Frame(object):
         return vars(self)
     
     def get_params(self):
-        return self.df, self.dt, self.fch1, self.ascending
+        return {
+            'df': self.df, 
+            'dt': self.dt, 
+            'fch1': self.fch1, 
+            'ascending': self.ascending
+        }
 
     def get_data(self, use_db=False):
         if use_db:

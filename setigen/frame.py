@@ -882,10 +882,11 @@ class Frame(object):
         
     def integrate(self, axis='t', mode='mean'):
         """
-        Integrate along either time ('t') or frequency('f') axes. Uses mean
-        instead of sum. Mode is either 'mean' or 'sum'.
+        Integrate along either time ('t', 0) or frequency('f', 1) axes, to create 
+        spectra or time series data. Uses mean instead of sum. Mode is either 
+        'mean' or 'sum'.
         """
-        if axis == 'f':
+        if axis in ['f', 1]:
             axis = 1
         else:
             axis = 0

@@ -27,58 +27,6 @@ from .funcs import f_profiles
 from .funcs import bp_profiles
 
 
-def params_from_backend(tchans=None, 
-                        obs_length=300, 
-                        sample_rate=3e9, 
-                        num_branches=1024,
-                        fftlength=1048576,
-                        int_factor=None):
-    """
-    Return frame parameters calculated from data backend characteristics.
-
-    Parameters
-    ----------
-    tchans: int, optional
-        Number of time samples. May instead set integration factor `int_factor` to determine
-        size of time axis.
-    obs_length : float, optional
-        Length of observation in seconds
-    sample_rate : float, optional
-        Physical sample rate, in Hz, for collecting real voltage data
-    num_branches : int, optional
-        Number of PFB branches. Note that this corresponds to `num_branches / 2` coarse channels.
-    fftlength : int, optional
-        FFT length to be used in fine channelization
-    int_factor : int, optional
-        Integration factor used in fine channelization. Alternate way of determining frame size
-        other than directly setting `tchans`.
-
-    Returns
-    -------
-    param_dict : dict
-        Dictionary of parameters
-    """
-    chan_bw = sample_rate / num_branches
-    df = chan_bw / fftlength
-
-    if tchans is not None:
-        max_dt = obs_length / tchans
-        int_factor = int(max_dt * df)
-        dt = int_factor / df
-    elif int_factor is not None:
-        dt = int_factor / df
-        tchans = int(obs_length / dt)
-    else:
-        raise ValueError("Value not given for either tchans or int_factor")
-
-    param_dict = {
-        'tchans': tchans,
-        'df': df, 
-        'dt': dt
-    }
-    return param_dict
-
-
 class Frame(object):
     """
     Facilitate the creation of entirely synthetic radio data (narrowband
@@ -926,6 +874,18 @@ class Frame(object):
     def get_slice(self, l, r):
         """
         Slice frame data with left and right index bounds.
+    
+        Parameters
+        ----------
+        l : int
+            Left bound
+        r : int
+            Right bound
+
+        Returns
+        -------
+        s_fr : Frame
+            Sliced frame
         """
         return frame_utils.get_slice(self, l, r)
         
@@ -933,6 +893,20 @@ class Frame(object):
         """
         Integrate along either time ('t', 0) or frequency ('f', 1) axes, to create 
         spectra or time series data. Mode is either 'mean' or 'sum'.
+    
+        Parameters
+        ----------
+        data : Frame, or 2D ndarray
+            Input frame or Numpy array
+        axis : int or str
+            Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
+        mode : str
+            Integration mode, 'mean' or 'sum'
+            
+        Returns
+        -------
+        output : ndarray
+            Integrated product
         """
         return frame_utils.integrate(self, axis=axis, mode=mode)
         
@@ -1088,3 +1062,55 @@ class Frame(object):
         with open(filename, 'rb') as f:
             frame = pickle.load(f)
         return frame
+
+    
+def params_from_backend(tchans=None, 
+                        obs_length=300, 
+                        sample_rate=3e9, 
+                        num_branches=1024,
+                        fftlength=1048576,
+                        int_factor=None):
+    """
+    Return frame parameters calculated from data backend characteristics.
+
+    Parameters
+    ----------
+    tchans: int, optional
+        Number of time samples. May instead set integration factor `int_factor` to determine
+        size of time axis.
+    obs_length : float, optional
+        Length of observation in seconds
+    sample_rate : float, optional
+        Physical sample rate, in Hz, for collecting real voltage data
+    num_branches : int, optional
+        Number of PFB branches. Note that this corresponds to `num_branches / 2` coarse channels.
+    fftlength : int, optional
+        FFT length to be used in fine channelization
+    int_factor : int, optional
+        Integration factor used in fine channelization. Alternate way of determining frame size
+        other than directly setting `tchans`.
+
+    Returns
+    -------
+    param_dict : dict
+        Dictionary of parameters
+    """
+    chan_bw = sample_rate / num_branches
+    df = chan_bw / fftlength
+
+    if tchans is not None:
+        max_dt = obs_length / tchans
+        int_factor = int(max_dt * df)
+        dt = int_factor / df
+    elif int_factor is not None:
+        dt = int_factor / df
+        tchans = int(obs_length / dt)
+    else:
+        raise ValueError("Value not given for either tchans or int_factor")
+
+    param_dict = {
+        'tchans': tchans,
+        'df': df, 
+        'dt': dt
+    }
+    return param_dict

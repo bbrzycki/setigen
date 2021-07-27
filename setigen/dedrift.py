@@ -10,6 +10,7 @@ def dedrift(fr, drift_rate=None):
     Parameters
     ----------
     fr : Frame
+        Input frame
     drift_rate : float, optional
         Drift rate in Hz/s
         

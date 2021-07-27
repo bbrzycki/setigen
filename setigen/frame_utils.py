@@ -17,10 +17,12 @@ def array(fr):
     Parameters
     ----------
     fr : Frame, or 2D ndarray
+        Input frame or Numpy array
     
     Returns
     -------
     data : ndarray
+        Data array
     """
     try:
         return fr.get_data()
@@ -35,6 +37,7 @@ def render(data, use_db=False, cb=True):
     Parameters
     ----------
     data : Frame, or 2D ndarray
+        Input frame or Numpy array
     use_db : bool
         Option to convert intensities to dB.
     cb : bool
@@ -60,6 +63,7 @@ def plot(data, use_db=False, cb=True):
     Parameters
     ----------
     data : Frame, or 2D ndarray
+        Input frame or Numpy array
     use_db : bool
         Option to convert intensities to dB.
     cb : bool
@@ -70,9 +74,22 @@ def plot(data, use_db=False, cb=True):
 
 def integrate(data, axis='t', mode='mean'):
     """
-    Integrate along either time ('t', 0) or frequency('f', 1) axes, to create 
-    spectra or time series data. Uses mean instead of sum. Mode is either 
-    'mean' or 'sum'.
+    Integrate along either time ('t', 0) or frequency ('f', 1) axes, to create 
+    spectra or time series data. Mode is either 'mean' or 'sum'.
+    
+    Parameters
+    ----------
+    data : Frame, or 2D ndarray
+        Input frame or Numpy array
+    axis : int or str
+        Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
+    mode : str
+        Integration mode, 'mean' or 'sum'
+    
+    Returns
+    -------
+    output : ndarray
+        Integrated product
     """
     # If `data` is a Frame object, just grab its data
     data = array(data)
@@ -105,10 +122,16 @@ def get_slice(fr, l, r):
     Parameters
     ----------
     fr : Frame
+        Input frame
     l : int
         Left bound
     r : int
         Right bound
+        
+    Returns
+    -------
+    s_fr : Frame
+        Sliced frame
     """
     s_data = fr.data[:, l:r]
 

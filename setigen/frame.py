@@ -27,6 +27,58 @@ from .funcs import f_profiles
 from .funcs import bp_profiles
 
 
+def params_from_backend(tchans=None, 
+                        obs_length=300, 
+                        sample_rate=3e9, 
+                        num_branches=1024,
+                        fftlength=1048576,
+                        int_factor=None):
+    """
+    Return frame parameters calculated from data backend characteristics.
+
+    Parameters
+    ----------
+    tchans: int, optional
+        Number of time samples. May instead set integration factor `int_factor` to determine
+        size of time axis.
+    obs_length : float, optional
+        Length of observation in seconds
+    sample_rate : float, optional
+        Physical sample rate, in Hz, for collecting real voltage data
+    num_branches : int, optional
+        Number of PFB branches. Note that this corresponds to `num_branches / 2` coarse channels.
+    fftlength : int, optional
+        FFT length to be used in fine channelization
+    int_factor : int, optional
+        Integration factor used in fine channelization. Alternate way of determining frame size
+        other than directly setting `tchans`.
+
+    Returns
+    -------
+    param_dict : dict
+        Dictionary of parameters
+    """
+    chan_bw = sample_rate / num_branches
+    df = chan_bw / fftlength
+
+    if tchans is not None:
+        max_dt = obs_length / tchans
+        int_factor = int(max_dt * df)
+        dt = int_factor / df
+    elif int_factor is not None:
+        dt = int_factor / df
+        tchans = int(obs_length / dt)
+    else:
+        raise ValueError("Value not given for either tchans or int_factor")
+
+    param_dict = {
+        'tchans': tchans,
+        'df': df, 
+        'dt': dt
+    }
+    return param_dict
+
+
 class Frame(object):
     """
     Facilitate the creation of entirely synthetic radio data (narrowband
@@ -135,8 +187,8 @@ class Frame(object):
 
             self.shape = (self.tchans, self.fchans)
         else:
-            raise ValueError('Frame must be provided dimensions or an \
-                              existing filterbank file.')
+            raise ValueError(f'Frame must be provided dimensions or an '
+                             f'existing filterbank file.')
             
         # Degrees of freedom for chi-squared radiometer noise
         # 2 polarizations, real and imaginary components -> 4
@@ -180,7 +232,7 @@ class Frame(object):
     
     @classmethod
     def from_backend_params(cls,
-                            fchans,
+                            fchans=None,
                             tchans=None, 
                             obs_length=300, 
                             sample_rate=3e9, 
@@ -188,14 +240,19 @@ class Frame(object):
                             fftlength=1048576,
                             int_factor=None,
                             fch1=8*u.GHz,
-                            ascending=False):
+                            ascending=False,
+                            data=None):
         """
         Create frame based on backend / software related parameters.
+        Either `fchans` or `data` must be provided to get number of frequency
+        channels to create. If a 2D numpy array for `data` is provided, `tchans`
+        will be inferred; otherwise, either `tchans` or `int_factor` should be 
+        provided to calculate the right number of time bins.
         
         Parameters
         ----------
-        fchans : int
-            Number of frequency samples
+        fchans : int, optional
+            Number of frequency samples. Should be provided if `data` is None.
         tchans: int, optional
             Number of time samples. May instead set integration factor `int_factor` to determine
             size of time axis.
@@ -218,6 +275,9 @@ class Frame(object):
             Specify whether frequencies should be in ascending order, so that 
             fch1 is the minimum frequency. Default is False, for which fch1
             is the maximum frequency.
+        data : ndarray, optional
+            2D array of intensities to preload into frame. If provided, `fchans`
+            and `tchans` will be inferred from this. 
             
         Returns
         -------
@@ -226,20 +286,23 @@ class Frame(object):
         """
         chan_bw = sample_rate / num_branches
         df = chan_bw / fftlength
-
-        if tchans is not None:
-            max_dt = obs_length / tchans
-            int_factor = int(max_dt * df)
-        elif int_factor is None:
-            raise ValueError("Value not given for either tchans or int_factor.")
-        dt = int_factor / df
-
+        
+        if data is not None:
+            tchans, fchans = data.shape
+        elif fchans is None:
+            raise ValueError("Value not given for fchans")
+            
+        param_dict = params_from_backend(tchans=tchans, 
+                                         obs_length=obs_length, 
+                                         sample_rate=sample_rate, 
+                                         num_branches=num_branches,
+                                         fftlength=fftlength,
+                                         int_factor=int_factor)
         frame = cls(fchans=fchans,
-                    tchans=tchans,
-                    df=df,
-                    dt=dt,
+                    **param_dict,
                     fch1=fch1,
-                    ascending=ascending)
+                    ascending=ascending,
+                    data=data)
         return frame
         
     def copy(self):
@@ -792,14 +855,16 @@ class Frame(object):
             raise ValueError('You must add noise in the image to return SNR!')
         return intensity * np.sqrt(self.tchans) / self.noise_std
 
-    def get_drift_rate(self, start_index, end_index):
-        return (end_index - start_index) * self.df / (self.tchans * self.dt)
+    def get_drift_rate(self, start_index, stop_index):
+        return (stop_index - start_index) * self.df / (self.tchans * self.dt)
 
     def get_info(self):
         return vars(self)
     
     def get_params(self):
         return {
+            'fchans': self.fchans,
+            'tchans': self.tchans,
             'df': self.df, 
             'dt': self.dt, 
             'fch1': self.fch1, 
@@ -840,7 +905,7 @@ class Frame(object):
         cb : bool
             Whether to display colorbar
         """ 
-        frame_utils.render(self.get_data(), use_db=use_db, cb=cb)
+        frame_utils.render(self, use_db=use_db, cb=cb)
 
     def bl_render(self, use_db=True):
         self._update_waterfall()
@@ -862,38 +927,14 @@ class Frame(object):
         """
         Slice frame data with left and right index bounds.
         """
-        s_data = self.data[:, l:r]
-    
-        # Match frequency to truncated frame
-        if self.ascending:
-            fch1 = self.fs[l]
-        else:
-            fch1 = self.fs[r - 1]
-        
-        s_frame = self.from_data(self.df, 
-                                 self.dt, 
-                                 fch1, 
-                                 self.ascending,
-                                 s_data,
-                                 metadata=self.metadata,
-                                 waterfall=self.check_waterfall())
-
-        return s_frame
+        return frame_utils.get_slice(self, l, r)
         
     def integrate(self, axis='t', mode='mean'):
         """
-        Integrate along either time ('t', 0) or frequency('f', 1) axes, to create 
-        spectra or time series data. Uses mean instead of sum. Mode is either 
-        'mean' or 'sum'.
+        Integrate along either time ('t', 0) or frequency ('f', 1) axes, to create 
+        spectra or time series data. Mode is either 'mean' or 'sum'.
         """
-        if axis in ['f', 1]:
-            axis = 1
-        else:
-            axis = 0
-        if mode[0] == 's':
-            return np.sum(self.data, axis=axis)
-        else:
-            return np.mean(self.data, axis=axis)
+        return frame_utils.integrate(self, axis=axis, mode=mode)
         
     def _update_waterfall(self, filename=None, max_load=1):
         # If entirely synthetic, base filterbank structure on existing sample data

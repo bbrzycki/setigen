@@ -32,7 +32,7 @@ specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in th
                               stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
-    frame.render()
+    frame.plot()
     plt.savefig('frame.png', bbox_inches='tight')
     plt.show()
 
@@ -70,7 +70,7 @@ the observational data also has dimensions 32x1024 to make it easy to visualize 
                      stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
-    frame.render()
+    frame.plot()
     plt.show()
 
 .. image:: images/gs_obs_render.png
@@ -80,7 +80,7 @@ We can also view this using blimpy's plotting style:
 .. code-block:: python
 
     fig = plt.figure(figsize=(10, 6))
-    frame.bl_render()
+    frame.bl_plot()
     plt.show()
 
 .. image:: images/gs_obs_bl_render.png
@@ -115,4 +115,4 @@ values that are mapped to the provided data array.
                                 ascending=True,
                                 data=my_data)
                                 
-    frame.render()
+    frame.plot()

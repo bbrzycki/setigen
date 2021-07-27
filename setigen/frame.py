@@ -255,7 +255,7 @@ class Frame(object):
         
     def copy(self):
         """
-        Returns identical copy of frame.
+        Return identical copy of frame.
         """
         c_frame = copy.deepcopy(self)
         # Note that since the __getstate__ function is overwritten, we need to
@@ -274,7 +274,7 @@ class Frame(object):
 
     def _update_fs(self):
         """
-        Calculates and updates an array of frequencies represented in the
+        Calculate and update an array of frequencies represented in the
         frame.
         """
         # Normally, self.ascending will be False; filterbank convention is decreasing freqs
@@ -296,7 +296,7 @@ class Frame(object):
 
     def _update_ts(self):
         """
-        Calculates and updates an array of times represented in the frame.
+        Calculate and update an array of times represented in the frame.
         """
         self.ts = unit_utils.get_value(np.linspace(0,
                                                    self.tchans * self.dt,
@@ -306,7 +306,7 @@ class Frame(object):
 
     def zero_data(self):
         """
-        Resets data to a numpy array of zeros.
+        Reset data to a numpy array of zeros.
         """
         self.data = np.zeros(self.shape)
         self.noise_mean = self.noise_std = 0
@@ -325,7 +325,7 @@ class Frame(object):
 
     def _update_noise_frame_stats(self):
         """
-        Calculates and updates basic noise statistics (mean and standard
+        Calculate and update basic noise statistics (mean and standard
         deviation) of the frame, using sigma clipping to strip outliers.
         """
         clipped_data = sigma_clip(self.data,
@@ -340,7 +340,7 @@ class Frame(object):
                   x_min=None,
                   noise_type='chi2'):
         """
-        By default, synthesizes radiometer noise based on a chi-squared
+        By default, synthesize radiometer noise based on a chi-squared
         distribution. Alternately, can generate pure Gaussian noise.
         
         Specifying noise_type='chi2' will only use x_mean,
@@ -389,7 +389,7 @@ class Frame(object):
                            share_index=True,
                            noise_type='chi2'):
         """
-        By default, synthesizes radiometer noise based on a chi-squared
+        By default, synthesize radiometer noise based on a chi-squared
         distribution. Alternately, can generate pure Gaussian noise.
         
         If no arrays are specified from which to sample, noise
@@ -505,9 +505,9 @@ class Frame(object):
                    t_subsamples=10,
                    f_subsamples=10):
         """
-        Generates synthetic signal.
+        Generate synthetic signal.
 
-        Adds a synethic signal using given path in time-frequency domain and
+        Add a synethic signal using given path in time-frequency domain and
         brightness profiles in time and frequency directions.
 
         Parameters
@@ -782,7 +782,7 @@ class Frame(object):
 
     def get_intensity(self, snr):
         """
-        Calculates intensity from SNR, based on estimates of the noise in the
+        Calculate intensity from SNR, based on estimates of the noise in the
         frame.
 
         Note that there must be noise present in the frame for this to make

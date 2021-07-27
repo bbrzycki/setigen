@@ -5,7 +5,7 @@ from blimpy import Waterfall
 
 def max_freq(waterfall):
     """
-    Returns central frequency of the highest-frequency bin in a .fil file.
+    Return central frequency of the highest-frequency bin in a .fil file.
 
     Parameters
     ----------
@@ -27,7 +27,7 @@ def max_freq(waterfall):
 
 def min_freq(waterfall):
     """
-    Returns central frequency of the lowest-frequency bin in a .fil file.
+    Return central frequency of the lowest-frequency bin in a .fil file.
 
     Parameters
     ----------
@@ -49,7 +49,7 @@ def min_freq(waterfall):
 
 def get_data(waterfall, use_db=False):
     """
-    Gets time-frequency data from filterbank file as a 2d NumPy array.
+    Get time-frequency data from filterbank file as a 2d NumPy array.
 
     Note: when multiple Stokes parameters are supported, this will have to
     be expanded.
@@ -77,7 +77,7 @@ def get_data(waterfall, use_db=False):
 
 def get_fs(waterfall):
     """
-    Gets frequency values from filterbank file.
+    Get frequency values from filterbank file.
 
     Parameters
     ----------
@@ -103,7 +103,7 @@ def get_fs(waterfall):
 
 def get_ts(waterfall):
     """
-    Gets time values from filterbank file.
+    Get time values from filterbank file.
 
     Parameters
     ----------

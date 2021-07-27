@@ -5,7 +5,7 @@ from astropy.stats import sigma_clip
 
 def db(a):
     """
-    Converts to dB.
+    Convert to dB.
     """
     return 10 * np.log10(a)
 

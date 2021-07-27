@@ -1,37 +1,55 @@
 import numpy as np
-from astropy.stats import median_absolute_deviation
+from astropy.stats import median_absolute_deviation, sigma_clip
+from . import frame_utils
+from .frame import Frame
 
 
-def db(x):
+def sigma_clip_norm(fr, axis=None, as_data=None):
     """
-    Converts to dB.
+    Normalize data by subtracting out noise background, determined by
+    sigma clipping.
+    
+    Parameters
+    ----------
+    fr : Frame or ndarray
+        Input data to be normalized
+    axis : int
+        Axis along which data should be normalized. If None, will
+        compute statistics over the entire data frame. 
+    as_data : Frame or ndarray
+        Data to be used for noise calculations
+        
+    Returns
+    -------
+    n_data
+        Returns normalized data in the same type as f
     """
-    return 10 * np.log10(x)
+    data = frame_utils.array(fr)
+    
+    if as_data is None:
+        # If `data` is a Frame object, just use its data
+        as_data = data
+    else:
+        as_data = frame_utils.array(as_data)
+        
+    if axis in ['f', 1]:
+        axis = 1
+    else:
+        axis = 0
 
+    clipped_data = sigma_clip(as_data, axis=axis, masked=True)
+    data = data - np.mean(clipped_data, axis=axis, keepdims=True)
+    data = data / np.std(clipped_data, axis=axis, keepdims=True)
+    
+    if isinstance(fr, Frame):
+        n_frame = fr.copy()
+        n_frame.data = data
+        return n_frame
+    else:
+        return data
+    
 
-def integrate_frame(frame, normalize=False):
-    """
-    Integrate over time using mean (not sum).
-    """
-    data = frame.data
-    if normalize:
-        m, s = frame.get_noise_stats()
-        data = (data - m) / (s / frame.tchans**0.5)
-    return np.mean(data, axis=0)
-
-
-def integrate_frame_subdata(data, frame=None, normalize=False):
-    """
-    Integrate a chunk of data assuming frame statistics using mean (not sum).
-    """
-    if normalize:
-        assert frame is not None
-        m, s = frame.get_noise_stats()
-        data = (data - m) / (s / frame.tchans**0.5)
-    return np.mean(data, axis=0)
-
-
-def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
+def sliding_norm(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     """
     Normalize data per frequency channel so that the noise level in data is
     controlled; using mean or median filter.
@@ -89,7 +107,7 @@ def normalize(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     return np.nan_to_num((data - mean) / std)
 
 
-def normalize_by_max(data):
+def max_norm(data):
     """
     Simple normalization by dividing out by the brightest pixel.
     """

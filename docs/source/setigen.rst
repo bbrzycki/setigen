@@ -16,11 +16,35 @@ setigen.frame module
     :members:
     :undoc-members:
     :show-inheritance:
+    
+setigen.frame\_utils module
+--------------------------------
+
+.. automodule:: setigen.frame_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    
+setigen.dedrift module
+----------------------
+
+.. automodule:: setigen.dedrift
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 setigen.split\_utils module
 ---------------------------
 
 .. automodule:: setigen.split_utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    
+setigen.normalize module
+------------------------
+
+.. automodule:: setigen.normalize
     :members:
     :undoc-members:
     :show-inheritance:
@@ -53,14 +77,6 @@ setigen.stats module
 --------------------
 
 .. automodule:: setigen.stats
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-setigen.time\_freq\_utils module
---------------------------------
-
-.. automodule:: setigen.time_freq_utils
     :members:
     :undoc-members:
     :show-inheritance:

@@ -7,7 +7,7 @@ from blimpy import Waterfall
 
 def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
     """
-    Creates a generator that returns smaller Waterfall objects by 'splitting'
+    Create a generator that returns smaller Waterfall objects by 'splitting'
     an input filterbank file according to the number of frequency samples.
 
     Since this function only loads in data in chunks according to fchans,
@@ -70,7 +70,7 @@ def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
 
 def split_fil(waterfall_fn, output_dir, fchans, tchans=None, f_shift=None):
     """
-    Creates a set of new filterbank files by 'splitting' an input filterbank
+    Create a set of new filterbank files by 'splitting' an input filterbank
     file according to the number of frequency samples.
 
     Parameters
@@ -122,7 +122,7 @@ def split_array(data, f_sample_num=None, t_sample_num=None,
                 f_shift=None, t_shift=None,
                 f_trim=False, t_trim=False):
     """
-    Splits NumPy arrays into a list of smaller arrays according to limits in
+    Split NumPy arrays into a list of smaller arrays according to limits in
     frequency and time. This doesn't reduce/combine data, it simply cuts the
     data into smaller chunks.
 

@@ -1,5 +1,7 @@
 import sys
 import os.path
+import copy
+
 import numpy as np
 import matplotlib.pyplot as plt
 try:
@@ -17,6 +19,7 @@ from . import waterfall_utils
 from . import distributions
 from . import sample_from_obs
 from . import unit_utils
+from . import frame_utils
 
 from .funcs import paths
 from .funcs import t_profiles
@@ -132,8 +135,8 @@ class Frame(object):
 
             self.shape = (self.tchans, self.fchans)
         else:
-            raise ValueError('Frame must be provided dimensions or an \
-                              existing filterbank file.')
+            raise ValueError(f'Frame must be provided dimensions or an '
+                             f'existing filterbank file.')
             
         # Degrees of freedom for chi-squared radiometer noise
         # 2 polarizations, real and imaginary components -> 4
@@ -150,18 +153,50 @@ class Frame(object):
         self.metadata = {}
 
     @classmethod
-    def from_data(cls, df, dt, fch1, ascending, data):
+    def from_data(cls, df, dt, fch1, ascending, data, metadata={}, waterfall=None):
         """
-        Instantiate Frame using a data array.
+        Initialize Frame more directly from 2D numpy array of data.
+        
+        Parameters
+        ----------
+        df : astropy.Quantity
+            Frequency resolution (e.g. in u.Hz)
+        dt : astropy.Quantity
+            Time resolution (e.g. in u.s)
+        fch1 : astropy.Quantity
+            Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
+            If ascending=True, fch1 is the minimum frequency; if ascending=False 
+            (default), fch1 is the maximum frequency.
+        ascending : bool
+            Specify whether frequencies should be in ascending order, so that 
+            fch1 is the minimum frequency. Default is False, for which fch1
+            is the maximum frequency. This is overwritten if a waterfall
+            object is provided, where ascending will be automatically 
+            determined by observational parameters.
+        data : ndarray
+            2D array of intensities to preload into frame
+        metadata : dict, optional
+            Dictionary of features associated with the frame
+        waterfall : Waterfall, optional
+            Associated Waterfall object if data is derived from another frame object 
+            (accessed via frame.get_waterfall()) or a blimpy waterfall object
+            
+        Returns
+        -------
+        frame : Frame
+            Frame object with preloaded data
         """
         tchans, fchans = data.shape
-        return cls(fchans=fchans,
-                   tchans=tchans,
-                   df=df,
-                   dt=dt,
-                   fch1=fch1,
-                   ascending=ascending,
-                   data=data)
+        frame = cls(fchans=fchans,
+                    tchans=tchans,
+                    df=df,
+                    dt=dt,
+                    fch1=fch1,
+                    ascending=ascending,
+                    data=data)
+        frame.set_metadata(metadata)
+        frame.waterfall = copy.deepcopy(waterfall)
+        return frame
 
     @classmethod
     def from_waterfall(cls, waterfall):
@@ -169,17 +204,104 @@ class Frame(object):
         Instantiate Frame using a filterbank file or blimpy Waterfall object.
         """
         return cls(waterfall=waterfall)
+    
+    @classmethod
+    def from_backend_params(cls,
+                            fchans=None,
+                            tchans=None, 
+                            obs_length=300, 
+                            sample_rate=3e9, 
+                            num_branches=1024,
+                            fftlength=1048576,
+                            int_factor=None,
+                            fch1=8*u.GHz,
+                            ascending=False,
+                            data=None):
+        """
+        Create frame based on backend / software related parameters.
+        Either `fchans` or `data` must be provided to get number of frequency
+        channels to create. If a 2D numpy array for `data` is provided, `tchans`
+        will be inferred; otherwise, either `tchans` or `int_factor` should be 
+        provided to calculate the right number of time bins.
+        
+        Parameters
+        ----------
+        fchans : int, optional
+            Number of frequency samples. Should be provided if `data` is None.
+        tchans: int, optional
+            Number of time samples. May instead set integration factor `int_factor` to determine
+            size of time axis.
+        obs_length : float, optional
+            Length of observation in seconds
+        sample_rate : float, optional
+            Physical sample rate, in Hz, for collecting real voltage data
+        num_branches : int, optional
+            Number of PFB branches. Note that this corresponds to `num_branches / 2` coarse channels.
+        fftlength : int, optional
+            FFT length to be used in fine channelization
+        int_factor : int, optional
+            Integration factor used in fine channelization. Alternate way of determining frame size
+            other than directly setting `tchans`.
+        fch1 : astropy.Quantity, optional
+            Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
+            If ascending=True, fch1 is the minimum frequency; if ascending=False 
+            (default), fch1 is the maximum frequency.
+        ascending : bool, optional
+            Specify whether frequencies should be in ascending order, so that 
+            fch1 is the minimum frequency. Default is False, for which fch1
+            is the maximum frequency.
+        data : ndarray, optional
+            2D array of intensities to preload into frame. If provided, `fchans`
+            and `tchans` will be inferred from this. 
+            
+        Returns
+        -------
+        frame : Frame
+            Frame object with appropriate dimensions.
+        """
+        chan_bw = sample_rate / num_branches
+        df = chan_bw / fftlength
+        
+        if data is not None:
+            tchans, fchans = data.shape
+        elif fchans is None:
+            raise ValueError("Value not given for fchans")
+            
+        param_dict = params_from_backend(tchans=tchans, 
+                                         obs_length=obs_length, 
+                                         sample_rate=sample_rate, 
+                                         num_branches=num_branches,
+                                         fftlength=fftlength,
+                                         int_factor=int_factor)
+        frame = cls(fchans=fchans,
+                    **param_dict,
+                    fch1=fch1,
+                    ascending=ascending,
+                    data=data)
+        return frame
+        
+    def copy(self):
+        """
+        Return identical copy of frame.
+        """
+        c_frame = copy.deepcopy(self)
+        # Note that since the __getstate__ function is overwritten, we need to
+        # add back the waterfall object.
+        waterfall = self.get_waterfall()
+        if waterfall is not None:
+            c_frame.waterfall = copy.deepcopy(waterfall)
+        return c_frame
 
     def __getstate__(self):
         # Exclude waterfall Waterfall object from pickle, since it uses open threads, which
-        # can't be pickled
+        # can't be pickled -- note that this affects copy!
         state = self.__dict__.copy()
         state['waterfall'] = None
         return state
 
     def _update_fs(self):
         """
-        Calculates and updates an array of frequencies represented in the
+        Calculate and update an array of frequencies represented in the
         frame.
         """
         # Normally, self.ascending will be False; filterbank convention is decreasing freqs
@@ -201,7 +323,7 @@ class Frame(object):
 
     def _update_ts(self):
         """
-        Calculates and updates an array of times represented in the frame.
+        Calculate and update an array of times represented in the frame.
         """
         self.ts = unit_utils.get_value(np.linspace(0,
                                                    self.tchans * self.dt,
@@ -211,7 +333,7 @@ class Frame(object):
 
     def zero_data(self):
         """
-        Resets data to a numpy array of zeros.
+        Reset data to a numpy array of zeros.
         """
         self.data = np.zeros(self.shape)
         self.noise_mean = self.noise_std = 0
@@ -230,7 +352,7 @@ class Frame(object):
 
     def _update_noise_frame_stats(self):
         """
-        Calculates and updates basic noise statistics (mean and standard
+        Calculate and update basic noise statistics (mean and standard
         deviation) of the frame, using sigma clipping to strip outliers.
         """
         clipped_data = sigma_clip(self.data,
@@ -245,7 +367,7 @@ class Frame(object):
                   x_min=None,
                   noise_type='chi2'):
         """
-        By default, synthesizes radiometer noise based on a chi-squared
+        By default, synthesize radiometer noise based on a chi-squared
         distribution. Alternately, can generate pure Gaussian noise.
         
         Specifying noise_type='chi2' will only use x_mean,
@@ -294,7 +416,7 @@ class Frame(object):
                            share_index=True,
                            noise_type='chi2'):
         """
-        By default, synthesizes radiometer noise based on a chi-squared
+        By default, synthesize radiometer noise based on a chi-squared
         distribution. Alternately, can generate pure Gaussian noise.
         
         If no arrays are specified from which to sample, noise
@@ -410,9 +532,9 @@ class Frame(object):
                    t_subsamples=10,
                    f_subsamples=10):
         """
-        Generates synthetic signal.
+        Generate synthetic signal.
 
-        Adds a synethic signal using given path in time-frequency domain and
+        Add a synethic signal using given path in time-frequency domain and
         brightness profiles in time and frequency directions.
 
         Parameters
@@ -687,7 +809,7 @@ class Frame(object):
 
     def get_intensity(self, snr):
         """
-        Calculates intensity from SNR, based on estimates of the noise in the
+        Calculate intensity from SNR, based on estimates of the noise in the
         frame.
 
         Note that there must be noise present in the frame for this to make
@@ -708,11 +830,21 @@ class Frame(object):
             raise ValueError('You must add noise in the image to return SNR!')
         return intensity * np.sqrt(self.tchans) / self.noise_std
 
-    def get_drift_rate(self, start_index, end_index):
-        return (end_index - start_index) * self.df / (self.tchans * self.dt)
+    def get_drift_rate(self, start_index, stop_index):
+        return (stop_index - start_index) * self.df / (self.tchans * self.dt)
 
     def get_info(self):
         return vars(self)
+    
+    def get_params(self):
+        return {
+            'fchans': self.fchans,
+            'tchans': self.tchans,
+            'df': self.df, 
+            'dt': self.dt, 
+            'fch1': self.fch1, 
+            'ascending': self.ascending
+        }
 
     def get_data(self, use_db=False):
         if use_db:
@@ -737,19 +869,74 @@ class Frame(object):
     def add_metadata(self, new_metadata):
         self.update_metadata(new_metadata)
 
-    def render(self, use_db=False):
-        # Display frame data in waterfall format
-        plt.imshow(self.get_data(use_db=use_db),
-                   aspect='auto',
-                   interpolation='none')
-        plt.colorbar()
-        plt.xlabel('Frequency (px)')
-        plt.ylabel('Time (px)')
+    def render(self, use_db=False, cb=True):
+        """
+        Display frame data in waterfall format.
+        
+        Parameters
+        ----------
+        use_db : bool
+            Whether to convert data to dB
+        cb : bool
+            Whether to display colorbar
+        """ 
+        frame_utils.render(self, use_db=use_db, cb=cb)
 
     def bl_render(self, use_db=True):
         self._update_waterfall()
         self.waterfall.plot_waterfall(logged=use_db)
+        
+    def plot(self, use_db=False, cb=True):
+        """
+        Wrapper for render().
+        """
+        self.render(use_db=use_db, cb=cb)
+        
+    def bl_plot(self, use_db=True):
+        """
+        Wrapper for bl_render().
+        """
+        self.bl_render(use_db=use_db)
+        
+    def get_slice(self, l, r):
+        """
+        Slice frame data with left and right index bounds.
+    
+        Parameters
+        ----------
+        l : int
+            Left bound
+        r : int
+            Right bound
 
+        Returns
+        -------
+        s_fr : Frame
+            Sliced frame
+        """
+        return frame_utils.get_slice(self, l, r)
+        
+    def integrate(self, axis='t', mode='mean'):
+        """
+        Integrate along either time ('t', 0) or frequency ('f', 1) axes, to create 
+        spectra or time series data. Mode is either 'mean' or 'sum'.
+    
+        Parameters
+        ----------
+        data : Frame, or 2D ndarray
+            Input frame or Numpy array
+        axis : int or str
+            Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
+        mode : str
+            Integration mode, 'mean' or 'sum'
+            
+        Returns
+        -------
+        output : ndarray
+            Integrated product
+        """
+        return frame_utils.integrate(self, axis=axis, mode=mode)
+        
     def _update_waterfall(self, filename=None, max_load=1):
         # If entirely synthetic, base filterbank structure on existing sample data
         if self.waterfall is None:
@@ -839,6 +1026,17 @@ class Frame(object):
         """
         self._update_waterfall()
         return self.waterfall
+    
+    def check_waterfall(self):
+        """
+        If an associated Waterfall object exists, update and return it. Otherwise,
+        return None. Useful to chain with setigen.Frame.from_data() if manipulating
+        completely synthetic data.
+        """
+        if self.waterfall is None:
+            return None
+        else:
+            return self.get_waterfall()
 
     def save_fil(self, filename, max_load=1):
         """
@@ -891,3 +1089,55 @@ class Frame(object):
         with open(filename, 'rb') as f:
             frame = pickle.load(f)
         return frame
+
+    
+def params_from_backend(tchans=None, 
+                        obs_length=300, 
+                        sample_rate=3e9, 
+                        num_branches=1024,
+                        fftlength=1048576,
+                        int_factor=None):
+    """
+    Return frame parameters calculated from data backend characteristics.
+
+    Parameters
+    ----------
+    tchans: int, optional
+        Number of time samples. May instead set integration factor `int_factor` to determine
+        size of time axis.
+    obs_length : float, optional
+        Length of observation in seconds
+    sample_rate : float, optional
+        Physical sample rate, in Hz, for collecting real voltage data
+    num_branches : int, optional
+        Number of PFB branches. Note that this corresponds to `num_branches / 2` coarse channels.
+    fftlength : int, optional
+        FFT length to be used in fine channelization
+    int_factor : int, optional
+        Integration factor used in fine channelization. Alternate way of determining frame size
+        other than directly setting `tchans`.
+
+    Returns
+    -------
+    param_dict : dict
+        Dictionary of parameters
+    """
+    chan_bw = sample_rate / num_branches
+    df = chan_bw / fftlength
+
+    if tchans is not None:
+        max_dt = obs_length / tchans
+        int_factor = int(max_dt * df)
+        dt = int_factor / df
+    elif int_factor is not None:
+        dt = int_factor / df
+        tchans = int(obs_length / dt)
+    else:
+        raise ValueError("Value not given for either tchans or int_factor")
+
+    param_dict = {
+        'tchans': tchans,
+        'df': df, 
+        'dt': dt
+    }
+    return param_dict

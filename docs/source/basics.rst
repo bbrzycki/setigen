@@ -6,6 +6,78 @@
 Basic usage
 ===========
 
+Creating a frame
+----------------
+
+There are multiple ways to create a Frame object, depending on what information 
+you're starting with. 
+
+For an empty frame with known parameters, you may use standard instantiation. In this case,
+you need to provide frame dimensions, time and frequency resolutions, starting frequency
+(:code:`fch1`), and whether frequencies should be considered increasing or decreasing
+when writing to file. Note that within a Frame object, signal calculations are done with
+increasing frequencies regardless of this parameter.
+
+.. code-block:: Python
+
+    from astropy import units as u
+    import setigen as stg
+    
+    frame = stg.Frame(fchans=1024,
+                      tchans=16,
+                      df=2.7939677238464355*u.Hz,
+                      dt=18.253611008*u.s,
+                      fch1=6095.214842353016*u.MHz,
+                      ascending=False)
+                      
+If you have a 2D Numpy array of spectrogram data, you may alternatively use 
+:code:`Frame.from_data`:
+
+.. code-block:: Python
+    
+    import numpy as np
+    
+    data = np.random.normal(size=(16, 1024))
+    frame = stg.Frame.from_data(df=2.7939677238464355*u.Hz,
+                                dt=18.253611008*u.s,
+                                fch1=6095.214842353016*u.MHz,
+                                ascending=False,
+                                data)
+                      
+If you know the parameters behind the data generation, and not necessarily the actual frame resolution, you may use :code:`Frame.from_backend_params`:
+
+.. code-block:: Python
+
+    frame = stg.Frame.from_backend_params(fchans=1024,
+                                          tchans=16,
+                                          obs_length=300,
+                                          sample_rate=3e9,
+                                          num_branches=1024,
+                                          fftlength=1048576,
+                                          int_factor=None,
+                                          fch1=8*u.GHz,
+                                          ascending=False,
+                                          data=None)
+                                          
+where `obs_length` is the integration period, `sample_rate` is the sampling rate in Hz, `num_branches` is the branches in the polyphase filterbank, `fftlength` is the number of fine channels per coarse channel, and `int_factor` is the integration factor used in data reduction. In this function, either `tchans` or `int_factor` must be set to determine the number of time bins in the frame; you may know one or the other depending on the circumstance. You may also just set the `data` parameter, from which `fchans` and `tchans` will be automatically inferred. 
+
+Finally, you can construct a frame directly from a :code:`.fil`/:code:`.h5` file or Waterfall object:
+
+.. code-block:: Python
+    
+    wf_path = 'path/to/data.fil'
+    wf = bl.Waterfall(wf_path)
+    frame_wf = stg.Frame(waterfall=wf)
+    frame_path = stg.Frame(waterfall=wf_path)
+    
+Alternately:
+
+.. code-block:: Python
+    
+    frame_wf = stg.Frame.from_waterfall(wf)
+    frame_path = stg.Frame.from_waterfall(wf_path)
+    
+    
 Adding a basic signal
 -------------------------
 
@@ -17,10 +89,10 @@ functions (setigen.funcs_), but you can write your own!
 
 The most basic signal that you can generate is a constant intensity, constant
 drift-rate signal. Note that as in the `Getting started`_ example, you can also use
-:code:`frame.add_constant_signal`, which is simpler and more efficient for
+:code:`Frame.add_constant_signal`, which is simpler and more efficient for
 signal injection into large data frames.
 
-.. code-block:: python
+.. code-block:: Python
 
     from astropy import units as u
     import numpy as np
@@ -49,7 +121,7 @@ signal injection into large data frames.
 :func:`setigen.Frame.add_signal` returns a 2D numpy array containing only the synthetic signal. To
 visualize the resulting frame, we can use :func:`matplotlib.pyplot.imshow`:
 
-.. code-block:: python
+.. code-block:: Python
 
     import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(10, 6))
@@ -64,7 +136,7 @@ should be in time-frequency space. Astropy automatically handles unit conversion
 (MHz -> Hz, etc.), which is a nice convenience. Nevertheless, you can also use normal
 SI units (Hz, s) without additional modifiers, in which case the above code would become:
 
-.. code-block:: python
+.. code-block:: Python
 
     from astropy import units as u
     import numpy as np
@@ -128,7 +200,7 @@ you can create a host of signals by switching up these parameters!
 Here are just a few examples of pre-written signal functions. To see all of the included functions, check out setigen.funcs_. To avoid needless
 repetition, each example script will assume the same basic setup:
 
-.. code-block:: python
+.. code-block:: Python
 
     from astropy import units as u
     import numpy as np
@@ -160,7 +232,7 @@ A constant path is a linear Doppler-drifted signal. To generate this path, use
 the signal and the drift rate (in units of frequency over time, consistent with
 the units of your time and frequency arrays):
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
@@ -176,7 +248,7 @@ Sine path
 This path is a sine wave, controlled by a starting frequency, drift rate, period,
 and amplitude, using :func:`~setigen.funcs.paths.sine_path`.
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.sine_path(f_start=frame.get_frequency(200),
                                             drift_rate=2*u.Hz/u.s,
@@ -194,7 +266,7 @@ Squared path
 This path is a very simple quadratic with respect to time, using
 :func:`~setigen.funcs.paths.squared_path`.
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.squared_path(f_start=frame.get_frequency(200),
                                                drift_rate=0.01*u.Hz/u.s),
@@ -213,7 +285,7 @@ such signals, with :code:`rfi_type` set to 'stationary' and 'random_walk'. You
 can define :code:`drift_rate` to set these signals in relation to a straight
 line path.
 
-.. code-block:: python
+.. code-block:: Python
 
     frame.add_signal(stg.simple_rfi_path(f_start=frame.fs[200], 
                                          drift_rate=0*u.Hz/u.s,
@@ -245,7 +317,7 @@ To generate a signal with the same intensity over time, use
 :func:`~setigen.funcs.t_profiles.constant_t_profile`, specifying only the
 intensity level:
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                             drift_rate=2*u.Hz/u.s),
@@ -266,7 +338,7 @@ amplitude so that the signal doesn't have any negative values.
 
 Here's an example with equal level and amplitude:
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
@@ -280,7 +352,7 @@ Here's an example with equal level and amplitude:
 
 And here's an example with the level a bit higher than the amplitude:
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
@@ -302,7 +374,7 @@ To generate a signal with the same intensity over frequency, use
 :func:`~setigen.funcs.f_profiles.box_f_profile`, specifying the width of the
 signal:
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
@@ -319,7 +391,7 @@ To generate a signal with a Gaussian intensity profile in the frequency
 direction, use :func:`~setigen.funcs.f_profiles.gaussian_f_profile`, specifying
 the width of the signal:
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
@@ -336,7 +408,7 @@ To generate a signal with a sinc squared intensity profile in the frequency dire
 :func:`~setigen.funcs.f_profiles.sinc2_f_profile`, specifying the width of the
 signal:
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
@@ -348,7 +420,7 @@ signal:
 
 By default, the function has the parameter :code:`trunc=True` to truncate the sinc squared function at the first zero-crossing. With :code:`trunc=False` and using a larger width to show the effect:
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
@@ -365,7 +437,7 @@ The profile :func:`~setigen.funcs.f_profiles.multiple_gaussian_f_profile`,
 generates a symmetric signal with three Gaussians; one main signal and two
 smaller signals on either side. This is mostly a demonstration that :code:`f_profile` functions can be composite, and you can create custom functions like this (:doc:`advanced.rst`).
 
-.. code-block:: python
+.. code-block:: Python
 
     signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                                 drift_rate=2*u.Hz/u.s),
@@ -401,7 +473,7 @@ Adding pure chi-squared noise
 
 A minimal working example for adding noise is:
 
-.. code-block:: python
+.. code-block:: Python
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -442,7 +514,7 @@ Adding pure Gaussian noise
 
 An example for adding Gaussian noise is:
 
-.. code-block:: python
+.. code-block:: Python
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -475,7 +547,7 @@ This adds Gaussian noise with mean 5 and standard deviation 2 to an empty frame.
 
 In addition, we can truncate the noise at a lower bound specified by parameter `x_min`:
 
-.. code-block:: python
+.. code-block:: Python
 
     noise = frame.add_noise(x_mean=5, x_std=2, x_min=0, noise_type='gaussian')
 
@@ -518,7 +590,7 @@ distributions from `observational data`_.
 
 For chi-squared noise:
 
-.. code-block:: python
+.. code-block:: Python
 
     noise = frame.add_noise_from_obs()
 
@@ -528,7 +600,7 @@ We can readily see that the intensities are similar to a real GBT observation's.
 
 For Gaussian noise:
 
-.. code-block:: python
+.. code-block:: Python
 
     noise = frame.add_noise_from_obs(noise_type='gaussian')
 
@@ -539,7 +611,7 @@ each for the mean, standard deviation, and minimum, as below. Note: just as
 in the pure noise generation above, you don't need to specify an x_min_array
 from which to sample if there's no need to truncate the noise at a lower bound.
 
-.. code-block:: python
+.. code-block:: Python
 
     noise = frame.add_noise_from_obs(x_mean_array=[3,4,5],
                                      x_std_array=[1,2,3],
@@ -557,43 +629,8 @@ to randomly choosing a parameter from each array) via :code:`share_index=True`.
 Convenience functions for signal generation
 -------------------------------------------
 
-There are a few functions included in :code:`Frame` that can help in constructing synthetic
-signals.
-
-Getting frame data
-^^^^^^^^^^^^^^^^^^
-
-To just grab the underlying intensity data, you can do
-
-.. code-block:: Python
-
-    data = frame.get_data(use_db=False)
-
-As it implies, if you switch the :code:`use_db` flag to true, it will express
-the intensities in terms of decibels. This can help visualize data a little better,
-depending on the application.
-
-Plotting frames
-^^^^^^^^^^^^^^^
-
-Examples of the built-in plotting utilities are on the `Getting started`_ page:
-
-.. code-block:: Python
-
-    frame.render()
-    frame.bl_render()
-
-Note that both of these methods use :code:`matplotlib.pyplot.imshow` behind
-the scenes, which means you can still control plot parameters before and after
-these function calls, e.g.
-
-.. code-block:: Python
-
-    fig = plt.figure(figsize=(10, 6))
-    frame.render()
-    plt.title('My awesome title')
-    plt.savefig('frame.png')
-    plt.show()
+There are a few functions included in :code:`Frame` that can help in constructing 
+synthetic signals.
 
 SNR <-> Intensity
 ^^^^^^^^^^^^^^^^^
@@ -638,8 +675,8 @@ frequency per se. In these cases, you can calculate a drift frequency using the
 .. code-block:: Python
 
     start_index = np.random.randint(0, 1024)
-    end_index = np.random.randint(0, 1024)
-    drift_rate = frame.get_drift_rate(start_index, end_index)
+    stop_index = np.random.randint(0, 1024)
+    drift_rate = frame.get_drift_rate(start_index, stop_index)
 
 Custom metadata
 ^^^^^^^^^^^^^^^
@@ -666,6 +703,100 @@ data with the information you care about if you save and load frames with pickle
 
     # Gets custom metadata dict
     metadata = frame.get_metadata()
+    
+    
+Frame manipulation
+------------------
+
+Getting frame data
+^^^^^^^^^^^^^^^^^^
+
+To just grab the underlying intensity data, you can do
+
+.. code-block:: Python
+
+    data = frame.get_data(use_db=False)
+
+As it implies, if you switch the :code:`use_db` flag to true, it will express
+the intensities in terms of decibels. This can help visualize data a little better,
+depending on the application.
+
+Plotting frames
+^^^^^^^^^^^^^^^
+
+Examples of the built-in plotting utilities are on the `Getting started`_ page:
+
+.. code-block:: Python
+
+    frame.plot()
+    frame.bl_plot()
+
+Note that both of these methods use :code:`matplotlib.pyplot.imshow` behind
+the scenes, which means you can still control plot parameters before and after
+these function calls, e.g.
+
+.. code-block:: Python
+
+    fig = plt.figure(figsize=(10, 6))
+    frame.plot()
+    plt.title('My awesome title')
+    plt.savefig('frame.png')
+    plt.show()
+    
+Frame integration
+^^^^^^^^^^^^^^^^^
+
+To time integrate to get a spectrum, or to frequency integrate to get time series 
+intensities, you can use :code:`stg.Frame.integrate()`:
+
+.. code-block:: Python
+    
+    spectrum = frame.integrate() # stg.integrate(frame)
+    time_series = frame.integrate(axis='f') # or axis=1
+    
+This function is a wrapper for `stg.integrate()`, with the same parameters. The
+`axis` parameter can be either `t` or `0` to integrate along the time axis, or `f` or 
+`1` to integrate along the frequency axis. The `mode` parameter can be either 'mean' or
+'sum' to determine the manner of integration.
+
+Frame slicing
+^^^^^^^^^^^^^
+
+Given frequency boundary indices `l` and `r`, we can "slice" a frame by using 
+:code:`stg.Frame.get_slice()`, a wrapper for :code:`stg.get_slice()`:
+
+.. code-block:: Python
+
+    s_fr = frame.get_slice(l, r) # stg.get_slice(frame, l, r)
+    
+Slicing is analogous to Numpy slicing, e.g. :code:`A[l:r]`, along the frequency axis.
+This method returns a new frame with only the sliced data. This is useful when chained
+together with boundary detection methods, or simply to isolate sections of a frame
+for analysis.
+
+Doppler dedrifting
+^^^^^^^^^^^^^^^^^^
+
+If you have a frame containing a Doppler drifting signal, you can "dedrift" the frame
+using :code:`stg.dedrift()`, specifying a target drift rate (Hz/s):
+
+.. code-block:: Python
+
+    dd_fr = stg.dedrift(frame, drift_rate=2)
+    
+This returns a new frame with only the dedrifted data; this will be smaller in
+the frequency dimension depending on the drift rate and frame resolution. 
+
+Alternatively, if 'drift_rate' is contained in the frame's metadata 
+(:code:`frame.metadata`), the function will automatically dedrift the frame using that 
+value. 
+
+.. code-block:: Python
+
+    drift_rate = 2
+    frame.metadata['drift_rate'] = drift_rate
+    dd_fr = stg.dedrift(frame)
+    
 
 Saving and loading frames
 -------------------------

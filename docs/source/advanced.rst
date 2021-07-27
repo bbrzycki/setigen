@@ -103,7 +103,7 @@ instead of functions.
                      stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
-    frame.render()
+    frame.plot()
     plt.savefig('frame.png', bbox_inches='tight')
     plt.show()
 
@@ -342,8 +342,8 @@ of data and save out frames. As a simple example:
         frame = stg.Frame(waterfall=waterfall)
 
         start_index = np.random.randint(0, fchans)
-        end_index = np.random.randint(0, fchans)
-        drift_rate = frame.get_drift_rate(start_index, end_index)
+        stop_index = np.random.randint(0, fchans)
+        drift_rate = frame.get_drift_rate(start_index, stop_index)
 
         signal = frame.add_constant_signal(f_start=frame.get_frequency(start_index),
                                            drift_rate=drift_rate,
@@ -352,7 +352,7 @@ of data and save out frames. As a simple example:
                                            f_profile_type='gaussian')
         signal_props = {
             'start_index': start_index,
-            'end_index': end_index,
+            'stop_index': stop_index,
             'snr': 10,
         }
         frame.add_metadata(signal_props)

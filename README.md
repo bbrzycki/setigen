@@ -78,7 +78,7 @@ signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(index=20
                           stg.constant_bp_profile(level=1))
 
 fig = plt.figure(figsize=(10, 6))
-frame.render()
+frame.plot()
 plt.savefig('example.png', bbox_inches='tight')
 plt.show()
 ```
@@ -107,7 +107,7 @@ signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(index=20
                           stg.constant_bp_profile(level=1))
 
 fig = plt.figure(figsize=(10, 6))
-frame.bl_render()
+frame.bl_plot()
 plt.show()
 ```
 

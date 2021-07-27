@@ -156,7 +156,7 @@ rvb = stg.voltage.RawVoltageBackend(antenna,
                                     blocks_per_file=128,
                                     num_subblocks=32)
 
-rvb.record(raw_file_stem='example_1block',
+rvb.record(output_file_stem='example_1block',
            num_blocks=1,
            length_mode='num_blocks',
            header_dict={'HELLO': 'test_value',

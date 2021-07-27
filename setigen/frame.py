@@ -157,10 +157,34 @@ class Frame(object):
         """
         Initialize Frame more directly from 2D numpy array of data.
         
-        Optional parameters: metadata, waterfall. Metadata is a dictionary of 
-        feature you'd like to be associated with the frame. Waterfall is optional
-        if the data is derived from another frame object (accessed via 
-        frame.get_waterfall()) or a blimpy waterfall object.
+        Parameters
+        ----------
+        df : astropy.Quantity
+            Frequency resolution (e.g. in u.Hz)
+        dt : astropy.Quantity
+            Time resolution (e.g. in u.s)
+        fch1 : astropy.Quantity
+            Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
+            If ascending=True, fch1 is the minimum frequency; if ascending=False 
+            (default), fch1 is the maximum frequency.
+        ascending : bool
+            Specify whether frequencies should be in ascending order, so that 
+            fch1 is the minimum frequency. Default is False, for which fch1
+            is the maximum frequency. This is overwritten if a waterfall
+            object is provided, where ascending will be automatically 
+            determined by observational parameters.
+        data : ndarray
+            2D array of intensities to preload into frame
+        metadata : dict, optional
+            Dictionary of features associated with the frame
+        waterfall : Waterfall, optional
+            Associated Waterfall object if data is derived from another frame object 
+            (accessed via frame.get_waterfall()) or a blimpy waterfall object
+            
+        Returns
+        -------
+        frame : Frame
+            Frame object with preloaded data
         """
         tchans, fchans = data.shape
         frame = cls(fchans=fchans,
@@ -176,6 +200,9 @@ class Frame(object):
 
     @classmethod
     def from_waterfall(cls, waterfall):
+        """
+        Instantiate Frame using a filterbank file or blimpy Waterfall object.
+        """
         return cls(waterfall=waterfall)
     
     @classmethod

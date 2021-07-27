@@ -11,7 +11,7 @@
 Installation
 ============
 
-You can use `pip` to install the package automatically:
+You can use :code:`pip` to install the package automatically:
 
 .. code-block:: bash
 

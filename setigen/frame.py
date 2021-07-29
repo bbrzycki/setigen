@@ -916,7 +916,7 @@ class Frame(object):
         """
         return frame_utils.get_slice(self, l, r)
         
-    def integrate(self, axis='t', mode='mean'):
+    def integrate(self, axis='t', mode='mean', normalize=False):
         """
         Integrate along either time ('t', 0) or frequency ('f', 1) axes, to create 
         spectra or time series data. Mode is either 'mean' or 'sum'.
@@ -929,13 +929,15 @@ class Frame(object):
             Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
         mode : str
             Integration mode, 'mean' or 'sum'
+        normalize : bool
+            Whether to normalize integrated array to mean 0, std 1
             
         Returns
         -------
         output : ndarray
             Integrated product
         """
-        return frame_utils.integrate(self, axis=axis, mode=mode)
+        return frame_utils.integrate(self, axis=axis, mode=mode, normalize=normalize)
         
     def _update_waterfall(self, filename=None, max_load=1):
         # If entirely synthetic, base filterbank structure on existing sample data

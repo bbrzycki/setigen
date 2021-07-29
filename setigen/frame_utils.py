@@ -30,13 +30,13 @@ def array(fr):
         return fr
 
 
-def render(data, use_db=False, cb=True):
+def render(fr, use_db=False, cb=True):
     """
     Display frame data in waterfall format.
     
     Parameters
     ----------
-    data : Frame, or 2D ndarray
+    fr : Frame, or 2D ndarray
         Input frame or Numpy array
     use_db : bool
         Option to convert intensities to dB.
@@ -44,7 +44,7 @@ def render(data, use_db=False, cb=True):
         Whether to display colorbar
     """ 
     # If `data` is a Frame object, just grab its data
-    data = array(data)
+    data = array(fr)
     if use_db:
         data = db(data)
     plt.imshow(data,
@@ -56,35 +56,37 @@ def render(data, use_db=False, cb=True):
     plt.ylabel('Time (px)')
     
     
-def plot(data, use_db=False, cb=True):
+def plot(fr, use_db=False, cb=True):
     """
     Display frame data in waterfall format.
     
     Parameters
     ----------
-    data : Frame, or 2D ndarray
+    fr : Frame, or 2D ndarray
         Input frame or Numpy array
     use_db : bool
         Option to convert intensities to dB.
     cb : bool
         Whether to display colorbar
     """ 
-    render(data=data, use_db=use_db, cb=cb)
+    render(fr=fr, use_db=use_db, cb=cb)
     
 
-def integrate(data, axis='t', mode='mean'):
+def integrate(fr, axis='t', mode='mean', normalize=False):
     """
     Integrate along either time ('t', 0) or frequency ('f', 1) axes, to create 
     spectra or time series data. Mode is either 'mean' or 'sum'.
     
     Parameters
     ----------
-    data : Frame, or 2D ndarray
+    fr : Frame, or 2D ndarray
         Input frame or Numpy array
     axis : int or str
         Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
     mode : str
         Integration mode, 'mean' or 'sum'
+    normalize : bool
+        Whether to normalize integrated array to mean 0, std 1
     
     Returns
     -------
@@ -92,27 +94,22 @@ def integrate(data, axis='t', mode='mean'):
         Integrated product
     """
     # If `data` is a Frame object, just grab its data
-    data = array(data)
+    data = array(fr)
     if axis in ['f', 1]:
         axis = 1
     else:
         axis = 0
         
     if mode[0] == 's':
-        return np.sum(data, axis=axis)
+        output = np.sum(data, axis=axis)
     else:
-        return np.mean(data, axis=axis)
-    
-
-def integrate_frame_subdata(data, frame=None, normalize=False):
-    """
-    Integrate a chunk of data assuming frame statistics using mean (not sum).
-    """
+        output = np.mean(data, axis=axis)
+        
     if normalize:
-        assert frame is not None
-        m, s = frame.get_noise_stats()
-        data = (data - m) / (s / frame.tchans**0.5)
-    return np.mean(data, axis=0)
+        c_output = sigma_clip(output)
+        output = (output - np.mean(c_output)) / np.std(c_output)
+        
+    return output
 
 
 def get_slice(fr, l, r):

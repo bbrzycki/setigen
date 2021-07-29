@@ -64,7 +64,8 @@ class PolyphaseFilterbank(object):
         
     def _get_pfb_window(self):
         """
-        Creates and saves PFB windowing coefficients.
+        Creates and saves PFB windowing coefficients. Saves frequency response shape
+        and ratio of maximum to mean of the frequency response.
         """
         self.window = get_pfb_window(self.num_taps, self.num_branches, self.window_fn)
         
@@ -75,6 +76,7 @@ class PolyphaseFilterbank(object):
         freq_response_x[:self.num_taps*self.num_branches] = self.window
         h = xp.fft.fft(freq_response_x)
         half_coarse_chan = (xp.abs(h)**2)[:length//2]+(xp.abs(h)**2)[length//2:length][::-1]
+        self.response = self.half_coarse_chan = half_coarse_chan
         self.max_mean_ratio = xp.max(half_coarse_chan) / xp.mean(half_coarse_chan)
         
     def channelize(self, x, use_cache=True):

@@ -141,6 +141,9 @@ class Frame(object):
         # Degrees of freedom for chi-squared radiometer noise
         # 2 polarizations, real and imaginary components -> 4
         self.chi2_df = 4 * round(self.df * self.dt)
+        
+        # Calculate unit drift rate (pixel over pixel drift)
+        self.unit_drift_rate = self.df / self.dt
 
         # Shared creation of ranges
         self._update_fs()
@@ -529,8 +532,10 @@ class Frame(object):
                    integrate_path=False,
                    integrate_t_profile=False,
                    integrate_f_profile=False,
+                   doppler_smearing=False,
                    t_subsamples=10,
-                   f_subsamples=10):
+                   f_subsamples=10,
+                   smearing_subsamples=10):
         """
         Generate synthetic signal.
 
@@ -574,13 +579,21 @@ class Frame(object):
         integrate_f_profile : bool, optional
             Option to integrate f_profile in the frequency direction. Makes
             `f_subsamples` calculations per time sample.
+        doppler_smearing : bool, optional
+            Option to numerically "Doppler smear" spectral power over 
+            frequency bins. At time t, averages `smearing_subsamples` copies of
+            the signal centered at evenly spaced center frequencies between 
+            times t and t+1. This causes the effective drop in power when 
+            the signal crosses multiple bins.
         t_subsamples : int, optional
             Number of bins for integration in the time direction, using
-            Riemann sums
+            Riemann sums. Default is 10.
         f_subsamples : int, optional
             Number of bins for integration in the frequency direction, using
-            Riemann sums
-
+            Riemann sums. Default is 10.
+        smearing_subsamples : int, optional
+            Number of steps for averaging evenly spaced copies of the signal 
+            between center frequencies at times t and t+1. Default is 10.
         Returns
         -------
         signal : ndarray
@@ -638,8 +651,9 @@ class Frame(object):
             restricted_fchans = len(restricted_fs)
             restricted_fs = np.linspace(f0,
                                         f0 + restricted_fchans * self.df,
-                                        restricted_fchans * f_subsamples)
-        ff, tt = np.meshgrid(restricted_fs, self.ts)
+                                        restricted_fchans * f_subsamples,
+                                        endpoint=False)
+        ff, _ = np.meshgrid(restricted_fs, self.ts)
 
         # Handle t_profile
         if callable(t_profile):
@@ -648,7 +662,8 @@ class Frame(object):
             if integrate_t_profile:
                 new_ts = np.linspace(0,
                                      self.tchans * self.dt,
-                                     self.tchans * t_subsamples)
+                                     self.tchans * t_subsamples,
+                                     endpoint=False)
                 y = t_profile(new_ts)
                 if not isinstance(y, np.ndarray):
                     y = np.repeat(y, self.tchans * t_subsamples)
@@ -667,35 +682,51 @@ class Frame(object):
             t_profile = np.full(self.tchans, t_profile)
         else:
             raise TypeError('t_profile is not a function, array, or float.')
-        t_profile_tt = np.meshgrid(restricted_fs, t_profile)[1]
+        _, t_profile_tt = np.meshgrid(restricted_fs, t_profile)
 
-        # Handle path
+        # Handle path. Generate one extra time sample for freq smearing
+        # calculations
+        tchans_eff = self.tchans
+        if doppler_smearing:
+            tchans_eff += 1
         if callable(path):
             # Average using integration to get a better position in frequency
             # direction
             if integrate_path:
                 new_ts = np.linspace(0,
-                                     self.tchans * self.dt,
-                                     self.tchans * t_subsamples)
+                                     tchans_eff * self.dt,
+                                     tchans_eff * t_subsamples,
+                                     endpoint=False)
                 f = path(new_ts)
                 if not isinstance(f, np.ndarray):
-                    f = np.repeat(f, self.tchans * t_subsamples)
-                integrated_f = np.mean(np.reshape(f, (self.tchans,
+                    f = np.repeat(f, tchans_eff * t_subsamples)
+                integrated_f = np.mean(np.reshape(f, (tchans_eff,
                                                       t_subsamples)),
                                        axis=1)
                 path = integrated_f
             else:
-                path = path(self.ts)
+                ts = self.ts
+                if doppler_smearing:
+                    ts = np.append(self.ts, self.ts[-1] + self.dt)
+                path = path(ts)
         elif isinstance(path, (list, np.ndarray)):
             path = np.array(path)
             if path.shape != self.ts.shape:
-                raise ValueError('Shape of path array is {0} != {1}.'
-                                 .format(path.shape, self.ts.shape))
+                raise ValueError(f'Shape of path array is {path.shape} '
+                                 f'!= {self.ts.shape}.')
+            elif doppler_smearing and len(path) != self.tchans + 1:
+                raise ValueError(f'To Doppler smear power, must provide'
+                                 f'path array with {self.tchans + 1} values')
         elif isinstance(path, (int, float)):
-            path = np.full(self.tchans, path)
+            path = np.full(tchans_eff, path)
         else:
             raise TypeError('path is not a function, array, or float.')
-        path_tt = np.meshgrid(restricted_fs, path)[1]
+        # Ensure that path f_centers are the right length
+        _, path_tt = np.meshgrid(restricted_fs, path[:self.tchans])
+        
+        if doppler_smearing:
+            dpath = np.diff(path) / smearing_subsamples
+            _, dpath_tt = np.meshgrid(restricted_fs, dpath)
 
         # Handle bandpass profile
         if bp_profile is None:
@@ -712,9 +743,17 @@ class Frame(object):
             bp_profile = np.full(restricted_fs.shape, bp_profile)
         else:
             raise TypeError('bp_profile is not a function, array, or float.')
-        bp_profile_ff = np.meshgrid(bp_profile, self.ts)[0]
+        bp_profile_ff, _ = np.meshgrid(bp_profile, self.ts)
 
-        signal = t_profile_tt * f_profile(ff, path_tt) * bp_profile_ff
+        # Create signal, adding multiple copies for Doppler smearing case
+        if doppler_smearing:
+            signal = np.zeros(ff.shape)
+            for _ in range(smearing_subsamples):
+                signal += (t_profile_tt * f_profile(ff, path_tt) 
+                           / smearing_subsamples * bp_profile_ff)
+                path_tt += dpath_tt
+        else:
+            signal = t_profile_tt * f_profile(ff, path_tt) * bp_profile_ff
 
         if integrate_f_profile:
             signal = np.mean(np.reshape(signal, (self.tchans,

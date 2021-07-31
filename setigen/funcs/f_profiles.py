@@ -82,17 +82,29 @@ def voigt_f_profile(g_width, l_width):
     return f_profile
 
 
-def sinc2_f_profile(width, trunc=True):
+def sinc2_f_profile(width, width_mode='fwhm', trunc=True):
     """
     Sinc squared profile; width is the FWHM of the squared normalized sinc function.
     
     The trunc parameter controls whether or not the sinc squared profile is 
     truncated at the first root (e.g. zeroed out for more distant frequencies).
+    
+    Parameters
+    ----------
+    width : float
+        Signal width, in Hz
+    width_mode : str
+        How to interpret `width`. Can be 'fwhm' or 'crossing', for zero crossing.
+    trunc : bool, optional
+        Whether to truncate signal after first zero crossing
     """
     width = unit_utils.get_value(width, u.Hz)
     
     # Using the numerical solution for the FWHM
-    zero_crossing = (width / 2) / 0.442946470689452
+    if width_mode == 'fwhm':
+        zero_crossing = (width / 2) / 0.442946470689452
+    else:
+        zero_crossing = width / 2
     
     def f_profile(f, f_center):
         if trunc:

@@ -524,7 +524,7 @@ class Frame(object):
                    path,
                    t_profile,
                    f_profile,
-                   bp_profile,
+                   bp_profile=None,
                    bounding_f_range=None,
                    integrate_path=False,
                    integrate_t_profile=False,
@@ -551,7 +551,7 @@ class Frame(object):
             Frequency profile: function in frequency that returns an intensity
             (scalar), relative to the signal frequency within a time sample.
             Note that unlike the other parameters, this must be a function
-        bp_profile : function, np.ndarray, list, float
+        bp_profile : function, np.ndarray, list, float, optional
             Bandpass profile: function in frequency that returns a relative
             intensity (scalar, between 0 and 1), or provided array or single
             value of relative intensities at each frequency sample
@@ -698,6 +698,8 @@ class Frame(object):
         path_tt = np.meshgrid(restricted_fs, path)[1]
 
         # Handle bandpass profile
+        if bp_profile is None:
+            bp_profile = 1
         if callable(bp_profile):
             bp_profile = bp_profile(restricted_fs)
         elif isinstance(bp_profile, (list, np.ndarray)):
@@ -916,7 +918,7 @@ class Frame(object):
         """
         return frame_utils.get_slice(self, l, r)
         
-    def integrate(self, axis='t', mode='mean'):
+    def integrate(self, axis='t', mode='mean', normalize=False):
         """
         Integrate along either time ('t', 0) or frequency ('f', 1) axes, to create 
         spectra or time series data. Mode is either 'mean' or 'sum'.
@@ -929,13 +931,15 @@ class Frame(object):
             Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
         mode : str
             Integration mode, 'mean' or 'sum'
+        normalize : bool
+            Whether to normalize integrated array to mean 0, std 1
             
         Returns
         -------
         output : ndarray
             Integrated product
         """
-        return frame_utils.integrate(self, axis=axis, mode=mode)
+        return frame_utils.integrate(self, axis=axis, mode=mode, normalize=normalize)
         
     def _update_waterfall(self, filename=None, max_load=1):
         # If entirely synthetic, base filterbank structure on existing sample data

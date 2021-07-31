@@ -604,3 +604,107 @@ class RawVoltageBackend(object):
                         pbar.update(1)
                 if self.input_file_stem is not None:
                     self.input_file_handler.close()
+                    
+                    
+def get_block_size(num_antennas=1,
+                   tchans_per_block=128,
+                   num_bits=8,
+                   num_pols=2,
+                   num_branches=1024,
+                   num_chans=64,
+                   fftlength=1024,
+                   int_factor=4):
+    """
+    Calculate block size, given a desired number of time bins per RAW data block 
+    `tchans_per_block`. Takes in backend parameters, including fine channelization
+    factors. Can be used to calculate reasonable block sizes for raw voltage recording.
+    
+    Parameters
+    ----------
+    num_antennas : int
+        Number of antennas
+    tchans_per_block : int
+        Final number of time bins in fine resolution product, per data block
+    num_bits : int
+        Number of bits in requantized data (for saving into file). Can be 8 or 4.
+    num_pols : int
+        Number of polarizations recorded
+    num_branches : int
+        Number of branches in polyphase filterbank 
+    num_chans : int
+        Number of coarse channels written to file
+    fftlength : int
+        FFT length to be used in fine channelization
+    int_factor : int, optional
+        Integration factor to be used in fine channelization
+    
+    Returns
+    -------
+    block_size : int
+        Block size, in bytes
+    """
+    obsnchan = num_chans * num_antennas
+    bytes_per_sample = 2 * num_pols * num_bits // 8
+    T = tchans_per_block * fftlength * int_factor
+    block_size = T * obsnchan * bytes_per_sample
+    return block_size
+
+                    
+def get_total_obs_num_samples(obs_length=None, 
+                              num_blocks=None, 
+                              length_mode='obs_length',
+                              num_antennas=1,
+                              sample_rate=3e9,
+                              block_size=134217728,
+                              num_bits=8,
+                              num_pols=2,
+                              num_branches=1024,
+                              num_chans=64):
+    """
+    Calculate number of required real voltage time samples for as given `obs_length` or `num_blocks`, without directly 
+    using a `RawVoltageBackend` object. 
+    
+    Parameters
+    ----------
+    obs_length : float, optional
+        Length of observation in seconds, if in `obs_length` mode
+    num_blocks : int, optional
+        Number of data blocks to record, if in `num_blocks` mode
+    length_mode : str, optional
+        Mode for specifying length of observation, either `obs_length` in seconds or `num_blocks` in data blocks
+    num_antennas : int
+        Number of antennas
+    sample_rate : float
+        Sample rate in Hz
+    block_size : int
+        Block size used in recording GUPPI RAW files
+    num_bits : int
+        Number of bits in requantized data (for saving into file). Can be 8 or 4.
+    num_pols : int
+        Number of polarizations recorded
+    num_branches : int
+        Number of branches in polyphase filterbank 
+    num_chans : int
+        Number of coarse channels written to file
+    
+    Returns
+    -------
+    num_samples : int
+        Number of samples
+    """
+    tbin = num_branches / sample_rate
+    chan_bw = 1 / tbin
+    bytes_per_sample = 2 * num_pols * num_bits / 8
+    if length_mode == 'obs_length':
+        if obs_length is None:
+            raise ValueError("Value not given for 'obs_length'.")
+        num_blocks = int(obs_length * chan_bw * num_antennas * num_chans * bytes_per_sample / block_size)
+    elif length_mode == 'num_blocks':
+        if num_blocks is None:
+            raise ValueError("Value not given for 'num_blocks'.")
+        pass
+    else:
+        raise ValueError("Invalid option given for 'length_mode'.")
+    return num_blocks * int(block_size / (num_antennas * num_chans * bytes_per_sample)) * num_branches
+
+

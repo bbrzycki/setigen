@@ -38,11 +38,12 @@ class Frame(object):
                  waterfall=None,
                  fchans=None,
                  tchans=None,
-                 df=None,
-                 dt=None,
-                 fch1=8*u.GHz,
+                 df=2.7939677238464355*u.Hz,
+                 dt=18.253611008*u.s,
+                 fch1=6*u.GHz,
                  ascending=False,
-                 data=None):
+                 data=None,
+                 **kwargs):
         """
         Initialize a Frame object either from an existing .fil/.h5 file or
         from frame resolution / size.
@@ -51,9 +52,14 @@ class Frame(object):
         filename or the Waterfall object into the waterfall keyword.
 
         Otherwise, you can initialize a frame by specifying the parameters
-        fchans, tchans, df, dt, and potentially fch1, if it's important to
-        specify frequencies (8*u.GHz is an arbitrary but reasonable choice
-        otherwise). The `data` keyword is only necessary if you are also
+        fchans, tchans, df, dt, and even fch1, if it's important to
+        specify frequencies (8 GHz is an arbitrary but reasonable choice
+        otherwise). Note that the frame resolutions df and dt are given 
+        defaults based on the Breakthrough Listen high frequency resolution
+        data product -- be sure to change these if you are working with 
+        different kinds of data.
+        
+        The `data` keyword is only necessary if you are also
         preloading data that matches your specified frame dimensions and
         resolutions.
 
@@ -81,22 +87,27 @@ class Frame(object):
             determined by observational parameters.
         data : ndarray, optional
             2D array of intensities to preload into frame
+        **kwargs
+            For convenience, the `shape` keyword can be used in place of individually
+            setting `fchans` and `tchans`, so that :code:`shape=(tchans, fchans)`.
         """
-        if None not in [fchans, tchans, df, dt, fch1]:
+        if None not in [fchans, tchans, df, dt, fch1] or 'shape' in kwargs:
             self.waterfall = None
 
             # Need to address this and come up with a meaningful header
             self.header = None
-            self.fchans = int(unit_utils.get_value(fchans, u.pixel))
             
-            self.ascending = ascending
+            if 'shape' in kwargs:
+                (self.tchans, self.fchans) = self.shape = kwargs['shape']
+            else:
+                self.fchans = int(unit_utils.get_value(fchans, u.pixel))
+                self.tchans = int(unit_utils.get_value(tchans, u.pixel))
+                self.shape = (self.tchans, self.fchans)
+            
             self.df = unit_utils.get_value(abs(df), u.Hz)
-            self.fch1 = unit_utils.get_value(fch1, u.Hz)
-
-            self.tchans = int(unit_utils.get_value(tchans, u.pixel))
             self.dt = unit_utils.get_value(dt, u.s)
-
-            self.shape = (self.tchans, self.fchans)
+            self.fch1 = unit_utils.get_value(fch1, u.Hz)
+            self.ascending = ascending
 
             if data is not None:
                 assert data.shape == self.shape
@@ -113,11 +124,13 @@ class Frame(object):
                 sys.exit('Invalid data file!')
             self.header = self.waterfall.header
             self.tchans, _, self.fchans = self.waterfall.container.selection_shape
+            self.shape = (self.tchans, self.fchans)
 
             # Frequency values are saved in MHz in waterfall files
-            self.ascending = (self.waterfall.header['foff'] > 0)
             self.df = unit_utils.cast_value(abs(self.waterfall.header['foff']),
                                             u.MHz).to(u.Hz).value
+            self.dt = unit_utils.get_value(self.waterfall.header['tsamp'], u.s)
+            self.ascending = (self.waterfall.header['foff'] > 0)
             if self.ascending:
                 self.fch1 = self.waterfall.container.f_start
             else:
@@ -130,10 +143,6 @@ class Frame(object):
             self.data = waterfall_utils.get_data(self.waterfall)
             if not self.ascending:
                 self.data = self.data[:, ::-1]
-
-            self.dt = unit_utils.get_value(self.waterfall.header['tsamp'], u.s)
-
-            self.shape = (self.tchans, self.fchans)
         else:
             raise ValueError(f'Frame must be provided dimensions or an '
                              f'existing filterbank file.')
@@ -211,29 +220,27 @@ class Frame(object):
     @classmethod
     def from_backend_params(cls,
                             fchans=None,
-                            tchans=None, 
                             obs_length=300, 
                             sample_rate=3e9, 
                             num_branches=1024,
                             fftlength=1048576,
-                            int_factor=None,
-                            fch1=8*u.GHz,
+                            int_factor=51,
+                            fch1=6*u.GHz,
                             ascending=False,
                             data=None):
         """
         Create frame based on backend / software related parameters.
         Either `fchans` or `data` must be provided to get number of frequency
-        channels to create. If a 2D numpy array for `data` is provided, `tchans`
-        will be inferred; otherwise, either `tchans` or `int_factor` should be 
-        provided to calculate the right number of time bins.
+        channels to create. If a 2D numpy array for `data` is provided, `fchans`
+        will be inferred. The parameter `int_factor` must still be provided 
+        to determine `tchans`; there is a check that the data dimensions also match.
+        Since multiple `int_factor` values may correspond to the same `tchans`, 
+        for clarity we do not infer `int_factor` just from the dimensions of the data.
         
         Parameters
         ----------
         fchans : int, optional
             Number of frequency samples. Should be provided if `data` is None.
-        tchans: int, optional
-            Number of time samples. May instead set integration factor `int_factor` to determine
-            size of time axis.
         obs_length : float, optional
             Length of observation in seconds
         sample_rate : float, optional
@@ -243,8 +250,7 @@ class Frame(object):
         fftlength : int, optional
             FFT length to be used in fine channelization
         int_factor : int, optional
-            Integration factor used in fine channelization. Alternate way of determining frame size
-            other than directly setting `tchans`.
+            Integration factor used in fine channelization. Determines tchans.
         fch1 : astropy.Quantity, optional
             Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
             If ascending=True, fch1 is the minimum frequency; if ascending=False 
@@ -255,7 +261,7 @@ class Frame(object):
             is the maximum frequency.
         data : ndarray, optional
             2D array of intensities to preload into frame. If provided, `fchans`
-            and `tchans` will be inferred from this. 
+            will be inferred from this. 
             
         Returns
         -------
@@ -270,12 +276,14 @@ class Frame(object):
         elif fchans is None:
             raise ValueError("Value not given for fchans")
             
-        param_dict = params_from_backend(tchans=tchans, 
-                                         obs_length=obs_length, 
+        param_dict = params_from_backend(obs_length=obs_length, 
                                          sample_rate=sample_rate, 
                                          num_branches=num_branches,
                                          fftlength=fftlength,
                                          int_factor=int_factor)
+        if data is not None:
+            assert param_dict['tchans'] == tchans
+        
         frame = cls(fchans=fchans,
                     **param_dict,
                     fch1=fch1,
@@ -631,7 +639,7 @@ class Frame(object):
         >>> %matplotlib inline
         >>> import matplotlib.pyplot as plt
         >>> fig = plt.figure(figsize=(10, 6))
-        >>> frame.render()
+        >>> frame.plot()
         >>> plt.savefig('image.png', bbox_inches='tight')
         >>> plt.show()
 
@@ -773,7 +781,7 @@ class Frame(object):
                             drift_rate,
                             level,
                             width,
-                            f_profile_type='gaussian',
+                            f_profile_type='sinc2',
                             doppler_smearing=False):
         """
         A wrapper around add_signal() that injects a constant intensity,
@@ -793,7 +801,7 @@ class Frame(object):
             Can be 'box', 'sinc2', 'gaussian', 'lorentzian', or 'voigt', based on the desired spectral profile
         doppler_smearing : bool, optional
             Option to numerically "Doppler smear" spectral power over 
-            frequency bins. At time t, averages drift_rate/frame.unit_drift_rate 
+            frequency bins. At time t, averages drift_rate / frame.unit_drift_rate 
             copies of the signal centered at evenly spaced center frequencies between 
             times t and t+1. This causes the effective drop in power when 
             the signal crosses multiple bins.
@@ -811,7 +819,6 @@ class Frame(object):
 
         # Calculate the bounding box, to optimize signal insertion calculation
         px_width_offset = 2 * width / self.df
-        print(px_width_offset)
         if drift_rate < 0:
             px_width_offset = -px_width_offset
         px_drift_offset = self.dt * (self.tchans - 1) * drift_rate / self.df
@@ -1145,20 +1152,16 @@ class Frame(object):
         return frame
 
     
-def params_from_backend(tchans=None, 
-                        obs_length=300, 
+def params_from_backend(obs_length=300, 
                         sample_rate=3e9, 
                         num_branches=1024,
                         fftlength=1048576,
-                        int_factor=None):
+                        int_factor=51):
     """
     Return frame parameters calculated from data backend characteristics.
 
     Parameters
     ----------
-    tchans: int, optional
-        Number of time samples. May instead set integration factor `int_factor` to determine
-        size of time axis.
     obs_length : float, optional
         Length of observation in seconds
     sample_rate : float, optional
@@ -1168,8 +1171,7 @@ def params_from_backend(tchans=None,
     fftlength : int, optional
         FFT length to be used in fine channelization
     int_factor : int, optional
-        Integration factor used in fine channelization. Alternate way of determining frame size
-        other than directly setting `tchans`.
+        Integration factor used in fine channelization. Determines tchans.
 
     Returns
     -------
@@ -1179,15 +1181,8 @@ def params_from_backend(tchans=None,
     chan_bw = sample_rate / num_branches
     df = chan_bw / fftlength
 
-    if tchans is not None:
-        max_dt = obs_length / tchans
-        int_factor = int(max_dt * df)
-        dt = int_factor / df
-    elif int_factor is not None:
-        dt = int_factor / df
-        tchans = int(obs_length / dt)
-    else:
-        raise ValueError("Value not given for either tchans or int_factor")
+    dt = int_factor / df
+    tchans = int(obs_length / dt)
 
     param_dict = {
         'tchans': tchans,

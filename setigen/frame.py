@@ -773,7 +773,8 @@ class Frame(object):
                             drift_rate,
                             level,
                             width,
-                            f_profile_type='gaussian'):
+                            f_profile_type='gaussian',
+                            doppler_smearing=False):
         """
         A wrapper around add_signal() that injects a constant intensity,
         constant drift_rate signal into the frame.
@@ -788,8 +789,14 @@ class Frame(object):
             Signal intensity
         width : astropy.Quantity
             Signal width in frequency units
-        f_profile_type : str
+        f_profile_type : str, optional
             Can be 'box', 'sinc2', 'gaussian', 'lorentzian', or 'voigt', based on the desired spectral profile
+        doppler_smearing : bool, optional
+            Option to numerically "Doppler smear" spectral power over 
+            frequency bins. At time t, averages drift_rate/frame.unit_drift_rate 
+            copies of the signal centered at evenly spaced center frequencies between 
+            times t and t+1. This causes the effective drop in power when 
+            the signal crosses multiple bins.
 
         Returns
         -------
@@ -803,14 +810,16 @@ class Frame(object):
         start_index = self.get_index(f_start)
 
         # Calculate the bounding box, to optimize signal insertion calculation
+        px_width_offset = 2 * width / self.df
+        print(px_width_offset)
         if drift_rate < 0:
-            px_width_offset = -2 * width / self.df
-        else:
-            px_width_offset = 2 * width / self.df
+            px_width_offset = -px_width_offset
         px_drift_offset = self.dt * (self.tchans - 1) * drift_rate / self.df
+        if doppler_smearing:
+            px_drift_offset += drift_rate * self.dt / self.df
 
-        bounding_start_index = start_index + int(np.floor(-px_width_offset))
-        bounding_stop_index = start_index + int(np.ceil(px_drift_offset + px_width_offset))
+        bounding_start_index = start_index + int(-px_width_offset)
+        bounding_stop_index = start_index + int(px_drift_offset + px_width_offset)
 
         bounding_min_index = max(min(bounding_start_index, bounding_stop_index), 0)
         bounding_max_index = min(max(bounding_start_index, bounding_stop_index), self.fchans)
@@ -828,13 +837,15 @@ class Frame(object):
             f_profile = f_profiles.box_f_profile(width)
         else:
             raise ValueError('Unsupported f_profile for constant signal!')
-
+        
         return self.add_signal(path=paths.constant_path(f_start, drift_rate),
                                t_profile=t_profiles.constant_t_profile(level),
                                f_profile=f_profile,
                                bp_profile=bp_profiles.constant_bp_profile(level=1),
                                bounding_f_range=(self.get_frequency(bounding_min_index),
-                                                 self.get_frequency(bounding_max_index)))
+                                                 self.get_frequency(bounding_max_index)),
+                               doppler_smearing=doppler_smearing,
+                               smearing_subsamples=int(np.ceil(drift_rate / self.unit_drift_rate)))
 
     def get_index(self, frequency):
         """

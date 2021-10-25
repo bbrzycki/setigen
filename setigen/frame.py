@@ -91,24 +91,26 @@ class Frame(object):
             For convenience, the `shape` keyword can be used in place of individually
             setting `fchans` and `tchans`, so that :code:`shape=(tchans, fchans)`.
         """
-        if None not in [fchans, tchans, df, dt, fch1] or 'shape' in kwargs:
+        if None not in [fchans, tchans] or 'shape' in kwargs or data is not None:
             self.waterfall = None
 
             # Need to address this and come up with a meaningful header
             self.header = None
             
+            self.df = unit_utils.get_value(abs(df), u.Hz)
+            self.dt = unit_utils.get_value(dt, u.s)
+            self.fch1 = unit_utils.get_value(fch1, u.Hz)
+            self.ascending = ascending
+            
             if 'shape' in kwargs:
                 (self.tchans, self.fchans) = self.shape = kwargs['shape']
+            elif data is not None:
+                (self.tchans, self.fchans) = self.shape = data.shape
             else:
                 self.fchans = int(unit_utils.get_value(fchans, u.pixel))
                 self.tchans = int(unit_utils.get_value(tchans, u.pixel))
                 self.shape = (self.tchans, self.fchans)
             
-            self.df = unit_utils.get_value(abs(df), u.Hz)
-            self.dt = unit_utils.get_value(dt, u.s)
-            self.fch1 = unit_utils.get_value(fch1, u.Hz)
-            self.ascending = ascending
-
             if data is not None:
                 assert data.shape == self.shape
                 self.data = np.copy(data)

@@ -444,7 +444,7 @@ class Frame(object):
 
         Note: this method will attempt to scale the noise parameters to match
         self.dt and self.df. This assumes that the observation data products
-        are *not* normalized by the FFT length used to contstruct them.
+        are *not* normalized by the FFT length used to construct them.
 
         Parameters
         ----------

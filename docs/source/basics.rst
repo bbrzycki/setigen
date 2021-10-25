@@ -49,17 +49,17 @@ If you know the parameters behind the data generation, and not necessarily the a
 .. code-block:: Python
 
     frame = stg.Frame.from_backend_params(fchans=1024,
-                                          tchans=16,
                                           obs_length=300,
                                           sample_rate=3e9,
                                           num_branches=1024,
                                           fftlength=1048576,
-                                          int_factor=None,
-                                          fch1=8*u.GHz,
+                                          int_factor=51,
+                                          fch1=6*u.GHz,
                                           ascending=False,
                                           data=None)
                                           
-where `obs_length` is the integration period, `sample_rate` is the sampling rate in Hz, `num_branches` is the branches in the polyphase filterbank, `fftlength` is the number of fine channels per coarse channel, and `int_factor` is the integration factor used in data reduction. In this function, either `tchans` or `int_factor` must be set to determine the number of time bins in the frame; you may know one or the other depending on the circumstance. You may also just set the `data` parameter, from which `fchans` and `tchans` will be automatically inferred. 
+where `obs_length` is the integration period, `sample_rate` is the sampling rate in Hz, `num_branches` is the branches in the polyphase filterbank, `fftlength` is the number of fine channels per coarse channel, and `int_factor` is the integration factor used in data reduction. Note that `int_factor` is set to determine the number of time bins in the frame. You may also set the `data` parameter to include existing 2D data, from which `fchans` will be automatically inferred. Since multiple `int_factor` values may correspond to the same number of time bins, for clarity we do not also infer `int_factor` just 
+from the dimensions of the data.
 
 Finally, you can construct a frame directly from a :code:`.fil`/:code:`.h5` file or Waterfall object:
 

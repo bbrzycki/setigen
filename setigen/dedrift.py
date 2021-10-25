@@ -5,7 +5,8 @@ from .frame import Frame
 def dedrift(fr, drift_rate=None):
     """
     Dedrift frame with a provided drift rate, or with the "drift_rate"
-    keyword in the frame's metadata.
+    keyword in the frame's metadata. This function dedrifts with respect
+    to the center of the frame, so signals at the edges may get cut off.
     
     Parameters
     ----------
@@ -27,11 +28,12 @@ def dedrift(fr, drift_rate=None):
             
     # Calculate maximum pixel offset and raise an exception if necessary
     max_offset = int(abs(drift_rate) * fr.tchans * fr.dt / fr.df)
-    if max_offset >= fr.data.shape[1]:
-        raise ValueError(f'The provided drift rate ({drift_rate} Hz/s) is too high for the fr dimensions')
+    if max_offset >= fr.fchans:
+        raise ValueError(f'The provided drift rate ({drift_rate:.2f} Hz/s) ' 
+                         f'is too high for the frame dimensions')
     tr_data = np.zeros((fr.data.shape[0], fr.data.shape[1] - max_offset))
 
-    for i in range(fr.data.shape[0]):
+    for i in range(fr.tchans):
         offset = int(abs(drift_rate) * i * fr.dt / fr.df)
         if drift_rate >= 0:
             start_idx = 0 + offset

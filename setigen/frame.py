@@ -209,7 +209,11 @@ class Frame(object):
                     ascending=ascending,
                     data=data)
         frame.set_metadata(metadata)
-        frame.waterfall = copy.deepcopy(waterfall)
+        try:
+            frame.waterfall = copy.deepcopy(waterfall)
+        except TypeError:
+            # If waterfall object can't be copied
+            frame.waterfall = waterfall
         return frame
 
     @classmethod

@@ -2,6 +2,8 @@ data
 data/*
 .ipynb_checkpoints/
 *.ipynb_checkpoints/
+jupyter-notebooks/paper/*.raw
+jupyter-notebooks/paper/*.fil
 jupyter-notebooks/voltage/*.raw
 jupyter-notebooks/voltage/*.fil
 jupyter-notebooks/*.png

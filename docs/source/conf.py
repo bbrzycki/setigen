@@ -24,9 +24,9 @@ copyright = u'2018-2021, Bryan Brzycki'
 author = u'Bryan Brzycki'
 
 # The short X.Y version
-version = u'2.2'
+version = u'2.3'
 # The full version, including alpha/beta/rc tags
-release = u'2.2.0'
+release = u'2.3.0'
 
 
 # -- General configuration ---------------------------------------------------

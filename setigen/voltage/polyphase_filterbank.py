@@ -103,7 +103,7 @@ class PolyphaseFilterbank(object):
         X_pfb = xp.fft.fft(x, 
                            self.num_branches,
                            axis=1)[:, 0:self.num_branches//2] / self.num_branches**0.5
-        return X_pfb
+        return X_pfb 
     
     
 def pfb_frontend(x, pfb_window, num_taps, num_branches):

@@ -37,6 +37,10 @@ def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, fftlength=256, int_fa
     
     XX_psd = xp.zeros((pfb_voltages_x.shape[1], pfb_voltages_x.shape[0] // fftlength, fftlength))
     
+    # THIS IS JUST DIAGNOSTIC GET RID OF THIS
+    XX_psd = xp.zeros((pfb_voltages_x.shape[1], pfb_voltages_x.shape[0] // fftlength, fftlength//2))
+    # THIS IS JUST DIAGNOSTIC GET RID OF THIS
+    
     pfb_voltages_list = [pfb_voltages_x]
     if pfb_voltages_y is not None:
         pfb_voltages_list.append(pfb_voltages_y)
@@ -47,6 +51,11 @@ def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, fftlength=256, int_fa
         X_samples = X_samples.reshape((X_samples.shape[0], X_samples.shape[1] // fftlength, fftlength))
         XX = xp.fft.fft(X_samples, fftlength, axis=2) / fftlength**0.5
         XX = xp.fft.fftshift(XX, axes=2)
+        
+        # THIS IS JUST DIAGNOSTIC GET RID OF THIS
+        XX = XX[:, :, (fftlength//4):3*(fftlength//4)]
+        # THIS IS JUST DIAGNOSTIC GET RID OF THIS
+        
         XX_psd += xp.abs(XX)**2 
 
     XX_psd = xp.concatenate(XX_psd, axis=1)

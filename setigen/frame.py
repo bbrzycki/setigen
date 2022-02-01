@@ -104,7 +104,12 @@ class Frame(object):
             self.fch1 = unit_utils.get_value(fch1, u.Hz)
             self.ascending = ascending
             
-            self.t_start = time.time()
+            mjd = kwargs.get('mjd')
+            if mjd is not None:
+                self.t_start = Time(mjd, format='mjd').unix
+            else:
+                self.t_start = kwargs.get('t_start', time.time())
+            self.source_name = kwargs.get('source_name', 'Synthetic')
             
             if 'shape' in kwargs:
                 (self.tchans, self.fchans) = self.shape = kwargs['shape']
@@ -148,6 +153,7 @@ class Frame(object):
                                               u.MHz).to(u.Hz).value
             
             self.t_start = Time(self.waterfall.header['tstart'], format='mjd').unix
+            self.source_name = self.waterfall.header['source_name']
 
             # When multiple Stokes parameters are supported, this will have to
             # be expanded.
@@ -363,6 +369,10 @@ class Frame(object):
     @property
     def mjd(self):
         return Time(self.t_start, format='unix').mjd
+    
+    @property
+    def t_stop(self):
+        return self.t_start + self.tchans * self.dt
 
     def mean(self):
         return np.mean(self.data)
@@ -1019,7 +1029,7 @@ class Frame(object):
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
             self.waterfall = Waterfall(path, max_load=max_load)
-            self.waterfall.header['source_name'] = 'Synthetic'
+            self.waterfall.header['source_name'] = self.source_name
             self.waterfall.header['rawdatafile'] = 'Synthetic'
 
             container_attr = {

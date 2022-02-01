@@ -156,6 +156,9 @@ class Cadence(collections.MutableSequence):
         c_frame.data = np.concatenate([frame.data 
                                        for frame in self.frames],
                                       axis=0)
+        c_frame.ts = np.concatenate([frame.ts + frame.t_start 
+                                      for frame in self.frames],
+                                     axis=0)
         return c_frame
         
         

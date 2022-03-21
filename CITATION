@@ -1,0 +1,8 @@
+@misc{brzycki2022setigen,
+    title={Setigen: Simulating Radio Technosignatures for SETI},
+    author={Bryan Brzycki and Andrew P. V. Siemion and Imke de Pater and Steve Croft and John Hoang and Cherry Ng and Danny C. Price and Sofia Z. Sheikh and Zihe Zheng},
+    year={2022},
+    eprint={2203.09668},
+    archivePrefix={arXiv},
+    primaryClass={astro-ph.IM}
+}

@@ -287,7 +287,7 @@ class RawVoltageBackend(object):
         header_dict['PKTIDX'] = int(header_dict['PKTIDX'])
         if 'PKTSTART' not in header_dict:
             header_dict['PKTSTART'] = header_dict['PKTIDX']
-        header_dict['PKTSTOP'] = int(header_dict['PKTSTART']) + self.total_obs_num_samples
+        header_dict['PKTSTOP'] = int(header_dict['PKTSTART']) + self.num_blocks*self.samples_per_block
 
         return header_dict
     

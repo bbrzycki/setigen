@@ -150,10 +150,11 @@ class RawVoltageBackend(object):
         self.bytes_per_sample = 2 * self.num_pols * self.num_bits // 8
         self.total_obs_num_samples = None
         
-        self.time_per_block = self.block_size / (self.num_antennas * self.num_chans * self.bytes_per_sample) * self.tbin
-    
         # Make sure that block_size is appropriate
         assert self.block_size % int(self.num_antennas * self.num_chans * self.num_taps * self.bytes_per_sample) == 0
+
+        self.samples_per_block = self.block_size // (self.num_antennas * self.num_chans * self.bytes_per_sample)
+        self.time_per_block = self.samples_per_block * self.tbin
         
         self.sample_stage_t = 0
         self.digitizer_stage_t = 0
@@ -239,23 +240,15 @@ class RawVoltageBackend(object):
         
         return backend
     
-    def _make_header(self, f, header_dict={}):
+    def _header_populate_configuration(self, header_dict={}):
         """
-        Write all header lines out to file as bytes.
+        Populate the given dictionary with entries showing the configuration values.
         
         Parameters
         ----------
-        f : file handle
-            File handle of open RAW file
         header_dict : dict, optional
-            Dictionary of header values to set. Use to overwrite non-essential header values or add custom ones.
+            Dictionary of header values to set.
         """
-        my_path = os.path.abspath(os.path.dirname(__file__))
-        path = os.path.join(my_path, 'header_template.txt')
-        with open(path, 'r') as t:
-            # Exclude END line
-            template_lines = t.readlines()[:-1]
-            
         # Set header values determined by pipeline parameters
         if 'TELESCOP' not in header_dict:
             header_dict['TELESCOP'] = 'SETIGEN'
@@ -273,10 +266,8 @@ class RawVoltageBackend(object):
         # Should not be able to manually change these header values
         header_dict['NBITS'] = self.num_bits
         header_dict['CHAN_BW'] = self.chan_bw * 1e-6
-        if self.num_pols == 2:
-            header_dict['NPOL'] = 4
-        else:
-            header_dict['NPOL'] = self.num_pols
+        header_dict['NPOL'] = self.num_pols
+            
         header_dict['BLOCSIZE'] = self.block_size
         header_dict['SCANLEN'] = self.obs_length
         header_dict['TBIN'] = self.tbin
@@ -290,34 +281,92 @@ class RawVoltageBackend(object):
         center_freq = (self.start_chan + (self.num_chans - 1) / 2) * self.chan_bw
         center_freq += self.fch1
         header_dict['OBSFREQ'] = center_freq * 1e-6
+
+        if 'PKTIDX' not in header_dict:
+            header_dict['PKTIDX'] = 0
+        header_dict['PKTIDX'] = int(header_dict['PKTIDX'])
+        if 'PKTSTART' not in header_dict:
+            header_dict['PKTSTART'] = header_dict['PKTIDX']
+        header_dict['PKTSTOP'] = int(header_dict['PKTSTART']) + self.total_obs_num_samples
+
+        return header_dict
+    
+    def _header_add_from_template(self, header_dict={}):
+        """
+        Read all novel header lines into the given header dictionary.
         
-        header_lines = []
-        used_keys = set()
-        for i in range(len(template_lines)):
-            key = template_lines[i][:8].strip()
-            used_keys.add(key)
-            if key in header_dict:
-                header_lines.append(raw_utils.format_header_line(key, 
-                                                                 header_dict[key],
-                                                                 as_strings=False))
-            elif self.input_header_dict is not None:
-                # If initialized with raw files, use their header values
-                header_lines.append(raw_utils.format_header_line(key, 
-                                                                 self.input_header_dict[key], 
-                                                                 as_strings=True))
-            else:
-                # Otherwise use template header key, value pairs; cut newline character
-                header_lines.append(template_lines[i][:-1])
-        # Add new key value pairs
-        for key in header_dict.keys() - used_keys:
-            header_lines.append(raw_utils.format_header_line(key, header_dict[key]))
-        header_lines.append(f"{'END':<80}")
+        Parameters
+        ----------
+        header_dict : dict, optional
+            Dictionary of header values to set.
+        """
+        my_path = os.path.abspath(os.path.dirname(__file__))
+        path = os.path.join(my_path, 'header_template.txt')
+        with open(path, 'r') as t:
+            for line in t.readlines():
+                key = line[:8].strip()
+                if key != 'END' and key not in header_dict:
+                    header_dict[key] = line[9:].strip()
+        return header_dict
+    
+    def _header_add_from_input_header(self, header_dict={}):
+        """
+        Update all novel input header entries into the given header dictionary.
         
+        Parameters
+        ----------
+        header_dict : dict, optional
+            Dictionary of header values to set.
+        """
+        for key, value in self.input_header_dict.items():
+            if key not in header_dict:
+                header_dict[key] = value.strip()
+        return header_dict
+
+    def _make_header(self, f, header_dict):
+        """
+        Write all header lines out to file as bytes.
+        Also increments the 'PKTIDX' key-value.
+        
+        Parameters
+        ----------
+        f : file handle
+            File handle of open RAW file
+        header_dict : dict
+            Dictionary of header values to set.
+        """
+        directio = False
+
+        # preprocess DIRECTIO
+        if 'DIRECTIO' in header_dict:
+            directio = header_dict['DIRECTIO']
+            try:
+                if isinstance(directio, str):
+                    directio = int(directio.replace("'", ""))
+                directio = directio != 0
+            except BaseException as err:
+                tqdm(f'Could not parse DIRECTIO value `{header_dict["DIRECTIO"]}` ({repr(err)}). Replacing with `0`.')
+                header_dict['DIRECTIO'] = 0
+
         # Write each line with space and zero padding
-        for line in header_lines:
+        header_lines = 0
+        for key, value in header_dict.items():
+            value_is_encoded = (isinstance(value, str)
+                                and value[0] == "'")
+            line = raw_utils.format_header_line(key, 
+                                                value,
+                                                as_strings=value_is_encoded)
             f.write(f"{line:<80}".encode())
-        f.write(bytearray(512 - (80 * len(header_lines) % 512)))   
-        
+            header_lines += 1
+        f.write(f"{'END':<80}".encode())
+        header_lines += 1
+
+        # pad header if directio
+        if directio:
+            f.write(bytearray(512 - (80 * header_lines % 512))) 
+
+        header_dict['PKTIDX'] += self.samples_per_block
+
     def _read_next_block(self):
         """
         Reads next block of data if input RAW files are provided, upon which synthetic data will 
@@ -516,6 +565,7 @@ class RawVoltageBackend(object):
                length_mode='obs_length',
                header_dict={},
                digitize=True,
+               load_template=True,
                verbose=True):
         """
         General function to actually collect data from the antenna source and return coarsely channelized complex
@@ -537,6 +587,8 @@ class RawVoltageBackend(object):
             Whether to quantize input voltages before the PFB
         verbose : bool, optional
             Control whether tqdm prints progress messages 
+        load_template : bool, optional
+            Control whether the internal header template's keys are used.
         """
         if length_mode == 'obs_length':
             if obs_length is None:
@@ -556,13 +608,20 @@ class RawVoltageBackend(object):
                 self.num_blocks = num_blocks
         else:
             raise ValueError("Invalid option given for 'length_mode'.")
-            
+        
         # Ensure that we don't request more blocks than possible
         if self.input_num_blocks is not None:
             self.num_blocks = min(self.num_blocks, self.input_num_blocks)
             
         self.obs_length = self.num_blocks * self.time_per_block
         self.total_obs_num_samples = int(self.obs_length / self.tbin) * self.num_branches
+        
+        if load_template:
+            header_dict = self._header_add_from_template(header_dict)
+        if self.input_header_dict is not None:
+            header_dict = self._header_add_from_input_header(header_dict)
+        # update header with config last to honour prior entries
+        header_dict = self._header_populate_configuration(header_dict)
         
         # Mark each antenna and data stream as the start of the observation
         self.antenna_source.reset_start()

@@ -64,8 +64,11 @@ A minimal working example of the pipeline is as follows:
                length_mode='num_blocks',
                header_dict={'HELLO': 'test_value',
                             'TELESCOP': 'GBT'},
+               load_template=True,
                verbose=True)
                
+Note the :code:`load_template` argument, which loads keys from the internal `header_template.txt <https://github.com/bbrzycki/setigen/blob/main/setigen/voltage/header_template.txt>`_.
+
 Using GPU acceleration
 ----------------------
 

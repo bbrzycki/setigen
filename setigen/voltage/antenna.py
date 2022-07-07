@@ -68,7 +68,7 @@ class Antenna(object):
                                         fch1=self.fch1,
                                         ascending=self.ascending,
                                         t_start=self.t_start,
-                                        seed=int(self.rng.randint(2**32)))
+                                        seed=int(self.rng.randint(2**31)))
         self.streams = [self.x]
         
         if self.num_pols == 2:
@@ -76,7 +76,7 @@ class Antenna(object):
                                             fch1=self.fch1,
                                             ascending=self.ascending,
                                             t_start=self.t_start,
-                                            seed=int(self.rng.randint(2**32)))
+                                            seed=int(self.rng.randint(2**31)))
             self.streams.append(self.y)
         
         self.delay = None

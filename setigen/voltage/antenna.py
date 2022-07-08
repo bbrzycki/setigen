@@ -202,7 +202,7 @@ class MultiAntennaArray(object):
                               ascending=self.ascending,
                               num_pols=self.num_pols,
                               t_start=self.t_start,
-                              seed=int(self.rng.randint(2**32)))
+                              seed=int(self.rng.randint(2**31)))
             antenna.delay = delays[i]
             self.antennas.append(antenna)
         
@@ -211,7 +211,7 @@ class MultiAntennaArray(object):
                                                      fch1=self.fch1,
                                                      ascending=self.ascending,
                                                      t_start=self.t_start,
-                                                     seed=int(self.rng.randint(2**32)),
+                                                     seed=int(self.rng.randint(2**31)),
                                                      antenna_streams=[antenna.x for antenna in self.antennas])
         self.bg_streams = [self.bg_x]
         
@@ -220,7 +220,7 @@ class MultiAntennaArray(object):
                                                          fch1=self.fch1,
                                                          ascending=self.ascending,
                                                          t_start=self.t_start,
-                                                         seed=int(self.rng.randint(2**32)),
+                                                         seed=int(self.rng.randint(2**31)),
                                                          antenna_streams=[antenna.y for antenna in self.antennas])
             self.bg_streams.append(self.bg_y)
             

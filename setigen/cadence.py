@@ -7,7 +7,7 @@ from . import frame as _frame
 from . import frame_utils
 
 
-class Cadence(collections.MutableSequence):
+class Cadence(collections.abc.MutableSequence):
     
     def __init__(self,
                  frame_list=None, 
@@ -92,7 +92,7 @@ class Cadence(collections.MutableSequence):
     def __getitem__(self, i): 
         if isinstance(i, slice):
             return self.__class__(self.frames[i])
-        elif isinstance(i, (list, np.ndarray)):
+        elif isinstance(i, (list, np.ndarray, tuple)):
             return self.__class__(np.array(self.frames)[i])
         else:
             return self.frames[i]

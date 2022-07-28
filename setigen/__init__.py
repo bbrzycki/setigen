@@ -5,7 +5,7 @@ from . import voltage
 
 from .distributions import *
 from .waterfall_utils import *
-from .frame import Frame
+from .frame import *
 from .sample_from_obs import *
 from .split_utils import *
 from .stats import *

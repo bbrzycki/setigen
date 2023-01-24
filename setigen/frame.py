@@ -1,6 +1,7 @@
 import sys
 import os.path
 import copy
+import time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ except:
     import pickle
 
 from astropy import units as u
+from astropy.time import Time
 from astropy.stats import sigma_clip
 
 from blimpy import Waterfall
@@ -102,6 +104,13 @@ class Frame(object):
             self.fch1 = unit_utils.get_value(fch1, u.Hz)
             self.ascending = ascending
             
+            mjd = kwargs.get('mjd')
+            if mjd is not None:
+                self.t_start = Time(mjd, format='mjd').unix
+            else:
+                self.t_start = kwargs.get('t_start', time.time())
+            self.source_name = kwargs.get('source_name', 'Synthetic')
+            
             if 'shape' in kwargs:
                 (self.tchans, self.fchans) = self.shape = kwargs['shape']
             elif data is not None:
@@ -119,7 +128,9 @@ class Frame(object):
         elif waterfall:
             # Load waterfall via filename or Waterfall object
             if isinstance(waterfall, str):
-                self.waterfall = Waterfall(waterfall)
+                f_start = kwargs.get('f_start')
+                f_stop = kwargs.get('f_stop')
+                self.waterfall = Waterfall(waterfall, f_start=f_start, f_stop=f_stop)
             elif isinstance(waterfall, Waterfall):
                 self.waterfall = waterfall
             else:
@@ -132,6 +143,7 @@ class Frame(object):
             self.df = unit_utils.cast_value(abs(self.waterfall.header['foff']),
                                             u.MHz).to(u.Hz).value
             self.dt = unit_utils.get_value(self.waterfall.header['tsamp'], u.s)
+            
             self.ascending = (self.waterfall.header['foff'] > 0)
             if self.ascending:
                 self.fch1 = self.waterfall.container.f_start
@@ -139,6 +151,9 @@ class Frame(object):
                 self.fch1 = self.waterfall.container.f_stop
             self.fch1 = unit_utils.cast_value(self.fch1,
                                               u.MHz).to(u.Hz).value
+            
+            self.t_start = Time(self.waterfall.header['tstart'], format='mjd').unix
+            self.source_name = self.waterfall.header['source_name']
 
             # When multiple Stokes parameters are supported, this will have to
             # be expanded.
@@ -350,6 +365,14 @@ class Frame(object):
         """
         self.data = np.zeros(self.shape)
         self.noise_mean = self.noise_std = 0
+        
+    @property
+    def mjd(self):
+        return Time(self.t_start, format='unix').mjd
+    
+    @property
+    def t_stop(self):
+        return self.t_start + self.tchans * self.dt
 
     def mean(self):
         return np.mean(self.data)
@@ -1006,7 +1029,7 @@ class Frame(object):
             my_path = os.path.abspath(os.path.dirname(__file__))
             path = os.path.join(my_path, 'assets/sample.fil')
             self.waterfall = Waterfall(path, max_load=max_load)
-            self.waterfall.header['source_name'] = 'Synthetic'
+            self.waterfall.header['source_name'] = self.source_name
             self.waterfall.header['rawdatafile'] = 'Synthetic'
 
             container_attr = {

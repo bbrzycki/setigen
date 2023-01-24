@@ -353,7 +353,6 @@ class RawVoltageBackend(object):
                 
                 requantizer.quantizer_r._set_target_stats(np.mean(R), np.std(R))
                 requantizer.quantizer_i._set_target_stats(np.mean(I), np.std(I))
-                print('pol', pol, np.mean(R), np.std(R), np.mean(I), np.std(I))
                 
                 t_idx = pol + np.arange(0, input_voltages.shape[1], self.num_pols)
                 input_voltages[c_idx[:, np.newaxis], t_idx[np.newaxis, :]] = R + I * 1j

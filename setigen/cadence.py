@@ -172,6 +172,9 @@ def plot_waterfall(frame, f_start=None, f_stop=None, **kwargs):
     
     # Load in the data from fil
     plot_f, plot_data = frame.get_waterfall().grab_data(f_start=f_start, f_stop=f_stop)
+    if not frame.ascending:
+        plot_f = plot_f[::-1]
+        plot_data = plot_data[:, ::-1]
 
     # Make sure waterfall plot is under 4k*4k
     dec_fac_x, dec_fac_y = 1, 1

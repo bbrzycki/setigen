@@ -1,4 +1,9 @@
-# setigen [![PyPI version](https://badge.fury.io/py/setigen.svg)](https://badge.fury.io/py/setigen) [![Build Status](https://travis-ci.org/bbrzycki/setigen.svg?branch=main)](https://travis-ci.org/bbrzycki/setigen) [![Documentation Status](https://readthedocs.org/projects/setigen/badge/?version=latest)](https://setigen.readthedocs.io/en/latest/?badge=latest)
+# setigen 
+[![PyPI version](https://badge.fury.io/py/setigen.svg)](https://badge.fury.io/py/setigen) 
+[![Build Status](https://travis-ci.org/bbrzycki/setigen.svg?branch=main)](https://travis-ci.org/bbrzycki/setigen) 
+[![Documentation Status](https://readthedocs.org/projects/setigen/badge/?version=latest)](https://setigen.readthedocs.io/en/latest/?badge=latest)
+[![AJ Paper](https://img.shields.io/badge/DOI-10.3847/1538--3881/ac5e3d-blue)](
+https://doi.org/10.3847/1538-3881/ac5e3d)
 
 `setigen` is a Python library for generating and injecting artificial narrow-band signals into radio frequency data, by way of data formats used extensively by the [Breakthrough Listen (BL) team @ Berkeley](https://seti.berkeley.edu/listen/). 
 

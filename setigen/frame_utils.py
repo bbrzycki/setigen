@@ -41,7 +41,7 @@ def render(fr, use_db=False, cb=True):
     use_db : bool
         Option to convert intensities to dB.
     cb : bool
-        Whether to display colorbar
+        Option to display colorbar
     """ 
     # If `data` is a Frame object, just grab its data
     data = array(fr)
@@ -67,7 +67,7 @@ def plot(fr, use_db=False, cb=True):
     use_db : bool
         Option to convert intensities to dB.
     cb : bool
-        Whether to display colorbar
+        Option to display colorbar
     """ 
     render(fr=fr, use_db=use_db, cb=cb)
     
@@ -86,7 +86,7 @@ def integrate(fr, axis='t', mode='mean', normalize=False):
     mode : str
         Integration mode, 'mean' or 'sum'
     normalize : bool
-        Whether to normalize integrated array to mean 0, std 1
+        Option to normalize integrated array to mean 0, std 1
     
     Returns
     -------

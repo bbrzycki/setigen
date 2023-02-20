@@ -39,7 +39,7 @@ def render(fr, use_db=False, cb=True):
     fr : Frame, or 2D ndarray
         Input frame or Numpy array
     use_db : bool
-        Option to convert intensities to dB.
+        Option to convert intensities to dB
     cb : bool
         Option to display colorbar
     """ 
@@ -65,7 +65,7 @@ def plot(fr, use_db=False, cb=True):
     fr : Frame, or 2D ndarray
         Input frame or Numpy array
     use_db : bool
-        Option to convert intensities to dB.
+        Option to convert intensities to dB
     cb : bool
         Option to display colorbar
     """ 

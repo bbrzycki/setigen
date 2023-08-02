@@ -20,6 +20,7 @@ class RealQuantizer(object):
     """
     Implement a quantizer for input voltages.
     """
+    
     def __init__(self,
                  target_mean=0,
                  target_fwhm=32, 
@@ -55,7 +56,7 @@ class RealQuantizer(object):
         """
         self.target_mean = target_mean
         self.target_fwhm = target_fwhm
-        self.target_std = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
+        self.target_std = self.target_fwhm / (2 * np.sqrt(2 * np.log(2)))
         self.num_bits = num_bits
         
         self.stats_cache = [None, None]
@@ -64,13 +65,15 @@ class RealQuantizer(object):
         self.stats_calc_period = stats_calc_period
         self.stats_calc_num_samples = stats_calc_num_samples
         
+    
     def _reset_cache(self):
         """
         Clear statistics and indices caches.
         """
         self.stats_calc_indices = 0
         self.stats_cache = [None, None]
-                
+             
+       
     def _set_target_stats(self, target_mean, target_std):
         """
         Set the target stats for the quantizer.
@@ -84,8 +87,9 @@ class RealQuantizer(object):
         """
         self.target_mean = target_mean
         self.target_std = target_std
-        self.target_fwhm = target_std * (2 * xp.sqrt(2 * xp.log(2)))
+        self.target_fwhm = target_std * (2 * np.sqrt(2 * np.log(2)))
         
+    
     def quantize(self, voltages, custom_std=None):
         """
         Quantize input voltages. Cache voltage mean and standard deviation, per polarization and
@@ -125,6 +129,7 @@ class RealQuantizer(object):
 
         return q_voltages
     
+    
     def digitize(self, voltages, custom_std=None):
         """
         Quantize input voltages. Wrapper for :code:`quantize()`.
@@ -136,6 +141,7 @@ class ComplexQuantizer(object):
     """
     Implement a quantizer for complex voltages, using a pair of RealQuantizers.
     """
+    
     def __init__(self,
                  target_mean=0,
                  target_fwhm=32, 
@@ -161,7 +167,7 @@ class ComplexQuantizer(object):
         """
         self.target_mean = target_mean
         self.target_fwhm = target_fwhm
-        self.target_std = self.target_fwhm / (2 * xp.sqrt(2 * xp.log(2)))
+        self.target_std = self.target_fwhm / (2 * np.sqrt(2 * np.log(2)))
         self.num_bits = num_bits
         
         self.stats_cache_r = [None, None]
@@ -181,6 +187,7 @@ class ComplexQuantizer(object):
                                          stats_calc_period=stats_calc_period,
                                          stats_calc_num_samples=stats_calc_num_samples)
         
+    
     def _reset_cache(self):
         """
         Clear statistics and indices caches.
@@ -190,6 +197,7 @@ class ComplexQuantizer(object):
         self.quantizer_r._reset_cache()
         self.quantizer_i._reset_cache()
         
+    
     def quantize(self, voltages, custom_stds=None):
         """
         Quantize input complex voltages. Cache voltage means and standard deviations, per 
@@ -225,7 +233,7 @@ class ComplexQuantizer(object):
 
 def quantize_real(x,
                   target_mean=0,
-                  target_std=32/(2*xp.sqrt(2*xp.log(2))), 
+                  target_std=32/(2*np.sqrt(2*np.log(2))), 
                   num_bits=8,
                   data_mean=None,
                   data_std=None,
@@ -275,7 +283,7 @@ def quantize_real(x,
 
 def quantize_complex(x, 
                      target_mean=0,
-                     target_std=32/(2*xp.sqrt(2*xp.log(2))), 
+                     target_std=32/(2*np.sqrt(2*np.log(2))), 
                      num_bits=8, 
                      stats_calc_num_samples=10000):
     """
@@ -318,3 +326,4 @@ def quantize_complex(x,
     q_c = q_r + q_i * 1j
     
     return q_c
+

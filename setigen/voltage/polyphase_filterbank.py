@@ -137,13 +137,13 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
     h_p = pfb_window.reshape((num_taps, num_branches))
     
     # Resulting summed data array will be slightly shorter from windowing coeffs
-    I = xp.expand_dims(xp.arange(num_taps), 0) + xp.expand_dims(xp.arange((W - 1) * num_taps), 0).T
-    x_summed = xp.sum(x_p[I] * h_p, axis=1) / num_taps
+    # I = xp.expand_dims(xp.arange(num_taps), 0) + xp.expand_dims(xp.arange((W - 1) * num_taps), 0).T
+    # x_summed = xp.sum(x_p[I] * h_p, axis=1) / num_taps
     
-#     x_summed = xp.zeros(((W - 1) * num_taps, num_branches))
-#     for t in range(0, (W - 1) * num_taps):
-#         x_weighted = x_p[t:t+num_taps, :] * h_p
-#         x_summed[t, :] = xp.sum(x_weighted, axis=0)
+    x_summed = xp.zeros(((W - 1) * num_taps, num_branches))
+    for t in range(0, (W - 1) * num_taps):
+        x_weighted = x_p[t:t+num_taps, :] * h_p
+        x_summed[t, :] = xp.sum(x_weighted, axis=0)
     return x_summed
 
 

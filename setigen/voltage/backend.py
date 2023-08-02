@@ -12,28 +12,27 @@ else:
 import numpy as np
 
 from tqdm import tqdm
-
 import time
 import copy
 import glob
-
 from setigen import unit_utils
-from . import raw_utils
-from . import polyphase_filterbank
-from . import quantization
-from . import antenna as v_antenna
-
+from setigen.voltage import raw_utils
+from setigen.voltage import polyphase_filterbank
+from setigen.voltage import quantization
+from setigen.voltage import antenna as v_antenna
 
 class RawVoltageBackend(object):
     """
     Central class that wraps around antenna sources and backend elements to facilitate the
     creation of GUPPI RAW voltage files from synthetic real voltages.
     """
+    
+    
     def __init__(self,
                  antenna_source,
-                 digitizer=quantization.RealQuantizer(),
-                 filterbank=polyphase_filterbank.PolyphaseFilterbank(),
-                 requantizer=quantization.ComplexQuantizer(),
+                 digitizer, #=quantization.RealQuantizer(),
+                 filterbank, #=polyphase_filterbank.PolyphaseFilterbank(),
+                 requantizer, #=quantization.ComplexQuantizer(),
                  start_chan=0,
                  num_chans=64,
                  block_size=134217728,
@@ -166,14 +165,14 @@ class RawVoltageBackend(object):
         self.header_size = None # Size of header in file (bytes)
         self.input_num_blocks = None # Total number of blocks in supplied input RAW data
         self.input_file_handler = None # Current file handler for input RAW data
-        
+        ß
+    
     @classmethod
     def from_data(cls, 
                   input_file_stem,
                   antenna_source,
-                  digitizer=quantization.RealQuantizer(),
-                  filterbank=polyphase_filterbank.PolyphaseFilterbank(),
-#                   requantizer=quantization.ComplexQuantizer(),
+                  digitizer, #=quantization.RealQuantizer(),
+                  filterbank, #=polyphase_filterbank.PolyphaseFilterbank(),
                   start_chan=0,
                   num_subblocks=32):
         """
@@ -206,7 +205,7 @@ class RawVoltageBackend(object):
         backend : RawVoltageBackend
             Created backend object
         """
-        requantizer=quantization.ComplexQuantizer()
+        requantizer = quantization.ComplexQuantizer()
         
         raw_params = raw_utils.get_raw_params(input_file_stem=input_file_stem,
                                               start_chan=start_chan)
@@ -239,6 +238,7 @@ class RawVoltageBackend(object):
         backend.header_size = int(512 * np.ceil((80 * (len(backend.input_header_dict) + 1)) / 512))
         
         return backend
+    
     
     def _header_populate_configuration(self, header_dict={}):
         """
@@ -291,6 +291,7 @@ class RawVoltageBackend(object):
 
         return header_dict
     
+    
     def _header_add_from_template(self, header_dict={}):
         """
         Read all novel header lines into the given header dictionary.
@@ -309,6 +310,7 @@ class RawVoltageBackend(object):
                     header_dict[key] = line[9:].strip()
         return header_dict
     
+    
     def _header_add_from_input_header(self, header_dict={}):
         """
         Update all novel input header entries into the given header dictionary.
@@ -323,6 +325,7 @@ class RawVoltageBackend(object):
                 header_dict[key] = value.strip()
         return header_dict
 
+    
     def _make_header(self, f, header_dict):
         """
         Write all header lines out to file as bytes.
@@ -367,6 +370,7 @@ class RawVoltageBackend(object):
 
         header_dict['PKTIDX'] += self.samples_per_block
 
+    
     def _read_next_block(self):
         """
         Reads next block of data if input RAW files are provided, upon which synthetic data will 
@@ -407,6 +411,7 @@ class RawVoltageBackend(object):
                 input_voltages[c_idx[:, np.newaxis], t_idx[np.newaxis, :]] = R + I * 1j
         return input_voltages
         
+    
     def collect_data_block(self,
                            digitize=True,
                            requantize=True,
@@ -550,6 +555,7 @@ class RawVoltageBackend(object):
             
         return final_voltages    
     
+    
     def get_num_blocks(self, obs_length):
         """
         Calculate the number of blocks required as a function of observation length, in seconds. Note that only 
@@ -558,6 +564,7 @@ class RawVoltageBackend(object):
         """
         return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         
+    
     def record(self, 
                output_file_stem,
                obs_length=None, 
@@ -664,7 +671,7 @@ class RawVoltageBackend(object):
                 if self.input_file_stem is not None:
                     self.input_file_handler.close()
                     
-                    
+             
 def get_block_size(num_antennas=1,
                    tchans_per_block=128,
                    num_bits=8,
@@ -708,7 +715,7 @@ def get_block_size(num_antennas=1,
     block_size = T * obsnchan * bytes_per_sample
     return block_size
 
-                    
+
 def get_total_obs_num_samples(obs_length=None, 
                               num_blocks=None, 
                               length_mode='obs_length',
@@ -765,5 +772,4 @@ def get_total_obs_num_samples(obs_length=None,
     else:
         raise ValueError("Invalid option given for 'length_mode'.")
     return num_blocks * int(block_size / (num_antennas * num_chans * bytes_per_sample)) * num_branches
-
 

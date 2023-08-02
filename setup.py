@@ -3,9 +3,13 @@ import setuptools
 with open('README.md', 'r') as fh:
     long_description = fh.read()
 
+with open("requirements.txt", "r") as f:
+    install_requires = f.readlines()
+
+exec(open('setigen/_version.py').read())
 setuptools.setup(
     name='setigen',
-    version='2.4.0',
+    version=__version__,
     author='Bryan Brzycki',
     author_email='bbrzycki@berkeley.edu',
     description='SETI radio signal generator',
@@ -18,15 +22,7 @@ setuptools.setup(
     },
     packages=setuptools.find_packages(),
     include_package_data=True,
-    install_requires=[
-       'numpy>=1.18.1',
-       'scipy>=1.4.1',
-       'astropy>=4.0',
-       'blimpy>=2.0.0',
-       'matplotlib>=3.1.3',
-       'tqdm>=4.47.0',
-       'sphinx-rtd-theme>=0.4.3'
-    ],
+    install_requires=install_requires,
     dependency_links=['https://github.com/h5py/h5py',
                       'https://github.com/kiyo-masui/bitshuffle'],
     classifiers=(

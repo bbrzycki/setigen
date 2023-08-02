@@ -1,17 +1,17 @@
 from __future__ import absolute_import, division, print_function
 
-from .funcs import *
-from . import voltage
+from setigen.funcs import *
+from setigen import voltage
 
-from .distributions import *
-from .waterfall_utils import *
-from .frame import *
-from .sample_from_obs import *
-from .split_utils import *
-from .stats import *
-from .unit_utils import *
-from .frame_utils import *
-from .normalize import *
-from .dedrift import *
+from setigen.distributions import *
+from setigen.waterfall_utils import *
+from setigen.frame import *
+from setigen.sample_from_obs import *
+from setigen.split_utils import *
+from setigen.stats import *
+from setigen.unit_utils import *
+from setigen.frame_utils import *
+from setigen.normalize import *
+from setigen.dedrift import *
 
-from .cadence import Cadence
+from setigen.cadence import Cadence

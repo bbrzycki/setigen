@@ -14,19 +14,21 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../'))
+dirname = os.path.dirname(__file__)
+sys.path.insert(0, os.path.join(dirname, '../../'))
+exec(open(os.path.join(dirname, '../../setigen/_version.py')).read())
 
 
 # -- Project information -----------------------------------------------------
 
 project = u'setigen'
-copyright = u'2018-2021, Bryan Brzycki'
+copyright = u'2018-2023, Bryan Brzycki'
 author = u'Bryan Brzycki'
 
-# The short X.Y version
-version = u'2.4'
+# # The short X.Y version
+# version = u'2.4'
 # The full version, including alpha/beta/rc tags
-release = u'2.4.0'
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------

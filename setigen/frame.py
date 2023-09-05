@@ -2,6 +2,7 @@ import sys
 import os.path
 import copy
 import time
+import pathlib
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -127,6 +128,8 @@ class Frame(object):
                 self.data = np.zeros(self.shape)
         elif waterfall:
             # Load waterfall via filename or Waterfall object
+            if isinstance(waterfall, pathlib.PurePath):
+                waterfall = str(waterfall)
             if isinstance(waterfall, str):
                 f_start = kwargs.get('f_start')
                 f_stop = kwargs.get('f_stop')
@@ -134,7 +137,7 @@ class Frame(object):
             elif isinstance(waterfall, Waterfall):
                 self.waterfall = waterfall
             else:
-                sys.exit('Invalid data file!')
+                raise FileNotFoundError(f'Unsupported data type: {type(waterfall)}')
             self.header = self.waterfall.header
             self.tchans, _, self.fchans = self.waterfall.container.selection_shape
             self.shape = (self.tchans, self.fchans)

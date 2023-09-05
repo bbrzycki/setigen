@@ -227,6 +227,12 @@ class Frame(object):
                     ascending=ascending,
                     data=data)
         frame.set_metadata(metadata)
+
+        # Remove h5 object, which can't be pickled
+        try:
+            del waterfall.container.h5
+        except AttributeError:
+            pass
         frame.waterfall = copy.deepcopy(waterfall)
         return frame
 

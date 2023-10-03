@@ -1084,6 +1084,7 @@ class Frame(object):
         # Edit header info for Waterfall in case these have been changed from Frame manipulations
         header_attr = {
             'tsamp': self.dt,
+            'tstart': self.mjd,
             'nchans': self.fchans,
             'fch1': self.fch1 * 1e-6,
         }

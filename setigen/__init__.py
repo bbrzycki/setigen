@@ -14,4 +14,4 @@ from setigen.frame_utils import *
 from setigen.normalize import *
 from setigen.dedrift import *
 
-from setigen.cadence import Cadence
+from setigen.cadence import Cadence, OrderedCadence

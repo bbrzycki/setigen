@@ -182,7 +182,7 @@ class Frame(object):
         self._update_noise_frame_stats()
 
         # Placeholder dictionary for user metadata, just for bookkeeping purposes
-        self.metadata = {}
+        self.metadata = self.get_params()
 
     @classmethod
     def from_data(cls, df, dt, fch1, ascending, data, metadata={}, waterfall=None):
@@ -226,7 +226,7 @@ class Frame(object):
                     fch1=fch1,
                     ascending=ascending,
                     data=data)
-        frame.set_metadata(metadata)
+        frame.add_metadata(metadata)
 
         # Remove h5 object, which can't be pickled
         try:
@@ -947,20 +947,14 @@ class Frame(object):
     def get_metadata(self):
         return self.metadata
 
-    def set_metadata(self, new_metadata):
-        """
-        Set custom metadata using a dictionary new_metadata.
-        """
-        self.metadata = new_metadata
-        
-    def update_metadata(self, new_metadata):
+    def add_metadata(self, new_metadata):
         """
         Append custom metadata using a dictionary new_metadata.
         """
         self.metadata.update(new_metadata)
-
-    def add_metadata(self, new_metadata):
-        self.update_metadata(new_metadata)
+        
+    def update_metadata(self, new_metadata):
+        self.add_metadata(new_metadata)
 
     def render(self, use_db=False, cb=True):
         """

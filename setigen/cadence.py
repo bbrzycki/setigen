@@ -8,18 +8,19 @@ from . import frame_utils
 
 
 class Cadence(collections.abc.MutableSequence):
-    
     def __init__(self,
                  frame_list=None, 
                  t_slew=0,
-                 t_overwrite=True):
+                 t_overwrite=False):
         self.frames = list()
         # Insert all initialized items, performing type checks
         if not frame_list is None:
             self.extend(frame_list)
+        
         self.t_slew = t_slew
         self.t_overwrite = t_overwrite
-        
+        if t_overwrite:
+            self.overwrite_times()
         
     @property
     def t_start(self):
@@ -76,7 +77,6 @@ class Cadence(collections.abc.MutableSequence):
         return sum([frame.tchans 
                     for frame in self.frames])
         
-
     def check(self, v):
         if not isinstance(v, _frame.Frame):
             raise TypeError(f"{v} is not a Frame object.")
@@ -85,7 +85,6 @@ class Cadence(collections.abc.MutableSequence):
                 if getattr(v, attr) != getattr(self.frames[0], attr):
                     raise AttributeError(f"{attr}={getattr(v, attr)} does not match cadence ({getattr(self.frames[0], attr)})")
                 
-
     def __len__(self): 
         return len(self.frames)
 
@@ -129,6 +128,7 @@ class Cadence(collections.abc.MutableSequence):
                    *args,
                    **kwargs):
         for frame in self.frames:
+            print(frame.t_start, self.t_start)
             frame.ts += frame.t_start - self.t_start
             frame.add_signal(*args, **kwargs)
             frame.ts -= frame.t_start - self.t_start
@@ -162,6 +162,36 @@ class Cadence(collections.abc.MutableSequence):
         return c_frame
         
         
+class OrderedCadence(Cadence):
+    def __init__(self,
+                 frame_list=None, 
+                 order="ABACAD",
+                 t_slew=0,
+                 t_overwrite=False):
+        self.order = order
+        Cadence.__init__(self, 
+                         frame_list=frame_list, 
+                         t_slew=t_slew, 
+                         t_overwrite=t_overwrite)
+
+    def __setitem__(self, i, v):
+        self.check(v)
+        if i < 0:
+            i = len(self) + i
+        v.add_metadata({"order_label": self.order[i]})
+        self.frames[i] = v
+
+    def insert(self, i, v):
+        self.check(v)
+        if i < 0:
+            i = len(self) + i
+        v.add_metadata({"order_label": self.order[i]})
+        self.frames.insert(i, v)
+
+    def by_label(self, order_label="A"):
+        return Cadence(frame_list=[frame for frame in self 
+                                   if frame.metadata["order_label"] == order_label])
+
         
 def plot_waterfall(frame, f_start=None, f_stop=None, **kwargs):
     """
@@ -189,8 +219,8 @@ def plot_waterfall(frame, f_start=None, f_stop=None, **kwargs):
     except Exception as ex:
         print("\n*** Oops, grab_data returned plot_data.shape={}, plot_f.shape={}"
               .format(plot_data.shape, plot_f.shape))
-        print("Waterfall info for {}:".format(wf.filename))
-        wf.info()
+        print("Waterfall info for {}:".format(frame.waterfall.filename))
+        frame.waterfall.info()
         raise ValueError("*** Something is wrong with the grab_data output!") from ex
 
     # determine extent of the plotting panel for imshow
@@ -216,7 +246,15 @@ def plot_waterfall(frame, f_start=None, f_stop=None, **kwargs):
 
     # add source name
     ax = plt.gca()
-    plt.text(0.03, 0.8, frame.source_name, transform=ax.transAxes, bbox=dict(facecolor="white"))
+    if "order_label" in frame.metadata:
+        label = f'{frame.metadata["order_label"]}: {frame.source_name}'
+    else:
+        label = frame.source_name
+
+    plt.text(0.03, 0.8, 
+             label, 
+             transform=ax.transAxes, 
+             bbox=dict(facecolor="white"))
 
     return this_plot
 

@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 import os
 import numpy as np
@@ -8,8 +9,9 @@ import setigen as stg
 
 @pytest.fixture()
 def frame_setup_from_h5():
-    my_path = os.path.abspath(os.path.dirname(__file__))
-    path = os.path.join(my_path, 'assets/sample.fil')
+    path = Path(__file__).resolve().parent / "assets/sample.fil"
+    # my_path = os.path.abspath(os.path.dirname(__file__))
+    # path = os.path.join(my_path, 'assets/sample.fil')
     frame = stg.Frame(waterfall=path)
     return frame
 

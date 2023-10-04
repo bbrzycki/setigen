@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 import copy
 import numpy as np
 from numpy.testing import assert_allclose
@@ -32,8 +33,9 @@ def frame_setup_no_data_ascending():
 
 @pytest.fixture()
 def constant_signal_data():
-    my_path = os.path.abspath(os.path.dirname(__file__))
-    path = os.path.join(my_path, 'assets/test_frame_data.npy')
+    # my_path = os.path.abspath(os.path.dirname(__file__))
+    # path = os.path.join(my_path, 'assets/test_frame_data.npy')
+    path = Path(__file__).resolve().parent / "assets/test_frame_data.npy"
     return np.load(path)
 
 
@@ -81,10 +83,10 @@ def test_index_calc(frame_setup_no_data, frame_setup_no_data_ascending):
     assert frame1.get_frequency(200) == pytest.approx(6095212542.91758)
 
     
-def test_fil_io(frame_setup_no_data):
+def test_fil_io(frame_setup_no_data, tmp_path):
     frame = copy.deepcopy(frame_setup_no_data)
 
-    fil_fn = 'temp.fil'
+    fil_fn = tmp_path / 'temp.fil'
     frame.save_fil(fil_fn)
 
     temp_frame = stg.Frame(waterfall=fil_fn)
@@ -94,13 +96,11 @@ def test_fil_io(frame_setup_no_data):
     temp_frame = stg.Frame(waterfall=wf)
     assert_allclose(temp_frame.get_data(), frame.get_data())
 
-    os.remove(fil_fn)
 
-
-def test_h5_io(frame_setup_no_data):
+def test_h5_io(frame_setup_no_data, tmp_path):
     frame = copy.deepcopy(frame_setup_no_data)
 
-    fil_fn = 'temp.h5'
+    fil_fn = tmp_path / 'temp.h5'
     frame.save_hdf5(fil_fn)
 
     temp_frame = stg.Frame(waterfall=fil_fn)
@@ -109,8 +109,6 @@ def test_h5_io(frame_setup_no_data):
     wf = bl.Waterfall(fil_fn)
     temp_frame = stg.Frame(waterfall=wf)
     assert_allclose(temp_frame.get_data(), frame.get_data())
-
-    os.remove(fil_fn)
 
 
 def test_constant_signal_from_add_signal(frame_setup_no_data,

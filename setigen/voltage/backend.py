@@ -165,7 +165,6 @@ class RawVoltageBackend(object):
         self.header_size = None # Size of header in file (bytes)
         self.input_num_blocks = None # Total number of blocks in supplied input RAW data
         self.input_file_handler = None # Current file handler for input RAW data
-        ß
     
     @classmethod
     def from_data(cls, 

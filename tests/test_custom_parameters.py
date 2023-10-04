@@ -4,7 +4,6 @@ import copy
 import numpy as np
 from numpy.testing import assert_allclose
 
-import os
 from astropy import units as u
 import setigen as stg
 import blimpy as bl

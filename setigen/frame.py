@@ -32,9 +32,9 @@ from .funcs import bp_profiles
 
 class Frame(object):
     """
-    Facilitate the creation of entirely synthetic radio data (narrowband
-    signals + background noise) as well as signal injection into existing
-    observations.
+    A class to facilitate the creation of entirely synthetic radio data 
+    (narrowband signals + background noise) as well as signal injection into 
+    existing observations.
     """
 
     def __init__(self,

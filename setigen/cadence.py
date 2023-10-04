@@ -8,12 +8,24 @@ from . import frame_utils
 
 
 class Cadence(collections.abc.MutableSequence):
+    """
+    A class for organizing cadences of Frame objects.
+
+    Parameters
+    ----------
+    frame_list : list of Frames, optional
+        List of frames to be included in the cadence
+    t_slew : float, optional
+        Slew time between frames
+    t_overwrite : bool, optional
+        Option to overwrite time data in frames to enforce slew time spacing           
+    """
     def __init__(self,
                  frame_list=None, 
                  t_slew=0,
                  t_overwrite=False):
         self.frames = list()
-        # Insert all initialized items, performing type checks
+        # Insert all initialized items, performing type _checks
         if not frame_list is None:
             self.extend(frame_list)
         
@@ -77,7 +89,11 @@ class Cadence(collections.abc.MutableSequence):
         return sum([frame.tchans 
                     for frame in self.frames])
         
-    def check(self, v):
+    def _check(self, v):
+        """
+        Ensure that object is a Frame and has consistent parameters with 
+        existing frames in the cadence. 
+        """
         if not isinstance(v, _frame.Frame):
             raise TypeError(f"{v} is not a Frame object.")
         if len(self.frames) > 0:
@@ -100,11 +116,11 @@ class Cadence(collections.abc.MutableSequence):
         del self.frames[i]
 
     def __setitem__(self, i, v):
-        self.check(v)
+        self._check(v)
         self.frames[i] = v
 
     def insert(self, i, v):
-        self.check(v)
+        self._check(v)
         self.frames.insert(i, v)
 
     def __str__(self):
@@ -121,12 +137,19 @@ class Cadence(collections.abc.MutableSequence):
             
     @property
     def slew_times(self):
+        """
+        Compute slew times in between frames.
+        """
         return np.array([self.frames[i].t_start - self.frames[i - 1].t_stop 
                          for i in range(1, len(self.frames))])
     
     def add_signal(self,
                    *args,
                    **kwargs):
+        """
+        Add signal to each frame in the cadence. Arguments are passed through
+        to :code:`Frame.add_signal`.
+        """
         for frame in self.frames:
             print(frame.t_start, self.t_start)
             frame.ts += frame.t_start - self.t_start
@@ -134,14 +157,20 @@ class Cadence(collections.abc.MutableSequence):
             frame.ts -= frame.t_start - self.t_start
         
     def apply(self, func):
+        """
+        Apply function to each frame in the cadence.
+        """
         return [func(frame) for frame in self.frames]
     
     def plot(self):
+        """
+        Plot cadence as a multi-panel figure.
+        """
         plot_cadence(self)
         
     def consolidate(self):
         """
-        Convert full cadence into a single Frame.
+        Convert full cadence into a single concatenated Frame.
         """
         if len(self.frames) == 0:
             return None
@@ -163,6 +192,22 @@ class Cadence(collections.abc.MutableSequence):
         
         
 class OrderedCadence(Cadence):
+    """
+    A class that extends Cadence for imposing a cadence order, such as 
+    "ABACAD" or "ABABAB". Order labels are added to each frame's metadata with
+    the :code:`order_label` keyword.
+
+    Parameters
+    ----------
+    frame_list : list of Frames, optional
+        List of frames to be included in the cadence
+    order : str, optional
+        Cadence order, expressed as a string of letters (e.g. "ABACAD")
+    t_slew : float, optional
+        Slew time between frames
+    t_overwrite : bool, optional
+        Option to overwrite time data in frames to enforce slew time spacing           
+    """
     def __init__(self,
                  frame_list=None, 
                  order="ABACAD",
@@ -175,20 +220,24 @@ class OrderedCadence(Cadence):
                          t_overwrite=t_overwrite)
 
     def __setitem__(self, i, v):
-        self.check(v)
+        self._check(v)
         if i < 0:
             i = len(self) + i
         v.add_metadata({"order_label": self.order[i]})
         self.frames[i] = v
 
     def insert(self, i, v):
-        self.check(v)
+        self._check(v)
         if i < 0:
             i = len(self) + i
         v.add_metadata({"order_label": self.order[i]})
         self.frames.insert(i, v)
 
     def by_label(self, order_label="A"):
+        """
+        Filter frames in cadence by their label in the cadence order, specified
+        as a letter. Returns matching frames as a new Cadence.
+        """
         return Cadence(frame_list=[frame for frame in self 
                                    if frame.metadata["order_label"] == order_label])
 
@@ -196,6 +245,20 @@ class OrderedCadence(Cadence):
 def plot_waterfall(frame, f_start=None, f_stop=None, **kwargs):
     """
     Version of blimpy.stax plot_waterfall method without normalization.
+
+    Parameters
+    ----------
+    frame : Frame
+        Frame to plot
+    f_start : float
+        Min frequency, in MHz
+    f_stop : float
+        Max frequency, in MHz
+
+    Return 
+    ------
+    plot : matplotlib.image.AxesImage
+        Spectrogram axes object
     """
     MAX_IMSHOW_POINTS = (4096, 1268)
     from blimpy.utils import rebin
@@ -264,6 +327,11 @@ def plot_cadence(cadence):
     """
     Collect real observations of blc1 candidate, and produce synthetic copies using extracted
     properties. Plot real and synthetic cadences side-by-side for easy comparison.
+
+    Parameters
+    ----------
+    cadence : Cadence
+        Cadence to plot
     """
     height_ratios = []
     for i, frame in enumerate(cadence):

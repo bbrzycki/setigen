@@ -86,7 +86,7 @@ def integrate(fr, axis='t', mode='mean', normalize=False):
     mode : str
         Integration mode, 'mean' or 'sum'
     normalize : bool
-        Whether to normalize integrated array to mean 0, std 1
+        Option to normalize integrated array to mean 0, std 1
     
     Returns
     -------

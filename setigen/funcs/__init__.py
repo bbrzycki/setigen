@@ -8,4 +8,4 @@ from .f_profiles import (
     box_f_profile, gaussian_f_profile, multiple_gaussian_f_profile,
     lorentzian_f_profile, voigt_f_profile, sinc2_f_profile
 )
-from .bp_profiles import bp_profile
+from .bp_profiles import constant_bp_profile

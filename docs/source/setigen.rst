@@ -16,6 +16,15 @@ setigen.frame module
     :members:
     :undoc-members:
     :show-inheritance:
+
+setigen.cadence module
+----------------------
+
+.. automodule:: setigen.cadence
+    :special-members: __init__
+    :members:
+    :undoc-members:
+    :show-inheritance:
     
 setigen.frame\_utils module
 --------------------------------

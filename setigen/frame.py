@@ -23,6 +23,7 @@ from . import distributions
 from . import sample_from_obs
 from . import unit_utils
 from . import frame_utils
+from . import plots
 
 from .funcs import paths
 from .funcs import t_profiles
@@ -36,7 +37,6 @@ class Frame(object):
     (narrowband signals + background noise) as well as signal injection into 
     existing observations.
     """
-
     def __init__(self,
                  waterfall=None,
                  fchans=None,
@@ -368,12 +368,9 @@ class Frame(object):
                                                    endpoint=False),
                                        u.s)
 
-    def zero_data(self):
-        """
-        Reset data to a numpy array of zeros.
-        """
-        self.data = np.zeros(self.shape)
-        self.noise_mean = self.noise_std = 0
+    @property
+    def fmid(self):
+        return (self.fmin + self.fmax) / 2
         
     @property
     def mjd(self):
@@ -383,9 +380,23 @@ class Frame(object):
     def t_stop(self):
         return self.t_start + self.tchans * self.dt
 
+    @property
+    def obs_length(self):
+        return self.tchans * self.dt
+    
+    @property 
+    def ts_ext(self):
+        """
+        Extended time array of length `tchans + 1`, including the ending
+        timestamp.    
+        """
+        return np.append(self.ts, self.ts[-1] + self.dt)
+
+    @property
     def mean(self):
         return np.mean(self.data)
 
+    @property
     def std(self):
         return np.std(self.data)
 
@@ -405,6 +416,13 @@ class Frame(object):
                                   maxiters=5,
                                   masked=False)
         self.noise_mean, self.noise_std = np.mean(clipped_data), np.std(clipped_data)
+
+    def zero_data(self):
+        """
+        Reset data to a numpy array of zeros.
+        """
+        self.data = np.zeros(self.shape)
+        self.noise_mean = self.noise_std = 0
 
     def add_noise(self,
                   x_mean,
@@ -749,7 +767,7 @@ class Frame(object):
             else:
                 ts = self.ts
                 if doppler_smearing:
-                    ts = np.append(self.ts, self.ts[-1] + self.dt)
+                    ts = self.ts_ext
                 path = path(ts)
         elif isinstance(path, (list, np.ndarray)):
             path = np.array(path)
@@ -955,35 +973,37 @@ class Frame(object):
         
     def update_metadata(self, new_metadata):
         self.add_metadata(new_metadata)
-
-    def render(self, use_db=False, cb=True):
+        
+    def plot(self, **kwargs):
         """
-        Display frame data in waterfall format.
+        Plot frame spectrogram data.
         
         Parameters
         ----------
-        use_db : bool
-            Whether to convert data to dB
-        cb : bool
+        frame : Frame
+            Frame to plot
+        xtype : {"fmid", "fmin", "f", "px"}, default: "fmid"
+            Types of axis labels, particularly the x-axis. "px" puts axes in units 
+            of pixels. The others are all in frequency: "fmid" shows frequencies 
+            relative to the central frequency, "fmin" is relative to the minimum 
+            frequency, and "f" is absolute frequency.
+        db : bool, default: True
+            Option to convert intensities to dB
+        colorbar : bool, default: True
             Whether to display colorbar
-        """ 
-        frame_utils.render(self, use_db=use_db, cb=cb)
+        label : bool, default: False
+            Option to place target name as a label in plot
+        minor_ticks : bool, default: False
+            Option to include minor ticks on both axes
+        grid : bool, default: False
+            Option to overplot grid from major ticks
 
-    def bl_render(self, use_db=True):
-        self._update_waterfall()
-        self.waterfall.plot_waterfall(logged=use_db)
-        
-    def plot(self, use_db=False, cb=True):
+        Return 
+        ------
+        p : matplotlib.image.AxesImage
+            Spectrogram axes object
         """
-        Wrapper for render().
-        """
-        self.render(use_db=use_db, cb=cb)
-        
-    def bl_plot(self, use_db=True):
-        """
-        Wrapper for bl_render().
-        """
-        self.bl_render(use_db=use_db)
+        plots.plot_frame(self, **kwargs)
         
     def get_slice(self, l, r):
         """

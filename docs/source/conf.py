@@ -12,11 +12,11 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
+from pathlib import Path
 import sys
-dirname = os.path.dirname(__file__)
-sys.path.insert(0, os.path.join(dirname, '../../'))
-exec(open(os.path.join(dirname, '../../setigen/_version.py')).read())
+setigen_path = Path(__file__).parents[2].resolve()
+sys.path.insert(0, str(setigen_path))
+exec(open(setigen_path / "setigen/_version.py")).read()
 
 
 # -- Project information -----------------------------------------------------

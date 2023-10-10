@@ -5,7 +5,7 @@ from setigen.funcs import (
     constant_t_profile, sine_t_profile, periodic_gaussian_t_profile,
     box_f_profile, gaussian_f_profile, multiple_gaussian_f_profile,
     lorentzian_f_profile, voigt_f_profile, sinc2_f_profile,
-    bp_profile
+    constant_bp_profile
 )
 from setigen import voltage
 
@@ -26,6 +26,7 @@ from setigen.unit_utils import cast_value, get_value
 from setigen.frame_utils import db, array, render, plot, integrate, get_slice
 from setigen.normalize import sigma_clip_norm, sliding_norm, max_norm
 from setigen.dedrift import dedrift
+from setigen.plots import plot_frame, plot_cadence
 
 from setigen.frame import Frame, params_from_backend
 from setigen.cadence import Cadence, OrderedCadence

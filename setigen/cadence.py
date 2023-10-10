@@ -1,10 +1,8 @@
 import collections
 import numpy as np
-import blimpy as bl
-import matplotlib.pyplot as plt
 
 from . import frame as _frame
-from . import frame_utils
+from . import plots
 
 
 class Cadence(collections.abc.MutableSequence):
@@ -63,6 +61,12 @@ class Cadence(collections.abc.MutableSequence):
         if len(self.frames) == 0:
             return None
         return self.frames[0].fmax
+
+    @property 
+    def fmid(self):
+        if len(self.frames) == 0:
+            return None 
+        return self.frames[0].fmid
         
     @property
     def df(self):
@@ -88,6 +92,9 @@ class Cadence(collections.abc.MutableSequence):
             return None
         return sum([frame.tchans 
                     for frame in self.frames])
+    @property
+    def obs_range(self):
+        return self.frames[-1].t_stop - self.frames[0].t_start
         
     def _check(self, v):
         """
@@ -151,7 +158,6 @@ class Cadence(collections.abc.MutableSequence):
         to :code:`Frame.add_signal`.
         """
         for frame in self.frames:
-            print(frame.t_start, self.t_start)
             frame.ts += frame.t_start - self.t_start
             frame.add_signal(*args, **kwargs)
             frame.ts -= frame.t_start - self.t_start
@@ -162,11 +168,42 @@ class Cadence(collections.abc.MutableSequence):
         """
         return [func(frame) for frame in self.frames]
     
-    def plot(self):
+    def plot(self, **kwargs):
         """
         Plot cadence as a multi-panel figure.
+
+        Parameters
+        ----------
+        cadence : Cadence
+            Cadence to plot
+        xtype : {"fmid", "fmin", "f", "px"}, default: "fmid"
+            Types of axis labels, particularly the x-axis. "px" puts axes in units 
+            of pixels. The others are all in frequency: "fmid" shows frequencies 
+            relative to the central frequency, "fmin" is relative to the minimum 
+            frequency, and "f" is absolute frequency.
+        db : bool, default: True
+            Option to convert intensities to dB
+        slew_times : bool, default: False
+            Option to space subplots vertically proportional to slew times
+        colorbar : bool, default: True
+            Whether to display colorbar
+        labels : bool, default: True
+            Option to place target name as a label in each subplot
+        title : bool, default: False
+            Option to place first source name as the figure title
+        minor_ticks : bool, default: False
+            Option to include minor ticks on both axes
+        grid : bool, default: False
+            Option to overplot grid from major ticks
+
+        Return 
+        ------
+        axs : matplotlib.axes.Axes
+            Axes subplots
+        cax : matplotlib.axes.Axes
+            Colorbar axes, if created
         """
-        plot_cadence(self)
+        plots.plot_cadence(self, **kwargs)
         
     def consolidate(self):
         """
@@ -241,153 +278,3 @@ class OrderedCadence(Cadence):
         return Cadence(frame_list=[frame for frame in self 
                                    if frame.metadata["order_label"] == order_label])
 
-        
-def plot_waterfall(frame, f_start=None, f_stop=None, **kwargs):
-    """
-    Version of blimpy.stax plot_waterfall method without normalization.
-
-    Parameters
-    ----------
-    frame : Frame
-        Frame to plot
-    f_start : float
-        Min frequency, in MHz
-    f_stop : float
-        Max frequency, in MHz
-
-    Return 
-    ------
-    plot : matplotlib.image.AxesImage
-        Spectrogram axes object
-    """
-    MAX_IMSHOW_POINTS = (4096, 1268)
-    from blimpy.utils import rebin
-    
-    # Load in the data from fil
-    plot_f, plot_data = frame.get_waterfall().grab_data(f_start=f_start, f_stop=f_stop)
-    if not frame.ascending:
-        plot_f = plot_f[::-1]
-        plot_data = plot_data[:, ::-1]
-
-    # Make sure waterfall plot is under 4k*4k
-    dec_fac_x, dec_fac_y = 1, 1
-
-    # rebinning data to plot correctly with fewer points
-    try:
-        if plot_data.shape[0] > MAX_IMSHOW_POINTS[0]:
-            dec_fac_x = plot_data.shape[0] / MAX_IMSHOW_POINTS[0]
-        if plot_data.shape[1] > MAX_IMSHOW_POINTS[1]:
-            dec_fac_y =  int(np.ceil(plot_data.shape[1] /  MAX_IMSHOW_POINTS[1]))
-        plot_data = rebin(plot_data, dec_fac_x, dec_fac_y)
-    except Exception as ex:
-        print("\n*** Oops, grab_data returned plot_data.shape={}, plot_f.shape={}"
-              .format(plot_data.shape, plot_f.shape))
-        print("Waterfall info for {}:".format(frame.waterfall.filename))
-        frame.waterfall.info()
-        raise ValueError("*** Something is wrong with the grab_data output!") from ex
-
-    # determine extent of the plotting panel for imshow
-    nints = plot_data.shape[0]
-    bottom = (nints - 1) * frame.dt # in seconds
-    extent=(plot_f[0], # left
-            plot_f[-1], # right
-            bottom, # bottom
-            0.0) # top
-
-    # plot and scale intensity (log vs. linear)
-    kwargs["cmap"] = kwargs.get("cmap", "viridis")
-    plot_data = frame_utils.db(plot_data)
-
-    # display the waterfall plot
-    this_plot = plt.imshow(plot_data,
-        aspect="auto",
-        rasterized=True,
-        interpolation="nearest",
-        extent=extent,
-        **kwargs
-    )
-
-    # add source name
-    ax = plt.gca()
-    if "order_label" in frame.metadata:
-        label = f'{frame.metadata["order_label"]}: {frame.source_name}'
-    else:
-        label = frame.source_name
-
-    plt.text(0.03, 0.8, 
-             label, 
-             transform=ax.transAxes, 
-             bbox=dict(facecolor="white"))
-
-    return this_plot
-
-
-
-def plot_cadence(cadence):
-    """
-    Collect real observations of blc1 candidate, and produce synthetic copies using extracted
-    properties. Plot real and synthetic cadences side-by-side for easy comparison.
-
-    Parameters
-    ----------
-    cadence : Cadence
-        Cadence to plot
-    """
-    height_ratios = []
-    for i, frame in enumerate(cadence):
-        height_ratios.append(frame.tchans * frame.dt)
-        
-    F_min = frame.fmin / 1e6
-    F_max = frame.fmax / 1e6
-
-    # Compute the midpoint frequency for the x-axis.
-    F_mid = np.abs(F_min + F_max) / 2
-    
-    # Create plot grid
-    n_plots = len(cadence)
-    fig_array, axs = plt.subplots(nrows=n_plots,
-                                  ncols=1,
-                             sharex=True,
-                             sharey=False, 
-                             dpi=200,
-                             figsize=(12, 2*n_plots),
-                             gridspec_kw={"height_ratios" : height_ratios})
-    
-    
-    # Iterate over data for min/max values, real
-    for i, frame in enumerate(cadence):
-        data = frame.data
-        if i == 0:
-            px_min = np.min(data)
-            px_max = np.max(data)
-        else:
-            if px_min > np.min(data):
-                px_min = np.min(data)
-            if px_max < np.max(data):
-                px_max = np.max(data)
-    
-    # Plot real observations
-    for i, frame in enumerate(cadence):
-        plt.sca(axs[i])
-        if i == 0:
-            plt.title(f"Source: {frame.source_name}")
-            
-        last_plot = plot_waterfall(frame, vmin=frame_utils.db(px_min), vmax=frame_utils.db(px_max))
-        
-    factor = 1e6
-    units = "Hz"
-    xloc = np.linspace(F_min, F_max, 5)
-    xticks = [round(loc_freq) for loc_freq in (xloc - F_mid) * factor]
-    if np.max(xticks) > 1000:
-        xticks = [xt / 1000 for xt in xticks]
-        units = "kHz"
-    plt.xticks(xloc, xticks)
-    plt.xlabel("Relative Frequency [%s] from %f MHz" % (units, F_mid))
-    plt.ylabel("Time [s]")
-    
-    # Adjust plots
-    plt.subplots_adjust(hspace=0.02, wspace=0.1)    
-        
-    # Add colorbar.
-    cax = fig_array.add_axes([0.94, 0.11, 0.03, 0.77])
-    fig_array.colorbar(last_plot, cax=cax, label="Power (dB)")

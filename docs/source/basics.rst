@@ -3,8 +3,8 @@
 .. _`Getting started`: https://setigen.readthedocs.io/en/master/getting_started.html
 .. _`observational data`: https://setigen.readthedocs.io/en/master/advanced.html#creating-custom-observational-noise-distributions
 
-Basic usage
-===========
+Basic usage (setigen.Frame)
+===========================
 
 Creating a frame
 ----------------
@@ -118,8 +118,9 @@ signal injection into large data frames.
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
 
-:func:`setigen.Frame.add_signal` returns a 2D numpy array containing only the synthetic signal. To
-visualize the resulting frame, we can use :func:`matplotlib.pyplot.imshow`:
+:func:`setigen.Frame.add_signal` returns a 2D numpy array containing only the 
+synthetic signal. To visualize the resulting frame, we can use 
+:func:`matplotlib.pyplot.imshow`:
 
 .. code-block:: Python
 

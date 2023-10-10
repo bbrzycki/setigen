@@ -38,6 +38,7 @@ Table of Contents
    getting_started
    basics
    advanced
+   cadences
    voltages
    setigen
    setigen.voltage

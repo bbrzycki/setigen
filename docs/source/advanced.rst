@@ -1,8 +1,8 @@
 .. |setigen| replace:: :mod:`setigen`
 .. _setigen.funcs: https://setigen.readthedocs.io/en/main/setigen.funcs.html
 
-Advanced topics
-===============
+Advanced topics (setigen.Frame)
+===============================
 
 Advanced signal creation
 ------------------------

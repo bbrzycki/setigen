@@ -150,9 +150,7 @@ class Cadence(collections.abc.MutableSequence):
         return np.array([self.frames[i].t_start - self.frames[i - 1].t_stop 
                          for i in range(1, len(self.frames))])
     
-    def add_signal(self,
-                   *args,
-                   **kwargs):
+    def add_signal(self, *args, **kwargs):
         """
         Add signal to each frame in the cadence. Arguments are passed through
         to :code:`Frame.add_signal`.
@@ -168,7 +166,7 @@ class Cadence(collections.abc.MutableSequence):
         """
         return [func(frame) for frame in self.frames]
     
-    def plot(self, **kwargs):
+    def plot(self, *args, **kwargs):
         """
         Plot cadence as a multi-panel figure.
 
@@ -203,7 +201,7 @@ class Cadence(collections.abc.MutableSequence):
         cax : matplotlib.axes.Axes
             Colorbar axes, if created
         """
-        plots.plot_cadence(self, **kwargs)
+        plots.plot_cadence(self, *args, **kwargs)
         
     def consolidate(self):
         """
@@ -260,15 +258,25 @@ class OrderedCadence(Cadence):
         self._check(v)
         if i < 0:
             i = len(self) + i
-        v.add_metadata({"order_label": self.order[i]})
+        if "order_label" not in v.metadata:
+            v.add_metadata({"order_label": self.order[i]})
         self.frames[i] = v
 
     def insert(self, i, v):
         self._check(v)
         if i < 0:
             i = len(self) + i
-        v.add_metadata({"order_label": self.order[i]})
+        if "order_label" not in v.metadata:
+            v.add_metadata({"order_label": self.order[i]})
         self.frames.insert(i, v)
+
+    def set_order(self, order):
+        """
+        Reassign cadence order.
+        """
+        self.order = order 
+        for fr in self.frames:
+            fr.add_metadata({"order_label": self.order[i]})
 
     def by_label(self, order_label="A"):
         """

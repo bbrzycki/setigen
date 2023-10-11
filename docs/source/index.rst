@@ -37,6 +37,7 @@ Table of Contents
    install
    getting_started
    basics
+   frame_methods
    advanced
    cadences
    voltages

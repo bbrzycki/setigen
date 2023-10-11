@@ -31,8 +31,7 @@ use the OrderedCadence:
 
 .. code-block:: Python
 
-    c = stg.OrderedCadence([stg.Frame(tchans=16, fchans=256) 
-                            for i in range(6)], 
+    c = stg.OrderedCadence(frame_list, 
                            order="ABACAD")
                         
 The OrderedCadence adds a `order_label` field to each frame's metadata, 
@@ -65,5 +64,22 @@ As an example, if you wanted to add a drifting signal only to "A" observations:
                                stg.sinc2_f_profile(width=2*c[0].df*u.Hz),
                                stg.constant_bp_profile(level=1),
                                doppler_smearing=True)
+    fig = plt.figure(figsize=(10, 10))
     c.plot()
 
+.. image:: images/c_plot.png
+
+Cadence plotting has similar arguments to frame plotting, but you can also 
+have the subplots spaced out vertically in proportion to the slew time in 
+between observations by setting :code:`slew_times=True`.
+
+.. code-block:: Python
+
+    fig = plt.figure(figsize=(10, 10))
+    c.plot(slew_times=True)
+
+.. image:: images/c_plot_slew.png
+
+These examples are using fully synthetic frames, but the cadence frames can 
+just as easily use observational data, as long as the resolutions and frequency 
+extent match.

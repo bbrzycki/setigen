@@ -32,11 +32,11 @@ specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in th
                               stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
-    frame.plot()
-    plt.savefig('frame.png', bbox_inches='tight')
+    frame.plot(xtype="px", db=False)
+    plt.savefig("frame.png", bbox_inches='tight')
     plt.show()
 
-.. image:: images/gs_synth_render.png
+.. image:: images/gs_synth.png
 
 This simple signal can also be generated using the method :code:`frame.add_constant_signal`,
 which is optimized for created signals of constant intensity and drift rate in large frames:
@@ -47,22 +47,20 @@ which is optimized for created signals of constant intensity and drift rate in l
                               drift_rate=2*u.Hz/u.s,
                               level=frame.get_intensity(snr=30),
                               width=40*u.Hz,
-                              f_profile_type='gaussian')
+                              f_profile_type='sinc2')
 
 Similarly, here's a minimal working example for injecting a signal into a frame of
-observational data (from a blimpy Waterfall object). Note that in this example,
-the observational data also has dimensions 32x1024 to make it easy to visualize here.
+observational data. Note that in this example, the observational data also has 
+dimensions 32x1024 to make it easy to visualize here.
 
 .. code-block:: python
 
     from astropy import units as u
     import setigen as stg
-    import blimpy as bl
     import matplotlib.pyplot as plt
 
     data_path = 'path/to/data.fil'
-    waterfall = bl.Waterfall(data_path)
-    frame = stg.Frame(waterfall=waterfall)
+    frame = stg.Frame(waterfall=data_path)
     frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
                                        drift_rate=2*u.Hz/u.s),
                      stg.constant_t_profile(level=frame.get_intensity(snr=30)),
@@ -70,20 +68,21 @@ the observational data also has dimensions 32x1024 to make it easy to visualize 
                      stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
-    frame.plot()
+    frame.plot(db=False)
     plt.show()
 
-.. image:: images/gs_obs_render.png
+.. image:: images/gs_obs.png
 
-We can also view this using blimpy's plotting style:
+We can also view this data in decibels, the common method for plotting radio 
+spectrograms and the default in |setigen|:
 
 .. code-block:: python
 
     fig = plt.figure(figsize=(10, 6))
-    frame.bl_plot()
+    frame.plot()
     plt.show()
 
-.. image:: images/gs_obs_bl_render.png
+.. image:: images/gs_obs_db.png
 
 Usually, filterbank data is saved with frequencies in descending order, with the first
 frequency bin centered at :code:`fch1`. |setigen| works with data in increasing frequency

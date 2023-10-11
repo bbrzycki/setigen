@@ -11,11 +11,11 @@ def _get_extent_units(frame):
     Simple function to get best frequency units for plots.
     """
     f_range = np.abs(frame.fmax - frame.fmin)
-    if f_range > 1e9:
+    if f_range > 2e9:
         return 1e9, "GHz"
-    elif f_range > 1e6:
+    elif f_range > 2e6:
         return 1e6, "MHz" 
-    elif f_range > 1e3:
+    elif f_range > 2e3:
         return 1e3, "kHz" 
     else:
         return 1, "Hz"
@@ -133,10 +133,7 @@ def plot_frame(frame,
         ax.xaxis.set_minor_locator(ticker.AutoMinorLocator(n=5))
         ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
 
-    if xtype == "px":
-        xlabel = "Frequency (px)"
-        ylabel = "Time (px)"
-    else:
+    if xtype in ["fmid", "fmin", "f"]:
         ylabel = "Time (s)"
         ax.xaxis.set_major_formatter(plt.FuncFormatter(_frequency_formatter(frame, xtype)))
         units = _get_extent_units(frame)[1]
@@ -147,6 +144,10 @@ def plot_frame(frame,
         else:
             # xtype == "f"
             xlabel = f"Frequency (MHz)"
+    else:
+        # xtype == "px"
+        xlabel = "Frequency (px)"
+        ylabel = "Time (px)"
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
@@ -220,6 +221,10 @@ def plot_cadence(cadence,
         height_ratios[2*i] = frame.tchans * frame.dt
         if i != len(cadence) - 1:
             if slew_times:
+                if cadence.slew_times[i] < 0:
+                    raise ValueError(f"Frame {i + 1} starts after the end of "
+                                     f"frame {i}, so we cannot space by slew "
+                                     f"times (delta t = {cadence.slew_times[i]:.1f} s)")
                 height_ratios[2*i+1] = cadence.slew_times[i]
 
     # Create plot grid

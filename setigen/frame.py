@@ -974,7 +974,7 @@ class Frame(object):
     def update_metadata(self, new_metadata):
         self.add_metadata(new_metadata)
         
-    def plot(self, **kwargs):
+    def plot(self, *args, **kwargs):
         """
         Plot frame spectrogram data.
         
@@ -1003,7 +1003,7 @@ class Frame(object):
         p : matplotlib.image.AxesImage
             Spectrogram axes object
         """
-        plots.plot_frame(self, **kwargs)
+        plots.plot_frame(self, *args, **kwargs)
         
     def get_slice(self, l, r):
         """

@@ -1,8 +1,8 @@
 .. |setigen| replace:: :mod:`setigen`
 .. _setigen.funcs: https://setigen.readthedocs.io/en/main/setigen.funcs.html
 
-Advanced topics (setigen.Frame)
-===============================
+Advanced frame topics
+=====================
 
 Advanced signal creation
 ------------------------
@@ -103,7 +103,7 @@ instead of functions.
                      stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
-    frame.plot()
+    frame.plot(xtype="px", db=False)
     plt.savefig('frame.png', bbox_inches='tight')
     plt.show()
 

@@ -7,7 +7,7 @@ https://doi.org/10.3847/1538-3881/ac5e3d)
 
 `setigen` is a Python library for generating and injecting artificial narrow-band signals into radio frequency data, by way of data formats used extensively by the [Breakthrough Listen (BL) team @ Berkeley](https://seti.berkeley.edu/listen/). 
 
-![Synthetic sine modulated signal + synthetic RFI signal](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/flashy_synthetic.png)
+![Synthetic sine modulated signal + synthetic RFI signal](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/flashy_synthetic.png)
 
 The main module of `setigen` is based on creating synthetic spectrogram (dynamic spectra) data, showing intensity as a function of time and frequency. Observational data saved in filterbank files can be loaded into `setigen`, and synthetic signals can be easily injected on top and saved out to file. `setigen` works well with file handling via BL's [`blimpy`](https://github.com/UCBerkeleySETI/blimpy) package.
 
@@ -20,6 +20,7 @@ The `setigen.voltage` module enables the synthesis of GUPPI RAW files via synthe
 - [Spectrogram Format - `setigen.Frame`](#spectrogram-format)
     - [Guiding Principles](#guiding-principles)
     - [Minimal Working Example](#mwe-spectrogram)
+- [Cadences](#cadences)
 - [Raw Voltage Format - `setigen.voltage`](#voltage-format)
 
 ## Installation <a name="installation"></a>
@@ -70,8 +71,8 @@ from astropy import units as u
 import setigen as stg
 import matplotlib.pyplot as plt
 
-frame = stg.Frame(fchans=1024*u.pixel,
-                  tchans=32*u.pixel,
+frame = stg.Frame(fchans=1024,
+                  tchans=32,
                   df=2.7939677238464355*u.Hz,
                   dt=18.253611008*u.s,
                   fch1=6095.214842353016*u.MHz)
@@ -90,7 +91,7 @@ plt.show()
 
 This first adds chi-squared noise to the frame, and adds a constant intensity signal at 30 SNR (relative to the background noise). The result is:
 
-![Example synthetic frame](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/example.png)
+![Example synthetic frame](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/example.png)
 
 Another example, using values found in real observations and visualized in the style of `blimpy`:
 
@@ -99,8 +100,8 @@ from astropy import units as u
 import setigen as stg
 import matplotlib.pyplot as plt
 
-frame = stg.Frame(fchans=1024*u.pixel,
-                  tchans=16*u.pixel,
+frame = stg.Frame(fchans=1024,
+                  tchans=16,
                   df=2.7939677238464355*u.Hz,
                   dt=18.253611008*u.s,
                   fch1=6095.214842353016*u.MHz)
@@ -112,15 +113,77 @@ signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(index=20
                           stg.constant_bp_profile(level=1))
 
 fig = plt.figure(figsize=(10, 6))
-frame.bl_plot()
+frame.plot()
 plt.show()
 ```
 
-![Example obs synthetic frame](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/example_obs.png)
+![Example obs synthetic frame](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/example_obs.png)
+
+## Cadences <a name="cadences"></a>
+
+We can arrange a collection of frames as a `setigen.Cadence` object. This 
+allows one to add noise and signals to multiple frames conveniently and to
+create publication-ready plots of observational cadences. 
+
+Cadence objects support list operations such as slicing and appending. This 
+can be used to manage injection and analysis steps.
+
+As a simple example with fully synthetic frames:
+
+```
+mjd_start = 56789
+obs_length = 300
+slew_time = 15
+
+t_start_arr = [Time(mjd_start, format='mjd').unix]
+for i in range(1, 6):
+    t_start_arr.append(t_start_arr[i - 1] + obs_length + slew_time)
+frame_list = [stg.Frame(tchans=16, fchans=256, t_start=t_start_arr[i]) 
+              for i in range(6)]
+
+c = stg.Cadence(frame_list=frame_list)
+c.apply(lambda fr: fr.add_noise(4e6))
+c[0::2].add_signal(stg.constant_path(f_start=c[0].get_frequency(index=128),
+                                     drift_rate=0.2*u.Hz/u.s),
+                   stg.constant_t_profile(level=c[0].get_intensity(snr=30)),
+                   stg.sinc2_f_profile(width=2*c[0].df*u.Hz),
+                   stg.constant_bp_profile(level=1),
+                   doppler_smearing=True)
+                            
+fig = plt.figure(figsize=(10, 10))
+c.plot()
+plt.show()
+```
+
+![Example synthetic cadence](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/c_plot_readme.png)
+
+Note that cadence objects don't have an imposed order -- they serve as a bare-bones 
+organizational structure for frames. If you would like to impose an order,
+use the `OrderedCadence`:
+
+```
+c = stg.OrderedCadence(frame_list, 
+                       order="ABACAD")
+```
+
+Ordered cadences additionally allow you to slice cadences by order label:
+
+```
+c.by_label("A")
+```
+
+If cadence frames are in chronological order, when plotting, you may spread
+subplots in the vertical direction proportionally to slew time with:
+
+```
+c.plot(slew_times=True)
+```
+
+![Example synthetic cadence slew times](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/c_plot_slew.png)
 
 ## Raw Voltage Format - `setigen.voltage` <a name="voltage-format"></a>
 
-![setigen.voltage block diagram](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/setigen_voltage_diagram_h.png)
+![setigen.voltage block diagram](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/setigen_voltage_diagram_h.png)
 
 The `setigen.voltage` module extends `setigen` to the voltage regime. Instead of directly synthesizing spectrogram data, we can produce real voltages, pass them through a software pipeline based on a polyphase filterbank, and record to file in GUPPI RAW format. In turn, this data can then be reduced as usual using [`rawspec`](https://github.com/UCBerkeleySETI/rawspec). As this process models actual hardware used by Breakthrough Listen for recording raw voltages, this enables lower level testing and experimentation. The basic layout of a `setigen.voltage` pipeline is shown above.
 

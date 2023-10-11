@@ -16,7 +16,7 @@ from pathlib import Path
 import sys
 setigen_path = Path(__file__).parents[2].resolve()
 sys.path.insert(0, str(setigen_path))
-exec(open(str(setigen_path / "setigen/_version.py"))).read()
+exec(open(setigen_path / "setigen/_version.py").read())
 
 
 # -- Project information -----------------------------------------------------

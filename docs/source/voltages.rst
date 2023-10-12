@@ -178,11 +178,8 @@ The PolyphaseFilterbank class implements and applies a PFB to quantized input vo
 
 The main things to keep in mind when initializing a PolyphaseFilterbank object are:
 
-- :code:`num_taps` controls the spectral profile of each individual coarse 
-channel; the higher this is, the closer the spectral response gets to ideal
-- :code:`num_branches` controls the number of coarse channels; after the real 
-FFT, we obtain :code:`num_branches / 2` total coarse channels spanning the 
-Nyquist range
+- :code:`num_taps` controls the spectral profile of each individual coarse channel. The larger this is, the closer the spectral response gets to ideal.
+- :code:`num_branches` controls the number of coarse channels. After the real FFT, we obtain :code:`num_branches / 2` total coarse channels spanning the Nyquist range.
 
 Voltage backend
 ^^^^^^^^^^^^^^^

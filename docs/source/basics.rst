@@ -32,7 +32,7 @@ increasing frequencies regardless of this parameter.
                       ascending=False)
                       
 If you have a 2D Numpy array of spectrogram data, you may alternatively use 
-:code:`Frame.from_data`:
+:func:`setigen.Frame.from_data`:
 
 .. code-block:: Python
     
@@ -46,7 +46,7 @@ If you have a 2D Numpy array of spectrogram data, you may alternatively use
                                 data)
                       
 If you know the parameters behind the data generation, and not necessarily the 
-actual frame resolution, you may use :code:`Frame.from_backend_params`:
+actual frame resolution, you may use :func:`setigen.Frame.from_backend_params`:
 
 .. code-block:: Python
 
@@ -99,7 +99,7 @@ functions (setigen.funcs_), but you can write your own!
 
 The most basic signal that you can generate is a constant intensity, constant
 drift-rate signal. Note that as in the `Getting started`_ example, you can also use
-:code:`Frame.add_constant_signal`, which is simpler and more efficient for
+:func:`~setigen.Frame.add_constant_signal`, which is simpler and more efficient for
 signal injection into large data frames.
 
 .. code-block:: Python
@@ -556,7 +556,7 @@ from GBT C-Band observations on frames with (dt, df) = (1.4 s, 1.4 Hz) and
 and minimum intensity over each sub-frame in the observation were saved into
 three respective numpy arrays. 
 
-The :code:`frame.add_noise_from_obs` function also uses chi-squared noise by default,
+The :func:`~setigen.Frame.add_noise_from_obs` function also uses chi-squared noise by default,
 selecting a mean intensity from the sampled observational distribution of means, and
 populating the frame with chi-squared noise accordingly. 
 
@@ -654,7 +654,7 @@ Drift rate
 For some injection tasks, you might want to define signals based on where they
 start and end on the frequency axis. Furthermore, this might not depend on
 frequency per se. In these cases, you can calculate a drift frequency using the
-:code:`get_drift_rate` method:
+:func:`~setigen.Frame.get_drift_rate` method:
 
 .. code-block:: Python
 
@@ -679,11 +679,9 @@ data with the information you care about if you save and load frames with pickle
         'f_profile': 'lorentzian'
     }
 
-    # Sets custom metadata to an input dictionary
-    frame.set_metadata(new_metadata)
-
     # Appends input dictionary to custom metadata
     frame.add_metadata(new_metadata)
+    frame.update_metadata(new_metadata)
 
     # Gets custom metadata dict
     metadata = frame.get_metadata()
@@ -707,7 +705,8 @@ keeping both data and metadata together in storage:
     # Loading a Frame object from file
     loaded_frame = stg.Frame.load_pickle(filename='frame.pickle')
 
-Note that :code:`load_pickle` is a class method, not an instance method.
+Note that :func:`~setigen.Frame.load_pickle` is a class method, not an 
+instance method.
 
 Using numpy
 ^^^^^^^^^^^

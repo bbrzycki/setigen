@@ -275,7 +275,7 @@ def quantize_real(x,
         factor = target_std / data_std
     
     q_voltages = xp.around(factor * (x - data_mean) + target_mean)
-    q_voltages = xp.clip(q_voltages, -2^(:code:`num_bits` - 1), 2^(:code:`num_bits` - 1) - 1)
+    q_voltages = xp.clip(q_voltages, -2**(num_bits - 1), 2**(num_bits - 1) - 1)
     q_voltages = q_voltages.astype(int)
     
     return q_voltages

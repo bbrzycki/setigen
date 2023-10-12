@@ -75,7 +75,7 @@ def plot_frame(frame,
     p : matplotlib.image.AxesImage
         Spectrogram axes object
     """
-    # Scale intensityif necessary (log vs. linear)
+    # Scale intensity if necessary (log vs. linear)
     data = frame.data
     if db:
         data = frame_utils.db(data)

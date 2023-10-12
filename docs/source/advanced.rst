@@ -114,7 +114,7 @@ instead of functions.
 Optimization and accuracy
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By default, :code:`add_signal` calculates an intensity value for every
+By default, :func:`~setigen.Frame.add_signal` calculates an intensity value for every
 time, frequency pairing. Depending on the situation, this might not be the best behavior.
 
 For example, if you are injecting synthetic narrowband signals into a very large
@@ -184,7 +184,7 @@ frame manipulations for a large frame:
 
 Depending on the type of signal, you should be cautious when defining a bounding
 frequency range. For signals with constant drift rate and small spectral width,
-it isn't too hard to define a range. For example, :code:`frame.add_constant_signal`
+it isn't too hard to define a range. For example, :func:`~setigen.Frame.add_constant_signal`
 uses bounding ranges automatically to optimize signal creation.
 
 However, for signals
@@ -223,7 +223,7 @@ Accuracy
 ~~~~~~~~
 
 To improve accuracy a bit, we can integrate signal computations over subsamples in
-time and frequency. The function :code:`add_signal` has three boolean parameters:
+time and frequency. The function :func:`~setigen.Frame.add_signal` has three boolean parameters:
 :code:`integrate_path`, :code:`integrate_t_profile`, and :code:`integrate_f_profile`,
 which control whether various integrations are turned on (by default, they are False).
 The former two depend on the :code:`t_subsamples` parameter, which is the number
@@ -279,9 +279,9 @@ Creating custom observational noise distributions
 
 If you are interested in simulating observations of different resolutions and
 frequency bands, the underlying noise statistics may certainly differ from the
-included C-band distributions used by :code:`frame.add_noise_from_obs`. In these cases,
+included C-band distributions used by :func:`~setigen.Frame.add_noise_from_obs`. In these cases,
 it may be best to generate your own parameter distribution arrays from your
-own observations, and feed those into :code:`frame.add_noise_from_obs` yourself.
+own observations, and feed those into :func:`~setigen.Frame.add_noise_from_obs` yourself.
 It is worth mentioning that while you can just inject signals into
 observational frames directly, real observations may contain real signals as well.
 By estimating noise parameter distributions from observations, you can generate

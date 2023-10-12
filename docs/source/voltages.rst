@@ -328,7 +328,7 @@ Instead, we can use parameters from the RAW data to create synthetic data stream
                                   **raw_params)
 
 To then create a RawVoltageBackend, we use the class method 
-:code:`RawVoltageBackend.from_data()`, where :code:`input_file_stem` is the 
+:func:`~setigen.voltage.RawVoltageBackend.from_data`, where :code:`input_file_stem` is the 
 filename stem as used by :code:`rawspec`. 
 
 .. code-block:: python
@@ -347,7 +347,7 @@ if we create an Antenna with only cosine-like signals, the distribution of
 voltages will look highly non-Gaussian. So, if we attempt to digitize or 
 requantize this normally, we risk distorting the data and introducing 
 artifacts. To avoid this, if the Antenna has no injected Gaussian noise source, 
-we can run :code:`RawVoltageBackend.record()` with parameter 
+we can run :func:`~setigen.voltage.RawVoltageBackend.record` with parameter 
 :code:`digitize=False`. Then, the signals will be channelized and quantized as 
 if they were embedded in zero-mean Gaussian noise with standard deviation 1. 
 Now, if there *is* a noise source, you can leave :code:`digitize=True` 
@@ -360,11 +360,12 @@ Now, if there *is* a noise source, you can leave :code:`digitize=True`
                digitize=False,
                verbose=True)
                
-In the :code:`record()` call, if no :code:`num_blocks` or :code:`obs_length` is 
-specified, data will be recorded matching the total length / size of the input 
-data. You may specify these parameters to record a smaller amount of data 
-(starting from the beginning of the input), but of course you can't produce a 
-longer recording than what is present in the input. 
+In the :func:`~setigen.voltage.RawVoltageBackend.record` call, if no 
+:code:`num_blocks` or :code:`obs_length` is specified, data will be recorded 
+matching the total length / size of the input data. You may specify these 
+parameters to record a smaller amount of data (starting from the beginning of 
+the input), but of course you can't produce a longer recording than what is 
+present in the input. 
 
 Behind the scenes, at each iteration, the backend will read in a full data 
 block from disk, and set requantizer statistics (target mean, target standard 

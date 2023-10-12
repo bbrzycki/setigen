@@ -32,7 +32,8 @@ class PolyphaseFilterbank(object):
         num_taps : int, optional
             Number of PFB taps
         num_branches : int, optional
-            Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+            Number of PFB branches. Note that this results in 
+            :code:`num_branches / 2` coarse channels.
         window_fn : str, optional
             Windowing function used for the PFB
         """
@@ -123,7 +124,8 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
     num_taps : int
         Number of PFB taps
     num_branches : int
-        Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+        Number of PFB branches. Note that this results in 
+        :code:`num_branches / 2` coarse channels.
             
     Returns
     -------
@@ -157,7 +159,8 @@ def get_pfb_window(num_taps, num_branches, window_fn='hamming'):
     num_taps : int
         Number of PFB taps
     num_branches : int
-        Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+        Number of PFB branches. Note that this results in 
+        :code:`num_branches / 2` coarse channels.
     window_fn : str, optional
         Windowing function used for the PFB
             
@@ -185,7 +188,8 @@ def get_pfb_voltages(x, num_taps, num_branches, window_fn='hamming'):
     num_taps : int
         Number of PFB taps
     num_branches : int
-        Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+        Number of PFB branches. Note that this results in 
+        :code:`num_branches / 2` coarse channels.
     window_fn : str, optional
         Windowing function used for the PFB
             

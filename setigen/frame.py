@@ -62,7 +62,7 @@ class Frame(object):
         data product -- be sure to change these if you are working with 
         different kinds of data.
         
-        The `data` keyword is only necessary if you are also
+        The :code:`data` keyword is only necessary if you are also
         preloading data that matches your specified frame dimensions and
         resolutions.
 
@@ -91,8 +91,8 @@ class Frame(object):
         data : ndarray, optional
             2D array of intensities to preload into frame
         **kwargs
-            For convenience, the `shape` keyword can be used in place of individually
-            setting `fchans` and `tchans`, so that :code:`shape=(tchans, fchans)`.
+            For convenience, the :code:`shape` keyword can be used in place of individually
+            setting :code:`fchans` and :code:`tchans`, so that :code:`shape=(tchans, fchans)`.
         """
         if None not in [fchans, tchans] or 'shape' in kwargs or data is not None:
             self.waterfall = None
@@ -256,23 +256,23 @@ class Frame(object):
                             data=None):
         """
         Create frame based on backend / software related parameters.
-        Either `fchans` or `data` must be provided to get number of frequency
-        channels to create. If a 2D numpy array for `data` is provided, `fchans`
-        will be inferred. The parameter `int_factor` must still be provided 
-        to determine `tchans`; there is a check that the data dimensions also match.
-        Since multiple `int_factor` values may correspond to the same `tchans`, 
-        for clarity we do not infer `int_factor` just from the dimensions of the data.
+        Either :code:`fchans` or :code:`data` must be provided to get number of frequency
+        channels to create. If a 2D numpy array for :code:`data` is provided, :code:`fchans`
+        will be inferred. The parameter :code:`int_factor` must still be provided 
+        to determine :code:`tchans`; there is a check that the data dimensions also match.
+        Since multiple :code:`int_factor` values may correspond to the same :code:`tchans`, 
+        for clarity we do not infer :code:`int_factor` just from the dimensions of the data.
         
         Parameters
         ----------
         fchans : int, optional
-            Number of frequency samples. Should be provided if `data` is None.
+            Number of frequency samples. Should be provided if :code:`data` is None.
         obs_length : float, optional
             Length of observation in seconds
         sample_rate : float, optional
             Physical sample rate, in Hz, for collecting real voltage data
         num_branches : int, optional
-            Number of PFB branches. Note that this corresponds to `num_branches / 2` coarse channels.
+            Number of PFB branches. Note that this corresponds to :code:`num_branches / 2` coarse channels.
         fftlength : int, optional
             FFT length to be used in fine channelization
         int_factor : int, optional
@@ -286,7 +286,7 @@ class Frame(object):
             fch1 is the minimum frequency. Default is False, for which fch1
             is the maximum frequency.
         data : ndarray, optional
-            2D array of intensities to preload into frame. If provided, `fchans`
+            2D array of intensities to preload into frame. If provided, :code:`fchans`
             will be inferred from this. 
             
         Returns
@@ -387,7 +387,7 @@ class Frame(object):
     @property 
     def ts_ext(self):
         """
-        Extended time array of length `tchans + 1`, including the ending
+        Extended time array of length :code:`tchans + 1`, including the ending
         timestamp.    
         """
         return np.append(self.ts, self.ts[-1] + self.dt)
@@ -628,20 +628,20 @@ class Frame(object):
             position in t-f space. Note that this option only makes sense if
             the provided path can be evaluated at the sub frequency sample
             level (e.g. as opposed to returning a pre-computed array of
-            frequencies of length `tchans`). Makes `t_subsamples` calculations
+            frequencies of length :code:`tchans`). Makes :code:`t_subsamples` calculations
             per time sample.
         integrate_t_profile : bool, optional
             Option to integrate t_profile in the time direction. Note that
             this option only makes sense if the provided t_profile can be
             evaluated at the sub time sample level (e.g. as opposed to
-            returning an array of intensities of length `tchans`). Makes
-            `t_subsamples` calculations per time sample.
+            returning an array of intensities of length :code:`tchans`). Makes
+            :code:`t_subsamples` calculations per time sample.
         integrate_f_profile : bool, optional
             Option to integrate f_profile in the frequency direction. Makes
-            `f_subsamples` calculations per time sample.
+            :code:`f_subsamples` calculations per time sample.
         doppler_smearing : bool, optional
             Option to numerically "Doppler smear" spectral power over 
-            frequency bins. At time t, averages `smearing_subsamples` copies of
+            frequency bins. At time t, averages :code:`smearing_subsamples` copies of
             the signal centered at evenly spaced center frequencies between 
             times t and t+1. This causes the effective drop in power when 
             the signal crosses multiple bins.
@@ -957,8 +957,8 @@ class Frame(object):
             'ascending': self.ascending
         }
 
-    def get_data(self, use_db=False):
-        if use_db:
+    def get_data(self, db=False):
+        if db:
             return 10 * np.log10(self.data)
         return self.data
 
@@ -1216,7 +1216,7 @@ def params_from_backend(obs_length=300,
     sample_rate : float, optional
         Physical sample rate, in Hz, for collecting real voltage data
     num_branches : int, optional
-        Number of PFB branches. Note that this corresponds to `num_branches / 2` coarse channels.
+        Number of PFB branches. Note that this corresponds to :code:`num_branches / 2` coarse channels.
     fftlength : int, optional
         FFT length to be used in fine channelization
     int_factor : int, optional

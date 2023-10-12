@@ -36,9 +36,9 @@ class DataStream(object):
 
         By default, :code:`setigen.voltage` does not employ heterodyne mixing and filtering
         to focus on a frequency bandwidth. Instead, the sensitive range is determined
-        by these parameters; starting at the frequency `fch1` and spanning the Nyquist 
-        range `sample_rate / 2` in the increasing or decreasing frequency direction,
-        as specified by `ascending`. Note that accordingly, the spectral response will
+        by these parameters; starting at the frequency :code:`fch1` and spanning the Nyquist 
+        range :code:`sample_rate / 2` in the increasing or decreasing frequency direction,
+        as specified by :code:`ascending`. Note that accordingly, the spectral response will
         be susceptible to aliasing, so take care that the desired frequency range is
         correct and that signals are injected at appropriate frequencies. 
 
@@ -324,7 +324,7 @@ class BackgroundDataStream(DataStream):
         
 def estimate_stats(voltages, stats_calc_num_samples=10000):
     """
-    Estimate mean and standard deviation, truncating to at most `stats_calc_num_samples` samples 
+    Estimate mean and standard deviation, truncating to at most :code:`stats_calc_num_samples` samples 
     to reduce computation.
 
     Parameters

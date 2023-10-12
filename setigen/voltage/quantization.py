@@ -29,13 +29,13 @@ class RealQuantizer(object):
                  stats_calc_num_samples=10000):
         """
         Initialize a quantizer, which maps real input voltages to integers between
-        -2**(num_bits - 1) and 2**(num_bits - 1) - 1, inclusive. Specifically, it estimates the
+        -2^(:code:`num_bits` - 1) and 2^(:code:`num_bits` - 1) - 1, inclusive. Specifically, it estimates the
         mean and standard deviation of the voltages, and maps to 0 mean and a target full width at
         half maximum (FWHM). Voltages that extend past the quantized voltage range are clipped
         accordingly.
         
         The mean and standard deviation calculations can be limited to save computation using the 
-        `stats_calc_period` and `stats_calc_num_samples` parameters. The former is an integer that
+        :code:`stats_calc_period` and :code:`stats_calc_num_samples` parameters. The former is an integer that
         specifies the period of computation; if 1, it computes the stats every time. If set to a 
         non-positive integer, like -1, the computation will run once during the first call and never
         again. The latter specifies the maximum number of voltage samples to use in calculating the 
@@ -47,8 +47,8 @@ class RealQuantizer(object):
         target_fwhm : float, optional
             Target FWHM
         num_bits : int, optional
-            Number of bits to quantize to. Quantized voltages will span -2**(num_bits - 1) 
-            to 2**(num_bits - 1) - 1, inclusive.
+            Number of bits to quantize to. Quantized voltages will span -2^(:code:`num_bits` - 1) 
+            to 2^(:code:`num_bits` - 1) - 1, inclusive.
         stats_calc_period : int, optional
             Sets the period for computing the mean and standard deviation of input voltages
         stats_calc_num_samples : int, optional
@@ -150,7 +150,7 @@ class ComplexQuantizer(object):
                  stats_calc_num_samples=10000):
         """
         Initialize a complex quantizer, which maps complex input voltage components to integers
-        between -2**(num_bits - 1) and 2**(num_bits - 1) - 1, inclusive. Uses a pair of 
+        between -2^(:code:`num_bits` - 1) and 2^(:code:`num_bits` - 1) - 1, inclusive. Uses a pair of 
         RealQuantizers to quantize real and imaginary components separately. 
 
         Parameters
@@ -158,8 +158,8 @@ class ComplexQuantizer(object):
         target_fwhm : float, optional
             Target FWHM
         num_bits : int, optional
-            Number of bits to quantize to. Quantized voltages will span -2**(num_bits - 1) 
-            to 2**(num_bits - 1) - 1, inclusive.
+            Number of bits to quantize to. Quantized voltages will span -2^(:code:`num_bits` - 1) 
+            to 2^(:code:`num_bits` - 1) - 1, inclusive.
         stats_calc_period : int, optional
             Sets the period for computing the mean and standard deviation of input voltages
         stats_calc_num_samples : int, optional
@@ -251,8 +251,8 @@ def quantize_real(x,
     target_std : float, optional
         Target standard deviation for voltages
     num_bits : int, optional
-        Number of bits to quantize to. Quantized voltages will span -2**(num_bits - 1) 
-        to 2**(num_bits - 1) - 1, inclusive.
+        Number of bits to quantize to. Quantized voltages will span -2^(:code:`num_bits` - 1) 
+        to 2^(:code:`num_bits` - 1) - 1, inclusive.
     data_mean : float, optional
         Mean of input voltages, if already known
     data_std : float, optional
@@ -275,7 +275,7 @@ def quantize_real(x,
         factor = target_std / data_std
     
     q_voltages = xp.around(factor * (x - data_mean) + target_mean)
-    q_voltages = xp.clip(q_voltages, -2**(num_bits - 1), 2**(num_bits - 1) - 1)
+    q_voltages = xp.clip(q_voltages, -2^(:code:`num_bits` - 1), 2^(:code:`num_bits` - 1) - 1)
     q_voltages = q_voltages.astype(int)
     
     return q_voltages
@@ -299,8 +299,8 @@ def quantize_complex(x,
     target_std : float, optional
         Target standard deviation for voltages
     num_bits : int, optional
-        Number of bits to quantize to. Quantized voltages will span -2**(num_bits - 1) 
-        to 2**(num_bits - 1) - 1, inclusive.
+        Number of bits to quantize to. Quantized voltages will span -2^(:code:`num_bits` - 1) 
+        to 2^(:code:`num_bits` - 1) - 1, inclusive.
     stats_calc_num_samples : int, optional
         Maximum number of samples for use in estimating noise statistics
         

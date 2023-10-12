@@ -560,7 +560,7 @@ class RawVoltageBackend(object):
         """
         Calculate the number of blocks required as a function of observation length, in seconds. Note that only 
         an integer number of blocks will be recorded, so the actual observation length may be shorter than the 
-        `obs_length` provided.
+        :code:`obs_length` provided.
         """
         return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         
@@ -583,13 +583,15 @@ class RawVoltageBackend(object):
         output_file_stem : str
             Filename or path stem; the suffix will be automatically appended
         obs_length : float, optional
-            Length of observation in seconds, if in `obs_length` mode
+            Length of observation in seconds, if in 'obs_length' mode
         num_blocks : int, optional
-            Number of data blocks to record, if in `num_blocks` mode
+            Number of data blocks to record, if in 'num_blocks' mode
         length_mode : str, optional
-            Mode for specifying length of observation, either `obs_length` in seconds or `num_blocks` in data blocks
+            Mode for specifying length of observation, either 'obs_length' 
+            in seconds or 'num_blocks' in data blocks
         header_dict : dict, optional
-            Dictionary of header values to set. Use to overwrite non-essential header values or add custom ones.
+            Dictionary of header values to set. Use to overwrite non-essential 
+            header values or add custom ones.
         digitize : bool, optional
             Whether to quantize input voltages before the PFB
         verbose : bool, optional
@@ -682,7 +684,7 @@ def get_block_size(num_antennas=1,
                    int_factor=4):
     """
     Calculate block size, given a desired number of time bins per RAW data block 
-    `tchans_per_block`. Takes in backend parameters, including fine channelization
+    :code:`tchans_per_block`. Takes in backend parameters, including fine channelization
     factors. Can be used to calculate reasonable block sizes for raw voltage recording.
     
     Parameters
@@ -727,17 +729,19 @@ def get_total_obs_num_samples(obs_length=None,
                               num_branches=1024,
                               num_chans=64):
     """
-    Calculate number of required real voltage time samples for as given `obs_length` or `num_blocks`, without directly 
-    using a `RawVoltageBackend` object. 
+    Calculate number of required real voltage time samples for as given 
+    :code:`obs_length` or :code:`num_blocks`, without directly using a 
+    :code:`RawVoltageBackend` object. 
     
     Parameters
     ----------
     obs_length : float, optional
-        Length of observation in seconds, if in `obs_length` mode
+        Length of observation in seconds, if in 'obs_length' mode
     num_blocks : int, optional
-        Number of data blocks to record, if in `num_blocks` mode
+        Number of data blocks to record, if in 'num_blocks' mode
     length_mode : str, optional
-        Mode for specifying length of observation, either `obs_length` in seconds or `num_blocks` in data blocks
+        Mode for specifying length of observation, either 'obs_length' in 
+        seconds or 'num_blocks' in data blocks
     num_antennas : int
         Number of antennas
     sample_rate : float

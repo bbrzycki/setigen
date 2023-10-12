@@ -256,7 +256,7 @@ class MultiAntennaArray(object):
         First, background data stream voltages are computed. Then, for each Antenna, voltages
         are retrieved per polarization and summed with the corresponding background voltages, subject
         to that Antenna's sample delay. An appropriate number of background voltage samples are cached 
-        with the Antenna, according to the delay, so that regardless of `num_samples`, each Antenna 
+        with the Antenna, according to the delay, so that regardless of :code:`num_samples`, each Antenna 
         data stream has enough background samples to add.
         
         Parameters

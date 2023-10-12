@@ -48,11 +48,11 @@ def get_level(snr,
     fftlength : int, optional
         FFT length to be used in fine channelization
     obs_length : float, optional
-        Length of observation in seconds, if in `obs_length` mode
+        Length of observation in seconds, if in 'obs_length' mode
     num_blocks : int, optional
-        Number of data blocks to record, if in `num_blocks` mode
+        Number of data blocks to record, if in 'num_blocks' mode
     length_mode : str, optional
-        Mode for specifying length of observation, either `obs_length` in seconds or `num_blocks` in data blocks
+        Mode for specifying length of observation, either 'obs_length' in seconds or 'num_blocks' in data blocks
     
     Returns
     -------

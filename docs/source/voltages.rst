@@ -125,7 +125,9 @@ We can also add drifting cosine signals to each stream:
                                level=0.002,
                                phase=0)
 
-Here, `f_start` is the starting frequency, `drift_rate` is the change in frequency per time in Hz/s, `level` is the amplitude of the cosine signal, and `phase` is the phase offset in radians. 
+Here, :code:`f_start` is the starting frequency, :code:`drift_rate` is the 
+change in frequency per time in Hz/s, :code:`level` is the amplitude of the 
+cosine signal, and :code:`phase` is the phase offset in radians. 
                          
 Custom signal sources
 ^^^^^^^^^^^^^^^^^^^^^
@@ -136,7 +138,9 @@ To add custom signal source functions, you can use the :code:`add_signal` method
 
     stream.add_signal(my_signal_func)
                          
-Signal source functions are Python functions that accept an array of times, in seconds, and output a corresponding sequence of real voltages. A simple example showing how you might generate Gaussian noise "signal":
+Signal source functions are Python functions that accept an array of times, 
+in seconds, and output a corresponding sequence of real voltages. A simple 
+example showing how you might generate Gaussian noise "signal":
 
 .. code-block:: python
 
@@ -152,9 +156,20 @@ You may also check out these example notebooks: `03_custom_signals.ipynb <https:
 Quantizers
 ^^^^^^^^^^
 
-The quantization classes are RealQuantizer and ComplexQuantizer. The latter actually uses the former for quantizing real and imaginary components independently. Quantization is run per polarization and antenna. 
+The quantization classes are RealQuantizer and ComplexQuantizer. The latter 
+actually uses the former for quantizing real and imaginary components 
+independently. Quantization is run per polarization and antenna. 
 
-The quantizers attempt to map the voltage distribution to an ideal quantized normal distribution with a target FWHM. Voltages that extend past the range of integers representable by `num_bits` are clipped. The standard deviation of the voltage distribution is calculated as they are collected, on a subset of `stats_calc_num_samples` samples. By default, this calculation is run on every pass through the pipeline, but can be limited to periodic calculations using the `stats_calc_period` initialization parameter. If this is set to anything besides a positive integer, the calculation will only be run on the first call and never again (which saves a lot of computation, but may not be the most accurate if the voltage distribution changes over time).
+The quantizers attempt to map the voltage distribution to an ideal quantized 
+normal distribution with a target FWHM. Voltages that extend past the range of 
+integers representable by :code:`num_bits` are clipped. The standard deviation 
+of the voltage distribution is calculated as they are collected, on a subset 
+of :code:`stats_calc_num_samples` samples. By default, this calculation is run 
+on every pass through the pipeline, but can be limited to periodic calculations 
+using the :code:`stats_calc_period` initialization parameter. If this is set to 
+anything besides a positive integer, the calculation will only be run on the 
+first call and never again (which saves a lot of computation, but may not be 
+the most accurate if the voltage distribution changes over time).
 
 Polyphase filterbank
 ^^^^^^^^^^^^^^^^^^^^
@@ -163,20 +178,40 @@ The PolyphaseFilterbank class implements and applies a PFB to quantized input vo
 
 The main things to keep in mind when initializing a PolyphaseFilterbank object are:
 
-- `num_taps` controls the spectral profile of each individual coarse channel; the higher this is, the closer the spectral response gets to ideal
-- `num_branches` controls the number of coarse channels; after the real FFT, we obtain `num_branches / 2` total coarse channels spanning the Nyquist range
+- :code:`num_taps` controls the spectral profile of each individual coarse 
+channel; the higher this is, the closer the spectral response gets to ideal
+- :code:`num_branches` controls the number of coarse channels; after the real 
+FFT, we obtain :code:`num_branches / 2` total coarse channels spanning the 
+Nyquist range
 
 Voltage backend
 ^^^^^^^^^^^^^^^
 
-The RawVoltageBackend class connects the various components in the pipeline, allowing us to "record" only as much data as we currently need. 
+The RawVoltageBackend class connects the various components in the pipeline, 
+allowing us to "record" only as much data as we currently need. 
 
-Behind the scenes, the backend actually uses a separate instance of each backend element per antenna and polarization. For example, if the backend is initialized with a single object instance for each the digitizer, filterbank, and requantizer, the backend object will make deep copies for each polarization in each antenna. This is done so that quantization (scaling) calculations are done independently for separate polarizations and antennas. Alternatively, you can initialize the backend with 2D lists of shape (num_antennas, num_pols) for each backend element, if, for example, there are variations in the desired `target_mean` and `target_fwhm` parameters. 
+Behind the scenes, the backend actually uses a separate instance of each 
+backend element per antenna and polarization. For example, if the backend is 
+initialized with a single object instance for each the digitizer, filterbank, 
+and requantizer, the backend object will make deep copies for each polarization 
+in each antenna. This is done so that quantization (scaling) calculations are 
+done independently for separate polarizations and antennas. Alternatively, you 
+can initialize the backend with 2D lists of shape (num_antennas, num_pols) for 
+each backend element, if, for example, there are variations in the desired 
+:code:`target_mean` and :code:`target_fwhm` parameters. 
     
 Creating multi-antenna RAW files
 --------------------------------
 
-To simulate interferometric pipelines, it may be useful to synthesize raw voltage data from multiple antennas. The MultiAntennaArray class supports exactly this, creating a list of sub-Antennas each with an associated integer delay (in time samples). In addition to the individual data streams that allow you to add noise and signals to each Antenna, there are "background" data streams :code:`bg_x` and :code:`bg_y` in MultiAntennaArray, representing common / correlated noise or RFI that each Antenna can see, subject to the (relative) delay. If there are no delays, the background data streams will be perfectly correlated for each antenna.
+To simulate interferometric pipelines, it may be useful to synthesize raw 
+voltage data from multiple antennas. The MultiAntennaArray class supports 
+exactly this, creating a list of sub-Antennas each with an associated integer 
+delay (in time samples). In addition to the individual data streams that allow 
+you to add noise and signals to each Antenna, there are "background" data 
+streams :code:`bg_x` and :code:`bg_y` in MultiAntennaArray, representing 
+common / correlated noise or RFI that each Antenna can see, subject to the 
+(relative) delay. If there are no delays, the background data streams will be 
+perfectly correlated for each antenna.
 
 Here's an example initialization for a 3 antenna array:
 
@@ -244,7 +279,20 @@ If the noise in the DataStream doesn't have a variance of 1, we need to adjust t
 
 If the signal is non-drifting, in general the spectral response will go as :code:`1/sinc^2(x)`, where :code:`x` is the fractional error off of the center of the spectral bin. To calculate the corresponding amount to adjust signal_level, you can use :func:`~setigen.voltage.level_utils.get_leakage_factor`. This technically calculates :code:`1/sinc(x)`, which is inherently squared naturally along with the cosine signal amplitude during fine channelization.
 
-To account for drift rates, it gets a bit more complicated; in general, if the drift rate is larger than a pixel by pixel slope of 1 in the final spectrogram data products, dividing the initial non-drifting power by that pixel by pixel slope will result in the new power. In other words, if `s` is the drift rate corresponding to a final pixel by pixel slope of 1, then a signal drifting by `2*s` will have half the SNR of the non-drifting signal. For a given RawVoltageBackend and reduced data product parameters `fftlength` and `int_factor` (integration factor), you can calculate `s` via :func:`~setigen.voltage.level_utils.get_unit_drift_rate`. However, the situation is much more complicated for drift rates between 0 and `s`, so setigen doesn't currently automatically calculate the requisite shift in power. Note that if you'd like to adjust the power for drift rates higher than `s`, you should adjust the amplitude (level) of the cosine signal by the square root of the relevant factor.
+To account for drift rates, it gets a bit more complicated; in general, if the 
+drift rate is larger than a pixel by pixel slope of 1 in the final spectrogram 
+data products, dividing the initial non-drifting power by that pixel by pixel 
+slope will result in the new power. In other words, if `s` is the drift rate 
+corresponding to a final pixel by pixel slope of 1, then a signal drifting by 
+`2*s` will have half the SNR of the non-drifting signal. For a given 
+RawVoltageBackend and reduced data product parameters :code:`fftlength` 
+and :code:`int_factor` (integration factor), you can calculate `s` via 
+:func:`~setigen.voltage.level_utils.get_unit_drift_rate`. However, the situation 
+is much more complicated for drift rates between 0 and `s`, so setigen doesn't 
+currently automatically calculate the requisite shift in power. Note that if 
+you'd like to adjust the power for drift rates higher than `s`, you should 
+adjust the amplitude (level) of the cosine signal by the square root of the 
+relevant factor.
 
 An example accounting for multiple effects like these:
 
@@ -279,7 +327,9 @@ Instead, we can use parameters from the RAW data to create synthetic data stream
     antenna = stg.voltage.Antenna(sample_rate=sample_rate,
                                   **raw_params)
 
-To then create a RawVoltageBackend, we use the class method :code:`RawVoltageBackend.from_data()`, where `input_file_stem` is the filename stem as used by :code:`rawspec`. 
+To then create a RawVoltageBackend, we use the class method 
+:code:`RawVoltageBackend.from_data()`, where :code:`input_file_stem` is the 
+filename stem as used by :code:`rawspec`. 
 
 .. code-block:: python
 
@@ -290,7 +340,18 @@ To then create a RawVoltageBackend, we use the class method :code:`RawVoltageBac
                                                   start_chan=start_chan,
                                                   num_subblocks=32)
 
-There are a few things to keep in mind here. Since we don't have access to the original noise distribution in real voltage space for the recorded RAW data (as it was quantized), it may be tough to inject at specific SNR levels. Also, if we create an Antenna with only cosine-like signals, the distribution of voltages will look highly non-Gaussian. So, if we attempt to digitize or requantize this normally, we risk distorting the data and introducing artifacts. To avoid this, if the Antenna has no injected Gaussian noise source, we can run :code:`RawVoltageBackend.record()` with parameter :code:`digitize=False`. Then, the signals will be channelized and quantized as if they were embedded in zero-mean Gaussian noise with standard deviation 1. Now, if there *is* a noise source, you can leave :code:`digitize=True` (the default).
+There are a few things to keep in mind here. Since we don't have access to the 
+original noise distribution in real voltage space for the recorded RAW data 
+(as it was quantized), it may be tough to inject at specific SNR levels. Also, 
+if we create an Antenna with only cosine-like signals, the distribution of 
+voltages will look highly non-Gaussian. So, if we attempt to digitize or 
+requantize this normally, we risk distorting the data and introducing 
+artifacts. To avoid this, if the Antenna has no injected Gaussian noise source, 
+we can run :code:`RawVoltageBackend.record()` with parameter 
+:code:`digitize=False`. Then, the signals will be channelized and quantized as 
+if they were embedded in zero-mean Gaussian noise with standard deviation 1. 
+Now, if there *is* a noise source, you can leave :code:`digitize=True` 
+(the default).
 
 .. code-block:: python
 
@@ -299,8 +360,22 @@ There are a few things to keep in mind here. Since we don't have access to the o
                digitize=False,
                verbose=True)
                
-In the :code:`record()` call, if no `num_blocks` or `obs_length` is specified, data will be recorded matching the total length / size of the input data. You may specify these parameters to record a smaller amount of data (starting from the beginning of the input), but of course you can't produce a longer recording than what is present in the input. 
+In the :code:`record()` call, if no :code:`num_blocks` or :code:`obs_length` is 
+specified, data will be recorded matching the total length / size of the input 
+data. You may specify these parameters to record a smaller amount of data 
+(starting from the beginning of the input), but of course you can't produce a 
+longer recording than what is present in the input. 
 
-Behind the scenes, at each iteration, the backend will read in a full data block from disk, and set requantizer statistics (target mean, target standard deviation) for each (antenna, polarization) pair for the real and imaginary quantizer components. Then, the synthetic data passing through the pipeline is requantized to the corresponding standard deviations in each complex component, but instead of centering to the target mean, they are centered to zero mean. This is so that when we add the synthetic data to the existing data, we don't change the overall voltage means. After these are added together, we finally requantize once more with the same requantizers, to the target mean and standard deviations. This procedure is done to match the existing data statistics and magnitudes as best as possible.
+Behind the scenes, at each iteration, the backend will read in a full data 
+block from disk, and set requantizer statistics (target mean, target standard 
+deviation) for each (antenna, polarization) pair for the real and imaginary 
+quantizer components. Then, the synthetic data passing through the pipeline is 
+requantized to the corresponding standard deviations in each complex component, 
+but instead of centering to the target mean, they are centered to zero mean. 
+This is so that when we add the synthetic data to the existing data, we don't 
+change the overall voltage means. After these are added together, we finally 
+requantize once more with the same requantizers, to the target mean and 
+standard deviations. This procedure is done to match the existing data 
+statistics and magnitudes as best as possible.
 
 You may also check out this example notebook: `06_starting_from_existing_raw_files.ipynb <https://github.com/bbrzycki/setigen/blob/main/jupyter-notebooks/voltage/06_starting_from_existing_raw_files.ipynb>`_.

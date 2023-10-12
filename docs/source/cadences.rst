@@ -12,7 +12,7 @@ described using a sequence of letters, like "ABACAD" or "ABABAB", to indicate
 which pointings are unique.
 
 |setigen| provides the Cadence object to organize multiple frames. This allows 
-you to inject signals only in "A" observations, for example. 
+you to inject signals into multiple frames in one step, for example.
 
 You can either create an empty Cadence and add frames to it later or 
 initialize the object with a list of frames:
@@ -34,7 +34,7 @@ use the OrderedCadence:
     c = stg.OrderedCadence(frame_list, 
                            order="ABACAD")
                         
-The OrderedCadence adds a `order_label` field to each frame's metadata, 
+The OrderedCadence adds an :code:`order_label` field to each frame's metadata, 
 tracking the unique pointings. 
 
 Cadence objects supports Python list operations, such as append and slicing. In

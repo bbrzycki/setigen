@@ -45,7 +45,8 @@ If you have a 2D Numpy array of spectrogram data, you may alternatively use
                                 ascending=False,
                                 data)
                       
-If you know the parameters behind the data generation, and not necessarily the actual frame resolution, you may use :code:`Frame.from_backend_params`:
+If you know the parameters behind the data generation, and not necessarily the 
+actual frame resolution, you may use :code:`Frame.from_backend_params`:
 
 .. code-block:: Python
 
@@ -59,8 +60,16 @@ If you know the parameters behind the data generation, and not necessarily the a
                                           ascending=False,
                                           data=None)
                                           
-where `obs_length` is the integration period, `sample_rate` is the sampling rate in Hz, `num_branches` is the branches in the polyphase filterbank, `fftlength` is the number of fine channels per coarse channel, and `int_factor` is the integration factor used in data reduction. Note that `int_factor` is set to determine the number of time bins in the frame. You may also set the `data` parameter to include existing 2D data, from which `fchans` will be automatically inferred. Since multiple `int_factor` values may correspond to the same number of time bins, for clarity we do not also infer `int_factor` just 
-from the dimensions of the data.
+where :code:`obs_length` is the integration period, :code:`sample_rate` is the 
+sampling rate in Hz, code:`num_branches` is the branches in the polyphase 
+filterbank, code:`fftlength` is the number of fine channels per coarse channel, 
+and :code:`int_factor` is the integration factor used in data reduction. Note 
+that :code:`int_factor` is set to determine the number of time bins in the 
+frame. You may also set the :code:`data` parameter to include existing 2D data, 
+from which :code:`fchans` will be automatically inferred. Since multiple 
+:code:`int_factor` values may correspond to the same number of time bins, for 
+clarity we do not also infer :code:`int_factor` just from the dimensions of the 
+data.
 
 Finally, you can construct a frame directly from a :code:`.fil`/:code:`.h5` file or Waterfall object:
 
@@ -97,7 +106,6 @@ signal injection into large data frames.
 
     from astropy import units as u
     import numpy as np
-
     import setigen as stg
 
     # Define time and frequency arrays, essentially labels for the 2D data array
@@ -107,7 +115,6 @@ signal injection into large data frames.
     dt = 18.253611008*u.s
     fch1 = 6095.214842353016*u.MHz
 
-    # Generate the signal
     frame = stg.Frame(fchans=fchans,
                       tchans=tchans,
                       df=df,
@@ -121,14 +128,13 @@ signal injection into large data frames.
 
 :func:`setigen.Frame.add_signal` returns a 2D numpy array containing only the 
 synthetic signal. To visualize the resulting frame, we can use 
-:func:`matplotlib.pyplot.imshow`:
+:func:`setigen.Frame.plot`:
 
 .. code-block:: Python
 
     import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
+    frame.plot("px", db=False)
     fig.savefig("basic_signal.png", bbox_inches='tight')
 
 .. image:: images/basic_signal.png
@@ -142,7 +148,6 @@ SI units (Hz, s) without additional modifiers, in which case the above code woul
 
     from astropy import units as u
     import numpy as np
-
     import setigen as stg
 
     # Define time and frequency arrays, essentially labels for the 2D data array
@@ -152,7 +157,6 @@ SI units (Hz, s) without additional modifiers, in which case the above code woul
     dt = 18.253611008
     fch1 = 6095.214842353016 * 10**6
 
-    # Generate the signal
     frame = stg.Frame(fchans=fchans,
                       tchans=tchans,
                       df=df,
@@ -206,7 +210,6 @@ repetition, each example script will assume the same basic setup:
 
     from astropy import units as u
     import numpy as np
-
     import setigen as stg
 
     # Define time and frequency arrays, essentially labels for the 2D data array
@@ -216,7 +219,6 @@ repetition, each example script will assume the same basic setup:
     dt = 18.253611008*u.s
     fch1 = 6095.214842353016*u.MHz
 
-    # Generate the signal
     frame = stg.Frame(fchans=fchans,
                       tchans=tchans,
                       df=df,
@@ -386,23 +388,6 @@ signal:
 
 .. image:: images/box_profile.png
 
-Gaussian intensity profile
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To generate a signal with a Gaussian intensity profile in the frequency
-direction, use :func:`~setigen.funcs.f_profiles.gaussian_f_profile`, specifying
-the width of the signal:
-
-.. code-block:: Python
-
-    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
-                                                drift_rate=2*u.Hz/u.s),
-                              stg.constant_t_profile(level=1),
-                              stg.gaussian_f_profile(width=40*u.Hz),
-                              stg.constant_bp_profile(level=1))
-
-.. image:: images/gaussian_profile.png
-
 Sinc squared intensity profile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -441,6 +426,23 @@ Note that you can model the frequency response of a perfect cosine signal with:
     stg.sinc2_f_profile(width=2*frame.df, 
                         width_mode="crossing",
                         trunc=False)
+
+Gaussian intensity profile
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To generate a signal with a Gaussian intensity profile in the frequency
+direction, use :func:`~setigen.funcs.f_profiles.gaussian_f_profile`, specifying
+the width of the signal:
+
+.. code-block:: Python
+
+    signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
+                                                drift_rate=2*u.Hz/u.s),
+                              stg.constant_t_profile(level=1),
+                              stg.gaussian_f_profile(width=40*u.Hz),
+                              stg.constant_bp_profile(level=1))
+
+.. image:: images/gaussian_profile.png
 
 Multiple Gaussian intensity profile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -501,7 +503,6 @@ A minimal working example for adding noise is:
     dt = 18.253611008*u.s
     fch1 = 6095.214842353016*u.MHz
 
-    # Generate the signal
     frame = stg.Frame(fchans=fchans,
                       tchans=tchans,
                       df=df,
@@ -510,8 +511,7 @@ A minimal working example for adding noise is:
     noise = frame.add_noise(x_mean=10)
 
     fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
+    frame.plot("px", db=False)
     plt.show()
 
 .. image:: images/basic_noise_chi2.png
@@ -530,30 +530,12 @@ An example for adding Gaussian noise is:
 
 .. code-block:: Python
 
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from astropy import units as u
-    import setigen as stg
-
-    # Define time and frequency arrays, essentially labels for the 2D data array
-    fchans = 1024
-    tchans = 16
-    df = 2.7939677238464355*u.Hz
-    dt = 18.253611008*u.s
-    fch1 = 6095.214842353016*u.MHz
-
-    # Generate the signal
     frame = stg.Frame(fchans=fchans,
                       tchans=tchans,
                       df=df,
                       dt=dt,
                       fch1=fch1)
     noise = frame.add_noise(x_mean=5, x_std=2, noise_type='gaussian')
-
-    fig = plt.figure(figsize=(10, 6))
-    plt.imshow(frame.get_data(), aspect='auto')
-    plt.colorbar()
-    plt.show()
 
 .. image:: images/basic_noise_gaussian.png
 

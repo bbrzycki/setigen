@@ -3,14 +3,23 @@ from scipy.special import wofz
 
 
 def gaussian(x, x0, sigma):
+    """
+    Basic Gaussian function centered at :code:`x0`.
+    """
     return np.exp(-np.power(x - x0, 2.) / (2 * np.power(sigma, 2.)))
 
 
 def lorentzian(x, x0, gamma):
+    """
+    Basic Lorentzian function centered at :code:`x0`.
+    """
     return 1 / (1 + np.power((x - x0) / gamma, 2))
 
 
 def voigt(x, x0, sigma, gamma):
+    """
+    Basic Voigt profile centered at :code:`x0`.
+    """
     if sigma == 0:
         return lorentzian(x, x0, gamma)
     if gamma == 0:

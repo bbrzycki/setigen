@@ -47,14 +47,14 @@ class RawVoltageBackend(object):
         ----------
         antenna_source : Antenna or MultiAntennaArray
             Antenna or MultiAntennaArray, from which real voltage data is created
-        digitizer : RealQuantizer or ComplexQuantizer, or list, optional
+        digitizer : RealQuantizer or ComplexQuantizer, or list
             Quantizer used to digitize input voltages. Either a single object to be used as a template
             for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
-        filterbank : PolyphaseFilterbank, or list, optional
+        filterbank : PolyphaseFilterbank, or list
             Polyphase filterbank object used to channelize voltages. Either a single object to be used as a 
             template for each antenna and polarization, or a 2D list of filterbank objects of shape 
             (num_antennas, num_pols).
-        requantizer : ComplexQuantizer, or list, optional
+        requantizer : ComplexQuantizer, or list
             Quantizer used on complex channelized voltages. Either a single object to be used as a template
             for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
         start_chan : int, optional
@@ -66,9 +66,10 @@ class RawVoltageBackend(object):
         blocks_per_file : int, optional
             Number of blocks to be saved per RAW file
         num_subblocks : int, optional
-            Number of partitions per block, used for computation. If `num_subblocks`=1, one block's worth
-            of data will be passed through the pipeline and recorded at once. Use this parameter to reduce 
-            memory load, especially when using GPU acceleration.
+            Number of partitions per block, used for computation. If 
+            :code:`num_subblocks=1`, one block's worth of data will be passed 
+            through the pipeline and recorded at once. Use this parameter to 
+            reduce memory load, especially when using GPU acceleration.
         """
         self.antenna_source = antenna_source
         if isinstance(antenna_source, v_antenna.Antenna):
@@ -184,19 +185,20 @@ class RawVoltageBackend(object):
             Filename or path stem to input RAW data
         antenna_source : Antenna or MultiAntennaArray
             Antenna or MultiAntennaArray, from which real voltage data is created
-        digitizer : RealQuantizer or ComplexQuantizer, or list, optional
+        digitizer : RealQuantizer or ComplexQuantizer, or list
             Quantizer used to digitize input voltages. Either a single object to be used as a template
             for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
-        filterbank : PolyphaseFilterbank, or list, optional
+        filterbank : PolyphaseFilterbank, or list
             Polyphase filterbank object used to channelize voltages. Either a single object to be used as a 
             template for each antenna and polarization, or a 2D list of filterbank objects of shape 
             (num_antennas, num_pols).
         start_chan : int, optional
             Index of first coarse channel to be recorded
         num_subblocks : int, optional
-            Number of partitions per block, used for computation. If `num_subblocks`=1, one block's worth
-            of data will be passed through the pipeline and recorded at once. Use this parameter to reduce 
-            memory load, especially when using GPU acceleration.
+            Number of partitions per block, used for computation. If 
+            :code:`num_subblocks=1`, one block's worth of data will be passed 
+            through the pipeline and recorded at once. Use this parameter to 
+            reduce memory load, especially when using GPU acceleration.
             
         Returns
         -------

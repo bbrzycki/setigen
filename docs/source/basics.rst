@@ -32,7 +32,7 @@ increasing frequencies regardless of this parameter.
                       ascending=False)
                       
 If you have a 2D Numpy array of spectrogram data, you may alternatively use 
-:func:`setigen.Frame.from_data`:
+:func:`setigen.frame.Frame.from_data`:
 
 .. code-block:: Python
     
@@ -46,7 +46,7 @@ If you have a 2D Numpy array of spectrogram data, you may alternatively use
                                 data)
                       
 If you know the parameters behind the data generation, and not necessarily the 
-actual frame resolution, you may use :func:`setigen.Frame.from_backend_params`:
+actual frame resolution, you may use :func:`setigen.frame.Frame.from_backend_params`:
 
 .. code-block:: Python
 
@@ -126,9 +126,9 @@ signal injection into large data frames.
                               stg.box_f_profile(width=20*u.Hz),
                               stg.constant_bp_profile(level=1))
 
-:func:`setigen.Frame.add_signal` returns a 2D numpy array containing only the 
+:func:`~setigen.frame.Frame.add_signal` returns a 2D numpy array containing only the 
 synthetic signal. To visualize the resulting frame, we can use 
-:func:`setigen.Frame.plot`:
+:func:`~setigen.frame.Frame.plot`:
 
 .. code-block:: Python
 

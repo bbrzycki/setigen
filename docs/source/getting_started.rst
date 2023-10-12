@@ -38,7 +38,7 @@ specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in th
 
 .. image:: images/gs_synth.png
 
-This simple signal can also be generated using the method :func:`~setigen.Frame.add_constant_signal`,
+This simple signal can also be generated using the method :func:`~setigen.frame.Frame.add_constant_signal`,
 which is optimized for created signals of constant intensity and drift rate in large frames:
 
 .. code-block:: python

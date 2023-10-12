@@ -51,7 +51,7 @@ noise to each frame:
     c.apply(lambda fr: fr.add_noise(4e6))
 
 For convenience, cadences also have :func:`~setigen.cadence.Cadence.add_signal`,
-which passes all arguments through to :func:`setigen.Frame.add_signal`, but 
+which passes all arguments through to :func:`~setigen.frame.Frame.add_signal`, but 
 adjusts the times used in the signal calculation appropriately. 
 
 As an example, if you wanted to add a drifting signal only to "A" observations:

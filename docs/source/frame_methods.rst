@@ -23,7 +23,7 @@ Plotting frames
 ---------------
 
 There are a variety of options for plotting frames, meant to produce 
-publication-ready images. The main function is :func:`setigen.Frame.plot`.
+publication-ready images. The main function is :func:`~setigen.frame.Frame.plot`.
 
 You may choose what style of axes ticks and labels to use with the parameter 
 :code:`xtype`. By default, :code:`xtype=fmid` expresses the `x`-axis as the 
@@ -92,7 +92,7 @@ Frame integration
 -----------------
 
 To time integrate to get a spectrum, or to frequency integrate to get time series 
-intensities, you can use :func:`setigen.Frame.integrate`:
+intensities, you can use :func:`~setigen.frame.Frame.integrate`:
 
 .. code-block:: Python
     
@@ -108,7 +108,7 @@ Frame slicing
 -------------
 
 Given frequency boundary indices :code:`l` and :code:`r`, we can "slice" a frame by using 
-:func:`setigen.Frame.get_slice`, a wrapper for :func:`~setigen.get_slice`:
+:func:`~setigen.frame.Frame.get_slice`, a wrapper for :func:`~setigen.get_slice`:
 
 .. code-block:: Python
 

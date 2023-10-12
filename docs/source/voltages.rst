@@ -4,7 +4,12 @@
 Voltage synthesis (setigen.voltage)
 ===================================
 
-The setigen.voltage_ module extends |setigen| to the voltage regime. Instead of directly synthesizing spectrogram data, we can produce real voltages, pass them through a software pipeline based on a polyphase filterbank, and record to file in GUPPI RAW format. As this process models actual hardware used by Breakthrough Listen for recording raw voltages, this enables lower level testing and experimentation.
+The setigen.voltage_ module extends |setigen| to the voltage regime. Instead of 
+directly synthesizing spectrogram data, we can produce real voltages, pass them 
+through a software pipeline based on a polyphase filterbank, and record to file 
+in GUPPI RAW format. As this process models actual hardware used by 
+Breakthrough Listen for recording raw voltages, this enables lower level 
+testing and experimentation.
 
 A set of tutorial walkthroughs can be found `here <https://github.com/bbrzycki/setigen/tree/main/jupyter-notebooks/voltage>`_.
 
@@ -13,13 +18,30 @@ The basic pipeline structure
 
 .. image:: images/setigen_voltage_diagram_h.png
 
-The basic layout of a voltage pipeline written using :code:`setigen.voltage` is shown in the image. 
+The basic layout of a voltage pipeline written using :code:`setigen.voltage` 
+is shown in the image. 
 
-First, we have an Antenna, which contains DataStreams for each polarization (1 or 2 total). Noise and signals are added to individual DataStreams, so that polarizations are unique and not necessarily correlated. These are added as functions, which accept an array of times in seconds and return an array of voltages, corresponding to random noise or defined signals. This allows us to obtain voltage samples on demand from each DataStream, and by extension from the Antenna. 
+First, we have an Antenna, which contains DataStreams for each polarization 
+(1 or 2 total). Noise and signals are added to individual DataStreams, so 
+that polarizations are unique and not necessarily correlated. These are added 
+as functions, which accept an array of times in seconds and return an array 
+of voltages, corresponding to random noise or defined signals. This allows us 
+to obtain voltage samples on demand from each DataStream, and by extension 
+from the Antenna. 
 
-The main backend elements are the digitizer, filterbank, and requantizer. The digitizer quantizes input voltages to a desired number of bits, and a desired full width at half maximum (FWHM) in the quantized voltage space. The filterbank implements a software polyphase filterbank, coarsely channelizing input voltages. The requantizer takes the resulting complex voltages, and quantizes each component to either 8 or 4 bits, suitable for saving into GUPPI RAW format. 
+The main backend elements are the digitizer, filterbank, and requantizer. 
+The digitizer quantizes input voltages to a desired number of bits, and a 
+desired full width at half maximum (FWHM) in the quantized voltage space. 
+The filterbank implements a software polyphase filterbank, coarsely 
+channelizing input voltages. The requantizer takes the resulting complex 
+voltages, and quantizes each component to either 8 or 4 bits, suitable for 
+saving into GUPPI RAW format. 
 
-All of these elements are wrapped into the RawVoltageBackend, which connects each piece together. The main method :code:`RawVoltageBackend.record()` automatically retrieves real voltages as needed and passes them through each backend element, finally saving out the quantized complex voltages to disk.
+All of these elements are wrapped into the RawVoltageBackend, which connects 
+each piece together. The main method 
+:func:`setigen.voltage.backend.RawVoltageBackend.record` automatically 
+retrieves real voltages as needed and passes them through each backend element, 
+finally saving out the quantized complex voltages to disk.
 
 A minimal working example of the pipeline is as follows:
 
@@ -67,14 +89,24 @@ A minimal working example of the pipeline is as follows:
                load_template=True,
                verbose=True)
                
-Note the :code:`load_template` argument, which loads keys from the internal `header_template.txt <https://github.com/bbrzycki/setigen/blob/main/setigen/voltage/header_template.txt>`_.
+Note the :code:`load_template` argument, which loads keys from the internal 
+`header_template.txt <https://github.com/bbrzycki/setigen/blob/main/setigen/voltage/header_template.txt>`_.
 
 Using GPU acceleration
 ----------------------
 
-The process of synthesizing real voltages at a high sample rate and passing through multiple signal processing steps can be very computationally expensive on a CPU. Accordingly, if you have access to a GPU, it is highly recommended to install CuPy, which performs the equivalent NumPy array operations on the GPU (https://docs.cupy.dev/en/stable/install.html). This is not necessary to run raw voltage generation, but will highly accelerate the pipeline. 
+The process of synthesizing real voltages at a high sample rate and passing 
+through multiple signal processing steps can be very computationally expensive 
+on a CPU. Accordingly, if you have access to a GPU, it is highly recommended 
+to install CuPy, which performs the equivalent NumPy array operations on the 
+GPU (https://docs.cupy.dev/en/stable/install.html). This is not necessary to 
+run raw voltage generation, but will highly accelerate the pipeline. 
 
-Once you have CuPy installed, to enable GPU acceleration, you must set :code:`SETIGEN_ENABLE_GPU` to '1' in the shell or in Python via :code:`os.environ`. It can also be useful to set :code:`CUDA_VISIBLE_DEVICES` to specify which GPUs to use. The following enables GPU usage and specifies to use the GPU indexed as 0.
+Once you have CuPy installed, to enable GPU acceleration, you must set 
+:code:`SETIGEN_ENABLE_GPU` to '1' in the shell or in Python via 
+:code:`os.environ`. It can also be useful to set :code:`CUDA_VISIBLE_DEVICES` 
+to specify which GPUs to use. The following enables GPU usage and specifies to 
+use the GPU indexed as 0.
 
 In Bash:
 
@@ -97,16 +129,25 @@ Details behind classes
 Adding noise and signal sources
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If your application uses two polarizations, an Antenna's data streams are available via the :code:`Antenna.x` and :code:`Antenna.y` attributes. For one polarization, only the former is available. We can inject noise and signal sources to these individual data streams. Note that you can still add signal sources after the RawVoltageBackend is created; real voltages are only computed at execution time.
+If your application uses two polarizations, an Antenna's data streams are 
+available via the :code:`Antenna.x` and :code:`Antenna.y` attributes. For one 
+polarization, only the former is available. We can inject noise and signal 
+sources to these individual data streams. Note that you can still add signal 
+sources after the RawVoltageBackend is created; real voltages are only 
+computed at execution time.
 
-Real voltage noise is modeled as ideal Gaussian noise. Note that this actually stores a function with the DataStream that isn't evaluated until :code:`get_samples()` is actually called:
+Real voltage noise is modeled as ideal Gaussian noise. Note that this actually 
+stores a function with the DataStream that isn't evaluated until 
+:func:`~setigen.voltage.data_stream.DataStream.get_samples` is actually called:
 
 .. code-block:: python
 
     antenna.x.add_noise(v_mean=0, 
                         v_std=1)
 
-For convenience, the :code:`Antenna.streams` attribute is a list containing the available data streams for each polarization. So, to add a Gaussian noise source (with the same statistics) to each antenna, you can do:
+For convenience, the :code:`Antenna.streams` attribute is a list containing 
+the available data streams for each polarization. So, to add a Gaussian noise 
+source (with the same statistics) to each antenna, you can do:
 
 .. code-block:: python
 
@@ -114,7 +155,9 @@ For convenience, the :code:`Antenna.streams` attribute is a list containing the 
         stream.add_noise(v_mean=0, 
                          v_std=1)
                          
-This will adjust the :code:`DataStream.noise_std` parameter for each polarization, which is also accessible using :code:`DataStream.get_total_noise_std()`. 
+This will adjust the :code:`DataStream.noise_std` parameter for each 
+polarization, which is also accessible using 
+:func:`~setigen.voltage.data_stream.DataStream.get_total_noise_std`. 
                          
 We can also add drifting cosine signals to each stream:
 
@@ -132,7 +175,8 @@ cosine signal, and :code:`phase` is the phase offset in radians.
 Custom signal sources
 ^^^^^^^^^^^^^^^^^^^^^
 
-To add custom signal source functions, you can use the :code:`add_signal` method:
+To add custom signal source functions, you can use the :code:`add_signal` 
+method:
 
 .. code-block:: python
 
@@ -149,7 +193,12 @@ example showing how you might generate Gaussian noise "signal":
         
     stream.add_signal(my_noise_source)
                          
-As custom signals are added, the :code:`DataStream.noise_std` parameter may no longer be accurate. In these cases, you may run :func:`~setigen.voltage.data_stream.DataStream.update_noise` to estimate the noise based on a few voltages calculated from all noise and signal sources. Then, the proper noise standard deviation can be produced via :code:`DataStream.get_total_noise_std()`.
+As custom signals are added, the :code:`DataStream.noise_std` parameter may no 
+longer be accurate. In these cases, you may run 
+:func:`~setigen.voltage.data_stream.DataStream.update_noise` to estimate the 
+noise based on a few voltages calculated from all noise and signal sources. 
+Then, the proper noise standard deviation can be produced via 
+:func:`~setigen.voltage.data_stream.DataStream.get_total_noise_std`.
 
 You may also check out these example notebooks: `03_custom_signals.ipynb <https://github.com/bbrzycki/setigen/blob/main/jupyter-notebooks/voltage/03_custom_signals.ipynb>`_ and `04_custom_signals_estimate_noise.ipynb <https://github.com/bbrzycki/setigen/blob/main/jupyter-notebooks/voltage/04_custom_signals_estimate_noise.ipynb>`_.
 
@@ -174,9 +223,14 @@ the most accurate if the voltage distribution changes over time).
 Polyphase filterbank
 ^^^^^^^^^^^^^^^^^^^^
 
-The PolyphaseFilterbank class implements and applies a PFB to quantized input voltages. A good introduction to PFBs is Danny C. Price 2016, "Spectrometers and Polyphase Filterbanks in Radio Astronomy" (http://arxiv.org/abs/1607.03579), as well as the `accompanying Jupyter notebook <https://github.com/telegraphic/pfb_introduction/blob/master/pfb_introduction.ipynb>`_. 
+The PolyphaseFilterbank class implements and applies a PFB to quantized input 
+voltages. A good introduction to PFBs is Danny C. Price 2016, "Spectrometers 
+and Polyphase Filterbanks in Radio Astronomy" 
+(http://arxiv.org/abs/1607.03579), as well as the 
+`accompanying Jupyter notebook <https://github.com/telegraphic/pfb_introduction/blob/master/pfb_introduction.ipynb>`_. 
 
-The main things to keep in mind when initializing a PolyphaseFilterbank object are:
+The main things to keep in mind when initializing a PolyphaseFilterbank object 
+are:
 
 - :code:`num_taps` controls the spectral profile of each individual coarse channel. The larger this is, the closer the spectral response gets to ideal.
 - :code:`num_branches` controls the number of coarse channels. After the real FFT, we obtain :code:`num_branches / 2` total coarse channels spanning the Nyquist range.
@@ -234,7 +288,8 @@ You can access both background data streams using the :code:`MultiAntennaArray.b
                                    drift_rate=0*u.Hz/u.s, 
                                    level=0.0025)
                                         
-Then, instead of passing a single Antenna into a RawVoltageBackend object, you pass in the MultiAntennaArray:
+Then, instead of passing a single Antenna into a RawVoltageBackend object, 
+you pass in the MultiAntennaArray:
 
 .. code-block:: python
 
@@ -248,7 +303,9 @@ Then, instead of passing a single Antenna into a RawVoltageBackend object, you p
                                         blocks_per_file=128,
                                         num_subblocks=32)
                                         
-The RawVoltageBackend will get samples from each Antenna, accounting for the background data streams intrinsic to the MultiAntennaArray, subject to each Antenna's delays. 
+The RawVoltageBackend will get samples from each Antenna, accounting for the 
+background data streams intrinsic to the MultiAntennaArray, subject to each 
+Antenna's delays. 
 
 You may also check out this example notebook: `01_multi_antenna_raw_file_gen.ipynb <https://github.com/bbrzycki/setigen/blob/main/jupyter-notebooks/voltage/01_multi_antenna_raw_file_gen.ipynb>`_.
 
@@ -256,11 +313,23 @@ You may also check out this example notebook: `01_multi_antenna_raw_file_gen.ipy
 Injecting signals at a desired SNR
 ----------------------------------
 
-With noise and multiple signal processing operations, including an FFT, it can be a bit tricky to choose the correct amplitude of a cosine signal at the beginning of the pipeline to achieve a desired signal-to-noise ratio (SNR) in the final finely channelized intensity data products. :mod:`setigen.voltage.level_utils` has a few helper functions to facilitate this, depending on the nature of the desired cosine signal.
+With noise and multiple signal processing operations, including an FFT, it 
+can be a bit tricky to choose the correct amplitude of a cosine signal at the 
+beginning of the pipeline to achieve a desired signal-to-noise ratio (SNR) in 
+the final finely channelized intensity data products. 
+:mod:`setigen.voltage.level_utils` has a few helper functions to facilitate 
+this, depending on the nature of the desired cosine signal.
 
-Since the final SNR depends on the fine channelization FFT length and the time integration factor, as well as parameters inherent to the data production, we need external functions to help calculate an amplitude, or level, for our cosine signal. 
+Since the final SNR depends on the fine channelization FFT length and the 
+time integration factor, as well as parameters inherent to the data production, 
+we need external functions to help calculate an amplitude, or level, for our 
+cosine signal. 
 
-First off, assume we are creating a non-drifting cosine signal. If the signal is at the center of a finely channelized frequency bin, :func:`~setigen.voltage.level_utils.get_level` gives the appropriate cosine amplitude to achieve a given SNR if the initial real Gaussian noise has a variance of 1:
+First off, assume we are creating a non-drifting cosine signal. If the signal 
+is at the center of a finely channelized frequency bin, 
+:func:`~setigen.voltage.level_utils.get_level` gives the appropriate cosine 
+amplitude to achieve a given SNR if the initial real Gaussian noise has a 
+variance of 1:
 
 .. code-block:: python
 
@@ -272,9 +341,22 @@ First off, assume we are creating a non-drifting cosine signal. If the signal is
                                          num_blocks=num_blocks,
                                          length_mode='num_blocks')
                                          
-If the noise in the DataStream doesn't have a variance of 1, we need to adjust this signal level by multiplying by :code:`DataStream.get_total_noise_std()`. Note that this method also works for data streams within Antennas that are part of MultiAntennaArrays, since it will automatically account for the background noise in the array. Since the noise power is squared during fine channelization, the signal amplitude should go linearly as a function of the standard deviation of the noise.
+If the noise in the DataStream doesn't have a variance of 1, we need to adjust 
+this signal level by multiplying by 
+:func:`~setigen.voltage.data_stream.DataStream.get_total_noise_std()`. 
+Note that this method also works for data streams within Antennas that are 
+part of MultiAntennaArrays, since it will automatically account for the 
+background noise in the array. Since the noise power is squared during fine 
+channelization, the signal amplitude should go linearly as a function of the 
+standard deviation of the noise.
 
-If the signal is non-drifting, in general the spectral response will go as :code:`1/sinc^2(x)`, where :code:`x` is the fractional error off of the center of the spectral bin. To calculate the corresponding amount to adjust signal_level, you can use :func:`~setigen.voltage.level_utils.get_leakage_factor`. This technically calculates :code:`1/sinc(x)`, which is inherently squared naturally along with the cosine signal amplitude during fine channelization.
+If the signal is non-drifting, in general the spectral response will go as 
+:code:`1/sinc^2(x)`, where :code:`x` is the fractional error off of the center 
+of the spectral bin. To calculate the corresponding amount to adjust 
+signal level, you can use 
+:func:`~setigen.voltage.level_utils.get_leakage_factor`. This technically 
+calculates :code:`1/sinc(x)`, which is inherently squared naturally along 
+with the cosine signal amplitude during fine channelization.
 
 To account for drift rates, it gets a bit more complicated; in general, if the 
 drift rate is larger than a pixel by pixel slope of 1 in the final spectrogram 
@@ -309,9 +391,19 @@ You may also check out this example notebook: `05_raw_file_gen_snr.ipynb <https:
 Injecting signals starting from existing RAW files
 --------------------------------------------------
 
-In addition to recording entirely synthetic voltage data, we can also inject signals onto existing RAW files. This approach is somehwat limited, since the data in existing RAW files have necessarily already been digitized, channelized, and requantized using hardware at the telescope; we cannot add the time series real voltage signals. 
+In addition to recording entirely synthetic voltage data, we can also inject 
+signals onto existing RAW files. This approach is somewhat limited, since the 
+data in existing RAW files have necessarily already been digitized, 
+channelized, and requantized using hardware at the telescope; we cannot add 
+the time series real voltage signals. 
 
-Instead, we can use parameters from the RAW data to create synthetic data streams, and add the corresponding complex RAW voltages together as our "injection". Of course, we want to make sure the synthetic data properties match those of the RAW files, so we have a helper function :code:`get_raw_params` that returns a dictionary with relevant properties. Note that we still need to specify which coarse channel the recorded data starts from, since this isn't saved in the header.
+Instead, we can use parameters from the RAW data to create synthetic data 
+streams, and add the corresponding complex RAW voltages together as our 
+"injection". Of course, we want to make sure the synthetic data properties 
+match those of the RAW files, so we have a helper function 
+:code:`get_raw_params` that returns a dictionary with relevant properties. 
+Note that we still need to specify which coarse channel the recorded data 
+starts from, since this isn't saved in the header.
 
 .. code-block:: python
 
@@ -325,7 +417,7 @@ Instead, we can use parameters from the RAW data to create synthetic data stream
                                   **raw_params)
 
 To then create a RawVoltageBackend, we use the class method 
-:func:`~setigen.voltage.RawVoltageBackend.from_data`, where :code:`input_file_stem` is the 
+:func:`~setigen.voltage.backend.RawVoltageBackend.from_data`, where :code:`input_file_stem` is the 
 filename stem as used by :code:`rawspec`. 
 
 .. code-block:: python
@@ -344,7 +436,7 @@ if we create an Antenna with only cosine-like signals, the distribution of
 voltages will look highly non-Gaussian. So, if we attempt to digitize or 
 requantize this normally, we risk distorting the data and introducing 
 artifacts. To avoid this, if the Antenna has no injected Gaussian noise source, 
-we can run :func:`~setigen.voltage.RawVoltageBackend.record` with parameter 
+we can run :func:`~setigen.voltage.backend.RawVoltageBackend.record` with parameter 
 :code:`digitize=False`. Then, the signals will be channelized and quantized as 
 if they were embedded in zero-mean Gaussian noise with standard deviation 1. 
 Now, if there *is* a noise source, you can leave :code:`digitize=True` 
@@ -357,7 +449,7 @@ Now, if there *is* a noise source, you can leave :code:`digitize=True`
                digitize=False,
                verbose=True)
                
-In the :func:`~setigen.voltage.RawVoltageBackend.record` call, if no 
+In the :func:`~setigen.voltage.backend.RawVoltageBackend.record` call, if no 
 :code:`num_blocks` or :code:`obs_length` is specified, data will be recorded 
 matching the total length / size of the input data. You may specify these 
 parameters to record a smaller amount of data (starting from the beginning of 

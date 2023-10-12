@@ -38,7 +38,7 @@ setigen.voltage.polyphase\_filterbank module
     :show-inheritance:
 
 setigen.voltage.quantization module
----------------------------
+-----------------------------------
 
 .. automodule:: setigen.voltage.quantization
     :special-members: __init__
@@ -47,7 +47,7 @@ setigen.voltage.quantization module
     :show-inheritance:
 
 setigen.voltage.level\_utils module
----------------------------------
+-----------------------------------
 
 .. automodule:: setigen.voltage.level_utils
     :members:

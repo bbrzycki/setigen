@@ -1,7 +1,8 @@
 .. |setigen| replace:: :mod:`setigen`
-.. _setigen.funcs: https://setigen.readthedocs.io/en/master/setigen.funcs.html
-.. _`Getting started`: https://setigen.readthedocs.io/en/master/getting_started.html
-.. _`observational data`: https://setigen.readthedocs.io/en/master/advanced.html#creating-custom-observational-noise-distributions
+.. _setigen.funcs: https://setigen.readthedocs.io/en/main/setigen.funcs.html
+.. _`Getting started`: https://setigen.readthedocs.io/en/main/getting_started.html
+.. _`Advanced`: https://setigen.readthedocs.io/en/main/advanced.html
+.. _`observational data`: https://setigen.readthedocs.io/en/main/advanced.html#creating-custom-observational-noise-distributions
 
 Basic usage (setigen.Frame)
 ===========================
@@ -278,7 +279,7 @@ This path is a very simple quadratic with respect to time, using
 .. image:: images/squared_signal.png
 
 RFI-like path
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 This path randomly varies in frequency, as in some RFI signals, using
 :func:`~setigen.funcs.paths.simple_rfi_path`. The following example shows two
@@ -446,7 +447,9 @@ Multiple Gaussian intensity profile
 
 The profile :func:`~setigen.funcs.f_profiles.multiple_gaussian_f_profile`,
 generates a symmetric signal with three Gaussians; one main signal and two
-smaller signals on either side. This is mostly a demonstration that :code:`f_profile` functions can be composite, and you can create custom functions like this (:doc:`advanced.rst`).
+smaller signals on either side. This is mostly a demonstration that 
+:code:`f_profile` functions can be composite, and you can create custom 
+functions like this (`Advanced`_).
 
 .. code-block:: Python
 

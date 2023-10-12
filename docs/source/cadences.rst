@@ -1,7 +1,7 @@
 .. |setigen| replace:: :mod:`setigen`
-.. _setigen.funcs: https://setigen.readthedocs.io/en/master/setigen.funcs.html
-.. _`Getting started`: https://setigen.readthedocs.io/en/master/getting_started.html
-.. _`observational data`: https://setigen.readthedocs.io/en/master/advanced.html#creating-custom-observational-noise-distributions
+.. _setigen.funcs: https://setigen.readthedocs.io/en/main/setigen.funcs.html
+.. _`Getting started`: https://setigen.readthedocs.io/en/main/getting_started.html
+.. _`observational data`: https://setigen.readthedocs.io/en/main/advanced.html#creating-custom-observational-noise-distributions
 
 Cadences
 ========

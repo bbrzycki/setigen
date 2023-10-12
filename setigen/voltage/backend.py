@@ -21,18 +21,17 @@ from setigen.voltage import polyphase_filterbank
 from setigen.voltage import quantization
 from setigen.voltage import antenna as v_antenna
 
+
 class RawVoltageBackend(object):
     """
     Central class that wraps around antenna sources and backend elements to facilitate the
     creation of GUPPI RAW voltage files from synthetic real voltages.
     """
-    
-    
     def __init__(self,
                  antenna_source,
-                 digitizer, #=quantization.RealQuantizer(),
-                 filterbank, #=polyphase_filterbank.PolyphaseFilterbank(),
-                 requantizer, #=quantization.ComplexQuantizer(),
+                 digitizer,
+                 filterbank,
+                 requantizer,
                  start_chan=0,
                  num_chans=64,
                  block_size=134217728,
@@ -170,8 +169,8 @@ class RawVoltageBackend(object):
     def from_data(cls, 
                   input_file_stem,
                   antenna_source,
-                  digitizer, #=quantization.RealQuantizer(),
-                  filterbank, #=polyphase_filterbank.PolyphaseFilterbank(),
+                  digitizer,
+                  filterbank,
                   start_chan=0,
                   num_subblocks=32):
         """

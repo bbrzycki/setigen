@@ -67,7 +67,7 @@ setigen.distributions module
     :show-inheritance:
 
 setigen.waterfall\_utils module
--------------------------
+-------------------------------
 
 .. automodule:: setigen.waterfall_utils
     :members:

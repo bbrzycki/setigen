@@ -39,7 +39,7 @@ saving into GUPPI RAW format.
 
 All of these elements are wrapped into the RawVoltageBackend, which connects 
 each piece together. The main method 
-:func:`setigen.voltage.backend.RawVoltageBackend.record` automatically 
+:func:`~setigen.voltage.backend.RawVoltageBackend.record` automatically 
 retrieves real voltages as needed and passes them through each backend element, 
 finally saving out the quantized complex voltages to disk.
 

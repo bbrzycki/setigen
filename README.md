@@ -7,7 +7,7 @@ https://doi.org/10.3847/1538-3881/ac5e3d)
 
 `setigen` is a Python library for generating and injecting artificial narrow-band signals into radio frequency data, by way of data formats used extensively by the [Breakthrough Listen (BL) team @ Berkeley](https://seti.berkeley.edu/listen/). 
 
-![Synthetic sine modulated signal + synthetic RFI signal](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/flashy_synthetic.png)
+![Synthetic sine modulated signal + synthetic RFI signal](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/flashy_synthetic.png)
 
 The main module of `setigen` is based on creating synthetic spectrogram (dynamic spectra) data, showing intensity as a function of time and frequency. Observational data saved in filterbank files can be loaded into `setigen`, and synthetic signals can be easily injected on top and saved out to file. `setigen` works well with file handling via BL's [`blimpy`](https://github.com/UCBerkeleySETI/blimpy) package.
 
@@ -91,7 +91,7 @@ plt.show()
 
 This first adds chi-squared noise to the frame, and adds a constant intensity signal at 30 SNR (relative to the background noise). The result is:
 
-![Example synthetic frame](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/example.png)
+![Example synthetic frame](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/example.png)
 
 Another example, using values found in real observations and visualized in the style of `blimpy`:
 
@@ -117,7 +117,7 @@ frame.plot()
 plt.show()
 ```
 
-![Example obs synthetic frame](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/example_obs.png)
+![Example obs synthetic frame](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/example_obs.png)
 
 ## Cadences <a name="cadences"></a>
 
@@ -155,7 +155,7 @@ c.plot()
 plt.show()
 ```
 
-![Example synthetic cadence](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/c_plot_readme.png)
+![Example synthetic cadence](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/c_plot_readme.png)
 
 Note that cadence objects don't have an imposed order -- they serve as a bare-bones 
 organizational structure for frames. If you would like to impose an order,
@@ -179,11 +179,11 @@ subplots in the vertical direction proportionally to slew time with:
 c.plot(slew_times=True)
 ```
 
-![Example synthetic cadence slew times](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/c_plot_slew.png)
+![Example synthetic cadence slew times](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/c_plot_slew.png)
 
 ## Raw Voltage Format - `setigen.voltage` <a name="voltage-format"></a>
 
-![setigen.voltage block diagram](https://raw.githubusercontent.com/bbrzycki/setigen/cadence/docs/source/images/setigen_voltage_diagram_h.png)
+![setigen.voltage block diagram](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/setigen_voltage_diagram_h.png)
 
 The `setigen.voltage` module extends `setigen` to the voltage regime. Instead of directly synthesizing spectrogram data, we can produce real voltages, pass them through a software pipeline based on a polyphase filterbank, and record to file in GUPPI RAW format. In turn, this data can then be reduced as usual using [`rawspec`](https://github.com/UCBerkeleySETI/rawspec). As this process models actual hardware used by Breakthrough Listen for recording raw voltages, this enables lower level testing and experimentation. The basic layout of a `setigen.voltage` pipeline is shown above.
 

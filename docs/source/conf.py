@@ -17,9 +17,9 @@ import sys
 setigen_path = Path(__file__).parents[2].resolve()
 sys.path.insert(0, str(setigen_path))
 
-version = {}
+version_dict = {}
 with open(setigen_path / "setigen/_version.py") as fp:
-    exec(fp.read(), version)
+    exec(fp.read(), version_dict)
 
 # -- Project information -----------------------------------------------------
 
@@ -30,7 +30,7 @@ author = u'Bryan Brzycki'
 # # The short X.Y version
 # version = u'2.4'
 # The full version, including alpha/beta/rc tags
-release = version["__version__"]
+release = version_dict["__version__"]
 
 
 # -- General configuration ---------------------------------------------------

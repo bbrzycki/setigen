@@ -6,12 +6,12 @@ with open("README.md", "r") as fh:
 with open("requirements.txt", "r") as f:
     install_requires = f.readlines()
 
-version = {}
+version_dict = {}
 with open("setigen/_version.py") as fp:
-    exec(fp.read(), version)
+    exec(fp.read(), version_dict)
 setuptools.setup(
     name="setigen",
-    version=version["__version__"],
+    version=version_dict["__version__"],
     author="Bryan Brzycki",
     author_email="bbrzycki@berkeley.edu",
     description="SETI radio signal generator",

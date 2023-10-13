@@ -28,48 +28,6 @@ def array(fr):
         return fr.get_data()
     except AttributeError:
         return fr
-
-
-def render(fr, use_db=False, cb=True):
-    """
-    Display frame data in waterfall format.
-    
-    Parameters
-    ----------
-    fr : Frame, or 2D ndarray
-        Input frame or Numpy array
-    use_db : bool
-        Option to convert intensities to dB
-    cb : bool
-        Option to display colorbar
-    """ 
-    # If `data` is a Frame object, just grab its data
-    data = array(fr)
-    if use_db:
-        data = db(data)
-    plt.imshow(data,
-               aspect='auto',
-               interpolation='none')
-    if cb:
-        plt.colorbar()
-    plt.xlabel('Frequency (px)')
-    plt.ylabel('Time (px)')
-    
-    
-def plot(fr, use_db=False, cb=True):
-    """
-    Display frame data in waterfall format.
-    
-    Parameters
-    ----------
-    fr : Frame, or 2D ndarray
-        Input frame or Numpy array
-    use_db : bool
-        Option to convert intensities to dB
-    cb : bool
-        Option to display colorbar
-    """ 
-    render(fr=fr, use_db=use_db, cb=cb)
     
 
 def integrate(fr, axis='t', mode='mean', normalize=False):

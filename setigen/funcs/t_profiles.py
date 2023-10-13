@@ -15,6 +15,15 @@ from setigen.funcs import func_utils
 def constant_t_profile(level=1):
     """
     Constant intensity profile.
+    
+    Parameters
+    ----------
+    level : float, default: 1
+        Intensity level
+
+    Return
+    ------
+    t_profile : func
     """
     def t_profile(t):
         if isinstance(t, (np.ndarray, list)):
@@ -27,7 +36,22 @@ def constant_t_profile(level=1):
 
 def sine_t_profile(period, phase=0, amplitude=1, level=1):
     """
-    Intensity varying as a sine curve, where level is the mean intensity.
+    Intensity varying as a sine curve.
+    
+    Parameters
+    ----------
+    period : float or astropy.Quantity
+        Modulation period
+    phase : float, default: 0
+        Modulation phase
+    amplitude : float, default: 1
+        Modulation amplitude
+    level : float, default: 1
+        Mean intensity level
+
+    Return
+    ------
+    t_profile : func
     """
     period = unit_utils.get_value(period, u.s)
 
@@ -48,21 +72,33 @@ def periodic_gaussian_t_profile(pulse_width,
     """
     Intensity varying as Gaussian pulses, allowing for variation in the arrival
     time of each pulse.
+    
+    Parameters
+    ----------
+    pulse_width : float or astropy.Quantity
+        FWHM width of individual pulses
+    period : float or astropy.Quantity
+        Baseline modulation period
+    phase : float or astropy.Quantity, default: 0
+        Baseline modulation phase
+    pulse_offset_width : float or astropy.Quantity, default: 0
+        FWHM of timing variation from the modulation period
+    pulse_direction : {"rand", "up", "down"}, default: "rand"
+        Whether the intensity increases or decreases from the baseline level
+    pnum : float or astropy.Quantity, default: 3
+        Number of Gaussians pulses to consider when calculating the intensity 
+        at each timestep. The higher this number, the more accurate the
+        intensities.
+    amplitude : float, default: 1
+        Pulse magnitude
+    level : float, default: 1
+        Baseline intensity level
+    min_level : float, default: 0
+        Minimum intensity level
 
-    `period` and `phase` give a baseline for pulse periodicity.
-
-    `pulse_direction` can be 'up', 'down', or 'rand', referring to whether the
-    intensity increases or decreases from the baseline `level`. `amplitude` is
-    the magnitude of each pulse. `min_level` is the minimum intensity, default
-    is 0.
-
-    `pulse_offset_width` encodes the variation in the pulse period, whereas
-    `pulse_width` is the width of individual pulses. Both are modeled as
-    Gaussians, where 'width' refers to the FWHM of the distribution.
-
-    `pnum` is the number of Gaussians pulses to consider when calculating the
-    intensity at each timestep. The higher this number, the more accurate the
-    intensities.
+    Return
+    ------
+    t_profile : func
     """
     period = unit_utils.get_value(period, u.s)
 

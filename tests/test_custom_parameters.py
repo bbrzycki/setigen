@@ -1,9 +1,9 @@
 import pytest
+from pathlib import Path
 import copy
 import numpy as np
 from numpy.testing import assert_allclose
 
-import os
 from astropy import units as u
 import setigen as stg
 import blimpy as bl
@@ -32,8 +32,9 @@ def frame_setup_no_data_ascending():
 
 @pytest.fixture()
 def constant_signal_data():
-    my_path = os.path.abspath(os.path.dirname(__file__))
-    path = os.path.join(my_path, 'assets/test_frame_data.npy')
+    # my_path = os.path.abspath(os.path.dirname(__file__))
+    # path = os.path.join(my_path, 'assets/test_frame_data.npy')
+    path = Path(__file__).resolve().parent / "assets/test_frame_data.npy"
     return np.load(path)
 
 
@@ -49,8 +50,8 @@ def test_setup_no_data(frame_setup_no_data):
     assert (frame.fmin - 6095211984.124035) == pytest.approx(0)
 
     assert_allclose(frame.data, np.zeros((32, 1024)))
-    assert frame.mean() == frame.noise_mean == 0
-    assert frame.std() == frame.noise_std == 0
+    assert frame.mean == frame.noise_mean == 0
+    assert frame.std == frame.noise_std == 0
     
     
 def test_setup_no_data_ascending(frame_setup_no_data_ascending):
@@ -65,8 +66,8 @@ def test_setup_no_data_ascending(frame_setup_no_data_ascending):
     assert (frame.fmin - 6095211984.124035) == pytest.approx(0)
 
     assert_allclose(frame.data, np.zeros((32, 1024)))
-    assert frame.mean() == frame.noise_mean == 0
-    assert frame.std() == frame.noise_std == 0
+    assert frame.mean == frame.noise_mean == 0
+    assert frame.std == frame.noise_std == 0
     
     
 def test_index_calc(frame_setup_no_data, frame_setup_no_data_ascending):
@@ -81,10 +82,10 @@ def test_index_calc(frame_setup_no_data, frame_setup_no_data_ascending):
     assert frame1.get_frequency(200) == pytest.approx(6095212542.91758)
 
     
-def test_fil_io(frame_setup_no_data):
+def test_fil_io(frame_setup_no_data, tmp_path):
     frame = copy.deepcopy(frame_setup_no_data)
 
-    fil_fn = 'temp.fil'
+    fil_fn = tmp_path / 'temp.fil'
     frame.save_fil(fil_fn)
 
     temp_frame = stg.Frame(waterfall=fil_fn)
@@ -94,13 +95,11 @@ def test_fil_io(frame_setup_no_data):
     temp_frame = stg.Frame(waterfall=wf)
     assert_allclose(temp_frame.get_data(), frame.get_data())
 
-    os.remove(fil_fn)
 
-
-def test_h5_io(frame_setup_no_data):
+def test_h5_io(frame_setup_no_data, tmp_path):
     frame = copy.deepcopy(frame_setup_no_data)
 
-    fil_fn = 'temp.h5'
+    fil_fn = tmp_path / 'temp.h5'
     frame.save_hdf5(fil_fn)
 
     temp_frame = stg.Frame(waterfall=fil_fn)
@@ -109,8 +108,6 @@ def test_h5_io(frame_setup_no_data):
     wf = bl.Waterfall(fil_fn)
     temp_frame = stg.Frame(waterfall=wf)
     assert_allclose(temp_frame.get_data(), frame.get_data())
-
-    os.remove(fil_fn)
 
 
 def test_constant_signal_from_add_signal(frame_setup_no_data,
@@ -121,8 +118,8 @@ def test_constant_signal_from_add_signal(frame_setup_no_data,
                               stg.constant_t_profile(level=1),
                               stg.gaussian_f_profile(width=50*u.Hz),
                               stg.constant_bp_profile(level=1))
-    assert_allclose(signal, frame.get_data(use_db=False))
-    assert_allclose(frame.get_data(use_db=False), constant_signal_data)
+    assert_allclose(signal, frame.get_data(db=False))
+    assert_allclose(frame.get_data(db=False), constant_signal_data)
 
 
 def test_constant_signal_from_add_constant_signal(frame_setup_no_data,
@@ -133,8 +130,8 @@ def test_constant_signal_from_add_constant_signal(frame_setup_no_data,
                                        level=1,
                                        width=50*u.Hz,
                                        f_profile_type='gaussian')
-    assert_allclose(signal, frame.get_data(use_db=False))
-    assert_allclose(frame.get_data(use_db=False), constant_signal_data, atol=1e-4)
+    assert_allclose(signal, frame.get_data(db=False))
+    assert_allclose(frame.get_data(db=False), constant_signal_data, atol=1e-4)
 
 
 def test_signal_from_arrays():
@@ -145,7 +142,7 @@ def test_signal_from_arrays():
                      bp_profile=[1, 0.5, 1])
 
     data = np.array([[0., 0.5, 0.], [0.5, 0., 0.], [0., 0., 1.]])
-    assert_allclose(data, frame.get_data(use_db=False))
+    assert_allclose(data, frame.get_data(db=False))
 
 
 def test_signal_from_floats():
@@ -156,4 +153,4 @@ def test_signal_from_floats():
                      bp_profile=3)
 
     data = np.array([[0., 0., 6.], [0., 0., 6.], [0., 0., 6.]])
-    assert_allclose(data, frame.get_data(use_db=False))
+    assert_allclose(data, frame.get_data(db=False))

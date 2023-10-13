@@ -1,9 +1,7 @@
 import pytest
 import copy
 import numpy as np
-from numpy.testing import assert_allclose
 
-import os
 from astropy import units as u
 import setigen as stg
 import blimpy as bl
@@ -81,7 +79,8 @@ def test_noise_injection_array(antenna_array_setup):
     
 
 def test_raw_creation(antenna_setup, 
-                      elements_setup):
+                      elements_setup,
+                      tmp_path):
     antenna = copy.deepcopy(antenna_setup)
     digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
     
@@ -111,7 +110,7 @@ def test_raw_creation(antenna_setup,
                                   level=0.002,
                                   phase=np.pi/2)
     
-    rvb.record(output_file_stem='example_1block',
+    rvb.record(output_file_stem=tmp_path / 'example_1block',
                num_blocks=1, 
                length_mode='num_blocks',
                header_dict={'HELLO': 'test_value',
@@ -120,7 +119,7 @@ def test_raw_creation(antenna_setup,
     
     # Check out header
     header_dict = {}
-    with open('example_1block.0000.raw', "rb") as f:
+    with open(tmp_path / 'example_1block.0000.raw', "rb") as f:
         i = 1
         chunk = f.read(80)
         while True:
@@ -140,12 +139,10 @@ def test_raw_creation(antenna_setup,
     assert header_dict['HELLO'] == 'test_value'
     
     # Reduce data
-    wf_data = stg.voltage.get_waterfall_from_raw('example_1block.0000.raw',
+    wf_data = stg.voltage.get_waterfall_from_raw(tmp_path / 'example_1block.0000.raw',
                                                  block_size=block_size,
                                                  num_chans=num_chans,
                                                  int_factor=1,
                                                  fftlength=1)
     
     assert wf_data.shape == (8, 64)
-
-    os.remove('example_1block.0000.raw')

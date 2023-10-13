@@ -16,6 +16,15 @@ setigen.frame module
     :members:
     :undoc-members:
     :show-inheritance:
+
+setigen.cadence module
+----------------------
+
+.. automodule:: setigen.cadence
+    :special-members: __init__
+    :members:
+    :undoc-members:
+    :show-inheritance:
     
 setigen.frame\_utils module
 --------------------------------
@@ -58,7 +67,7 @@ setigen.distributions module
     :show-inheritance:
 
 setigen.waterfall\_utils module
--------------------------
+-------------------------------
 
 .. automodule:: setigen.waterfall_utils
     :members:

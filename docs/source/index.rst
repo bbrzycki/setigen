@@ -1,4 +1,4 @@
-.. setigen documentation master file, created by
+.. setigen documentation main file, created by
    sphinx-quickstart on Wed Jul  4 14:40:16 2018.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -37,7 +37,9 @@ Table of Contents
    install
    getting_started
    basics
+   frame_methods
    advanced
+   cadences
    voltages
    setigen
    setigen.voltage

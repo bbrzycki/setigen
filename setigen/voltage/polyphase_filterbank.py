@@ -32,7 +32,8 @@ class PolyphaseFilterbank(object):
         num_taps : int, optional
             Number of PFB taps
         num_branches : int, optional
-            Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+            Number of PFB branches. Note that this results in 
+            :code:`num_branches / 2` coarse channels.
         window_fn : str, optional
             Windowing function used for the PFB
         """
@@ -123,7 +124,8 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
     num_taps : int
         Number of PFB taps
     num_branches : int
-        Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+        Number of PFB branches. Note that this results in 
+        :code:`num_branches / 2` coarse channels.
             
     Returns
     -------
@@ -137,13 +139,13 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
     h_p = pfb_window.reshape((num_taps, num_branches))
     
     # Resulting summed data array will be slightly shorter from windowing coeffs
-    I = xp.expand_dims(xp.arange(num_taps), 0) + xp.expand_dims(xp.arange((W - 1) * num_taps), 0).T
-    x_summed = xp.sum(x_p[I] * h_p, axis=1) / num_taps
+    # I = xp.expand_dims(xp.arange(num_taps), 0) + xp.expand_dims(xp.arange((W - 1) * num_taps), 0).T
+    # x_summed = xp.sum(x_p[I] * h_p, axis=1) / num_taps
     
-#     x_summed = xp.zeros(((W - 1) * num_taps, num_branches))
-#     for t in range(0, (W - 1) * num_taps):
-#         x_weighted = x_p[t:t+num_taps, :] * h_p
-#         x_summed[t, :] = xp.sum(x_weighted, axis=0)
+    x_summed = xp.zeros(((W - 1) * num_taps, num_branches))
+    for t in range(0, (W - 1) * num_taps):
+        x_weighted = x_p[t:t+num_taps, :] * h_p
+        x_summed[t, :] = xp.sum(x_weighted, axis=0)
     return x_summed
 
 
@@ -157,7 +159,8 @@ def get_pfb_window(num_taps, num_branches, window_fn='hamming'):
     num_taps : int
         Number of PFB taps
     num_branches : int
-        Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+        Number of PFB branches. Note that this results in 
+        :code:`num_branches / 2` coarse channels.
     window_fn : str, optional
         Windowing function used for the PFB
             
@@ -185,7 +188,8 @@ def get_pfb_voltages(x, num_taps, num_branches, window_fn='hamming'):
     num_taps : int
         Number of PFB taps
     num_branches : int
-        Number of PFB branches. Note that this results in `num_branches / 2` coarse channels.
+        Number of PFB branches. Note that this results in 
+        :code:`num_branches / 2` coarse channels.
     window_fn : str, optional
         Windowing function used for the PFB
             

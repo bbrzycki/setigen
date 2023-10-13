@@ -1,25 +1,36 @@
 import collections
 import numpy as np
-import blimpy as bl
-import matplotlib.pyplot as plt
 
 from . import frame as _frame
-from . import frame_utils
+from . import plots
 
 
 class Cadence(collections.abc.MutableSequence):
-    
+    """
+    A class for organizing cadences of Frame objects.
+
+    Parameters
+    ----------
+    frame_list : list of Frames, optional
+        List of frames to be included in the cadence
+    t_slew : float, optional
+        Slew time between frames
+    t_overwrite : bool, optional
+        Option to overwrite time data in frames to enforce slew time spacing           
+    """
     def __init__(self,
                  frame_list=None, 
                  t_slew=0,
-                 t_overwrite=True):
+                 t_overwrite=False):
         self.frames = list()
-        # Insert all initialized items, performing type checks
+        # Insert all initialized items, performing type _checks
         if not frame_list is None:
             self.extend(frame_list)
+        
         self.t_slew = t_slew
         self.t_overwrite = t_overwrite
-        
+        if t_overwrite:
+            self.overwrite_times()
         
     @property
     def t_start(self):
@@ -50,6 +61,12 @@ class Cadence(collections.abc.MutableSequence):
         if len(self.frames) == 0:
             return None
         return self.frames[0].fmax
+
+    @property 
+    def fmid(self):
+        if len(self.frames) == 0:
+            return None 
+        return self.frames[0].fmid
         
     @property
     def df(self):
@@ -75,9 +92,15 @@ class Cadence(collections.abc.MutableSequence):
             return None
         return sum([frame.tchans 
                     for frame in self.frames])
+    @property
+    def obs_range(self):
+        return self.frames[-1].t_stop - self.frames[0].t_start
         
-
-    def check(self, v):
+    def _check(self, v):
+        """
+        Ensure that object is a Frame and has consistent parameters with 
+        existing frames in the cadence. 
+        """
         if not isinstance(v, _frame.Frame):
             raise TypeError(f"{v} is not a Frame object.")
         if len(self.frames) > 0:
@@ -85,7 +108,6 @@ class Cadence(collections.abc.MutableSequence):
                 if getattr(v, attr) != getattr(self.frames[0], attr):
                     raise AttributeError(f"{attr}={getattr(v, attr)} does not match cadence ({getattr(self.frames[0], attr)})")
                 
-
     def __len__(self): 
         return len(self.frames)
 
@@ -101,11 +123,11 @@ class Cadence(collections.abc.MutableSequence):
         del self.frames[i]
 
     def __setitem__(self, i, v):
-        self.check(v)
+        self._check(v)
         self.frames[i] = v
 
     def insert(self, i, v):
-        self.check(v)
+        self._check(v)
         self.frames.insert(i, v)
 
     def __str__(self):
@@ -122,26 +144,68 @@ class Cadence(collections.abc.MutableSequence):
             
     @property
     def slew_times(self):
+        """
+        Compute slew times in between frames.
+        """
         return np.array([self.frames[i].t_start - self.frames[i - 1].t_stop 
                          for i in range(1, len(self.frames))])
     
-    def add_signal(self,
-                   *args,
-                   **kwargs):
+    def add_signal(self, *args, **kwargs):
+        """
+        Add signal to each frame in the cadence. Arguments are passed through
+        to :code:`Frame.add_signal`.
+        """
         for frame in self.frames:
             frame.ts += frame.t_start - self.t_start
             frame.add_signal(*args, **kwargs)
             frame.ts -= frame.t_start - self.t_start
         
     def apply(self, func):
+        """
+        Apply function to each frame in the cadence.
+        """
         return [func(frame) for frame in self.frames]
     
-    def plot(self):
-        plot_cadence(self)
+    def plot(self, *args, **kwargs):
+        """
+        Plot cadence as a multi-panel figure.
+
+        Parameters
+        ----------
+        cadence : Cadence
+            Cadence to plot
+        xtype : {"fmid", "fmin", "f", "px"}, default: "fmid"
+            Types of axis labels, particularly the x-axis. "px" puts axes in units 
+            of pixels. The others are all in frequency: "fmid" shows frequencies 
+            relative to the central frequency, "fmin" is relative to the minimum 
+            frequency, and "f" is absolute frequency.
+        db : bool, default: True
+            Option to convert intensities to dB
+        slew_times : bool, default: False
+            Option to space subplots vertically proportional to slew times
+        colorbar : bool, default: True
+            Whether to display colorbar
+        labels : bool, default: True
+            Option to place target name as a label in each subplot
+        title : bool, default: False
+            Option to place first source name as the figure title
+        minor_ticks : bool, default: False
+            Option to include minor ticks on both axes
+        grid : bool, default: False
+            Option to overplot grid from major ticks
+
+        Return 
+        ------
+        axs : matplotlib.axes.Axes
+            Axes subplots
+        cax : matplotlib.axes.Axes
+            Colorbar axes, if created
+        """
+        plots.plot_cadence(self, *args, **kwargs)
         
     def consolidate(self):
         """
-        Convert full cadence into a single Frame.
+        Convert full cadence into a single concatenated Frame.
         """
         if len(self.frames) == 0:
             return None
@@ -162,126 +226,63 @@ class Cadence(collections.abc.MutableSequence):
         return c_frame
         
         
-        
-def plot_waterfall(frame, f_start=None, f_stop=None, **kwargs):
+class OrderedCadence(Cadence):
     """
-    Version of blimpy.stax plot_waterfall method without normalization.
+    A class that extends Cadence for imposing a cadence order, such as 
+    "ABACAD" or "ABABAB". Order labels are added to each frame's metadata with
+    the :code:`order_label` keyword.
+
+    Parameters
+    ----------
+    frame_list : list of Frames, optional
+        List of frames to be included in the cadence
+    order : str, optional
+        Cadence order, expressed as a string of letters (e.g. "ABACAD")
+    t_slew : float, optional
+        Slew time between frames
+    t_overwrite : bool, optional
+        Option to overwrite time data in frames to enforce slew time spacing           
     """
-    MAX_IMSHOW_POINTS = (4096, 1268)
-    from blimpy.utils import rebin
-    
-    # Load in the data from fil
-    plot_f, plot_data = frame.get_waterfall().grab_data(f_start=f_start, f_stop=f_stop)
-    if not frame.ascending:
-        plot_f = plot_f[::-1]
-        plot_data = plot_data[:, ::-1]
+    def __init__(self,
+                 frame_list=None, 
+                 order="ABACAD",
+                 t_slew=0,
+                 t_overwrite=False):
+        self.order = order
+        Cadence.__init__(self, 
+                         frame_list=frame_list, 
+                         t_slew=t_slew, 
+                         t_overwrite=t_overwrite)
 
-    # Make sure waterfall plot is under 4k*4k
-    dec_fac_x, dec_fac_y = 1, 1
+    def __setitem__(self, i, v):
+        self._check(v)
+        if i < 0:
+            i = len(self) + i
+        if "order_label" not in v.metadata:
+            v.add_metadata({"order_label": self.order[i]})
+        self.frames[i] = v
 
-    # rebinning data to plot correctly with fewer points
-    try:
-        if plot_data.shape[0] > MAX_IMSHOW_POINTS[0]:
-            dec_fac_x = plot_data.shape[0] / MAX_IMSHOW_POINTS[0]
-        if plot_data.shape[1] > MAX_IMSHOW_POINTS[1]:
-            dec_fac_y =  int(np.ceil(plot_data.shape[1] /  MAX_IMSHOW_POINTS[1]))
-        plot_data = rebin(plot_data, dec_fac_x, dec_fac_y)
-    except Exception as ex:
-        print("\n*** Oops, grab_data returned plot_data.shape={}, plot_f.shape={}"
-              .format(plot_data.shape, plot_f.shape))
-        print("Waterfall info for {}:".format(wf.filename))
-        wf.info()
-        raise ValueError("*** Something is wrong with the grab_data output!") from ex
+    def insert(self, i, v):
+        self._check(v)
+        if i < 0:
+            i = len(self) + i
+        if "order_label" not in v.metadata:
+            v.add_metadata({"order_label": self.order[i]})
+        self.frames.insert(i, v)
 
-    # determine extent of the plotting panel for imshow
-    nints = plot_data.shape[0]
-    bottom = (nints - 1) * frame.dt # in seconds
-    extent=(plot_f[0], # left
-            plot_f[-1], # right
-            bottom, # bottom
-            0.0) # top
+    def set_order(self, order):
+        """
+        Reassign cadence order.
+        """
+        self.order = order 
+        for i, fr in enumerate(self.frames):
+            fr.add_metadata({"order_label": self.order[i]})
 
-    # plot and scale intensity (log vs. linear)
-    kwargs["cmap"] = kwargs.get("cmap", "viridis")
-    plot_data = frame_utils.db(plot_data)
+    def by_label(self, order_label="A"):
+        """
+        Filter frames in cadence by their label in the cadence order, specified
+        as a letter. Returns matching frames as a new Cadence.
+        """
+        return Cadence(frame_list=[frame for frame in self 
+                                   if frame.metadata["order_label"] == order_label])
 
-    # display the waterfall plot
-    this_plot = plt.imshow(plot_data,
-        aspect="auto",
-        rasterized=True,
-        interpolation="nearest",
-        extent=extent,
-        **kwargs
-    )
-
-    # add source name
-    ax = plt.gca()
-    plt.text(0.03, 0.8, frame.source_name, transform=ax.transAxes, bbox=dict(facecolor="white"))
-
-    return this_plot
-
-
-
-def plot_cadence(cadence):
-    """
-    Collect real observations of blc1 candidate, and produce synthetic copies using extracted
-    properties. Plot real and synthetic cadences side-by-side for easy comparison.
-    """
-    height_ratios = []
-    for i, frame in enumerate(cadence):
-        height_ratios.append(frame.tchans * frame.dt)
-        
-    F_min = frame.fmin / 1e6
-    F_max = frame.fmax / 1e6
-
-    # Compute the midpoint frequency for the x-axis.
-    F_mid = np.abs(F_min + F_max) / 2
-    
-    # Create plot grid
-    n_plots = len(cadence)
-    fig_array, axs = plt.subplots(nrows=n_plots,
-                                  ncols=1,
-                             sharex=True,
-                             sharey=False, 
-                             dpi=200,
-                             figsize=(12, 2*n_plots),
-                             gridspec_kw={"height_ratios" : height_ratios})
-    
-    
-    # Iterate over data for min/max values, real
-    for i, frame in enumerate(cadence):
-        data = frame.data
-        if i == 0:
-            px_min = np.min(data)
-            px_max = np.max(data)
-        else:
-            if px_min > np.min(data):
-                px_min = np.min(data)
-            if px_max < np.max(data):
-                px_max = np.max(data)
-    
-    # Plot real observations
-    for i, frame in enumerate(cadence):
-        plt.sca(axs[i])
-        if i == 0:
-            plt.title(f"Source: {frame.source_name}")
-            
-        last_plot = plot_waterfall(frame, vmin=frame_utils.db(px_min), vmax=frame_utils.db(px_max))
-        
-    factor = 1e6
-    units = "Hz"
-    xloc = np.linspace(F_min, F_max, 5)
-    xticks = [round(loc_freq) for loc_freq in (xloc - F_mid) * factor]
-    if np.max(xticks) > 1000:
-        xticks = [xt / 1000 for xt in xticks]
-        units = "kHz"
-    plt.xticks(xloc, xticks)
-    plt.xlabel("Relative Frequency [%s] from %f MHz" % (units, F_mid))
-    plt.ylabel("Time [s]")
-    
-    # Adjust plots
-    plt.subplots_adjust(hspace=0.02, wspace=0.1)    
-        
-    # Add colorbar.
-    cax = fig_array.add_axes([0.94, 0.11, 0.03, 0.77])
-    fig_array.colorbar(last_plot, cax=cax, label="Power (dB)")

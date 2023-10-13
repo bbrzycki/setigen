@@ -99,7 +99,7 @@ intensities, you can use :func:`~setigen.frame.Frame.integrate`:
     spectrum = frame.integrate() # stg.integrate(frame)
     time_series = frame.integrate(axis='f') # or axis=1
     
-This function is a wrapper for :func:`~setigen.integrate`, with the same parameters. The
+This function is a wrapper for :func:`setigen.frame_utils.integrate`, with the same parameters. The
 :code:`axis` parameter can be either 't' or 0 to integrate along the time axis, or 'f' or 
 1 to integrate along the frequency axis. The :code:`mode` parameter can be either 'mean' or
 'sum' to determine the manner of integration.
@@ -108,7 +108,7 @@ Frame slicing
 -------------
 
 Given frequency boundary indices :code:`l` and :code:`r`, we can "slice" a frame by using 
-:func:`~setigen.frame.Frame.get_slice`, a wrapper for :func:`~setigen.get_slice`:
+:func:`~setigen.frame.Frame.get_slice`, a wrapper for :func:`setigen.frame_utils.get_slice`:
 
 .. code-block:: Python
 
@@ -123,7 +123,7 @@ Doppler dedrifting
 ------------------
 
 If you have a frame containing a Doppler drifting signal, you can "dedrift" the frame
-using :func:`setigen.dedrift`, specifying a target drift rate (Hz/s):
+using :func:`~setigen.frame.Frame.dedrift`, specifying a target drift rate (Hz/s):
 
 .. code-block:: Python
 
@@ -132,12 +132,12 @@ using :func:`setigen.dedrift`, specifying a target drift rate (Hz/s):
 This returns a new frame with only the dedrifted data; this will be smaller in
 the frequency dimension depending on the drift rate and frame resolution. 
 
-Alternatively, if 'drift_rate' is contained in the frame's metadata 
+Alternatively, if "drift_rate" is contained in the frame's metadata 
 (:code:`frame.metadata`), the function will automatically dedrift the frame using that 
 value. 
 
 .. code-block:: Python
 
     drift_rate = 2
-    frame.metadata['drift_rate'] = drift_rate
+    frame.metadata["drift_rate"] = drift_rate
     dd_fr = stg.dedrift(frame)

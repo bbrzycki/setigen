@@ -1,6 +1,6 @@
 # setigen 
 [![PyPI version](https://badge.fury.io/py/setigen.svg)](https://badge.fury.io/py/setigen) 
-[![Build Status](https://travis-ci.org/bbrzycki/setigen.svg?branch=main)](https://travis-ci.org/bbrzycki/setigen) 
+[![Build Status](https://github.com/bbrzycki/setigen/actions/workflows/build.yml/badge.svg)](https://github.com/bbrzycki/setigen/actions/workflows/build.yml)
 [![Documentation Status](https://readthedocs.org/projects/setigen/badge/?version=latest)](https://setigen.readthedocs.io/en/latest/?badge=latest)
 [![AJ Paper](https://img.shields.io/badge/DOI-10.3847/1538--3881/ac5e3d-blue)](
 https://doi.org/10.3847/1538-3881/ac5e3d)

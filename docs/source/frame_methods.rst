@@ -123,7 +123,7 @@ Doppler dedrifting
 ------------------
 
 If you have a frame containing a Doppler drifting signal, you can "dedrift" the frame
-using :func:`~setigen.frame.Frame.dedrift`, specifying a target drift rate (Hz/s):
+using :func:`~setigen.dedrift.dedrift`, specifying a target drift rate (Hz/s):
 
 .. code-block:: Python
 

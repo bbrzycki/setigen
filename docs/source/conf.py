@@ -16,8 +16,10 @@ from pathlib import Path
 import sys
 setigen_path = Path(__file__).parents[2].resolve()
 sys.path.insert(0, str(setigen_path))
-exec(open(setigen_path / "setigen/_version.py").read())
 
+version = {}
+with open(setigen_path / "setigen/_version.py") as fp:
+    exec(fp.read(), version)
 
 # -- Project information -----------------------------------------------------
 
@@ -28,7 +30,7 @@ author = u'Bryan Brzycki'
 # # The short X.Y version
 # version = u'2.4'
 # The full version, including alpha/beta/rc tags
-release = __version__
+release = version["__version__"]
 
 
 # -- General configuration ---------------------------------------------------

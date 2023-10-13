@@ -275,7 +275,7 @@ class OrderedCadence(Cadence):
         Reassign cadence order.
         """
         self.order = order 
-        for fr in self.frames:
+        for i, fr in enumerate(self.frames):
             fr.add_metadata({"order_label": self.order[i]})
 
     def by_label(self, order_label="A"):

@@ -1,5 +1,6 @@
 import numpy as np
 import glob
+import matplotlib.pyplot as plt
 
 
 def format_header_line(key, value, as_strings=False):

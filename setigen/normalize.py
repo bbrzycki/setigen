@@ -86,7 +86,7 @@ def sliding_norm(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     mean = np.empty(f_len)
     std = np.empty(f_len)
     if to_db:
-        data = db(data)
+        data = frame_utils.db(data)
     for i in np.arange(f_len):
         if i < cols:
             start = 0

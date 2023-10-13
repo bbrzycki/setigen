@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
+from setigen._version import __version__
+
 from setigen.funcs import (
     constant_path, squared_path, sine_path, simple_rfi_path,
     constant_t_profile, sine_t_profile, periodic_gaussian_t_profile,

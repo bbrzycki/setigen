@@ -50,8 +50,8 @@ def test_setup_no_data(frame_setup_no_data):
     assert (frame.fmin - 6095211984.124035) == pytest.approx(0)
 
     assert_allclose(frame.data, np.zeros((32, 1024)))
-    assert frame.mean() == frame.noise_mean == 0
-    assert frame.std() == frame.noise_std == 0
+    assert frame.mean == frame.noise_mean == 0
+    assert frame.std == frame.noise_std == 0
     
     
 def test_setup_no_data_ascending(frame_setup_no_data_ascending):
@@ -66,8 +66,8 @@ def test_setup_no_data_ascending(frame_setup_no_data_ascending):
     assert (frame.fmin - 6095211984.124035) == pytest.approx(0)
 
     assert_allclose(frame.data, np.zeros((32, 1024)))
-    assert frame.mean() == frame.noise_mean == 0
-    assert frame.std() == frame.noise_std == 0
+    assert frame.mean == frame.noise_mean == 0
+    assert frame.std == frame.noise_std == 0
     
     
 def test_index_calc(frame_setup_no_data, frame_setup_no_data_ascending):
@@ -118,8 +118,8 @@ def test_constant_signal_from_add_signal(frame_setup_no_data,
                               stg.constant_t_profile(level=1),
                               stg.gaussian_f_profile(width=50*u.Hz),
                               stg.constant_bp_profile(level=1))
-    assert_allclose(signal, frame.get_data(use_db=False))
-    assert_allclose(frame.get_data(use_db=False), constant_signal_data)
+    assert_allclose(signal, frame.get_data(db=False))
+    assert_allclose(frame.get_data(db=False), constant_signal_data)
 
 
 def test_constant_signal_from_add_constant_signal(frame_setup_no_data,
@@ -130,8 +130,8 @@ def test_constant_signal_from_add_constant_signal(frame_setup_no_data,
                                        level=1,
                                        width=50*u.Hz,
                                        f_profile_type='gaussian')
-    assert_allclose(signal, frame.get_data(use_db=False))
-    assert_allclose(frame.get_data(use_db=False), constant_signal_data, atol=1e-4)
+    assert_allclose(signal, frame.get_data(db=False))
+    assert_allclose(frame.get_data(db=False), constant_signal_data, atol=1e-4)
 
 
 def test_signal_from_arrays():
@@ -142,7 +142,7 @@ def test_signal_from_arrays():
                      bp_profile=[1, 0.5, 1])
 
     data = np.array([[0., 0.5, 0.], [0.5, 0., 0.], [0., 0., 1.]])
-    assert_allclose(data, frame.get_data(use_db=False))
+    assert_allclose(data, frame.get_data(db=False))
 
 
 def test_signal_from_floats():
@@ -153,4 +153,4 @@ def test_signal_from_floats():
                      bp_profile=3)
 
     data = np.array([[0., 0., 6.], [0., 0., 6.], [0., 0., 6.]])
-    assert_allclose(data, frame.get_data(use_db=False))
+    assert_allclose(data, frame.get_data(db=False))

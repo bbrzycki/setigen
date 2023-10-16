@@ -341,8 +341,9 @@ of data and save out frames. As a simple example:
     for i, waterfall in enumerate(waterfall_itr):
         frame = stg.Frame(waterfall=waterfall)
 
-        start_index = np.random.randint(0, fchans)
-        stop_index = np.random.randint(0, fchans)
+        rng = np.random.default_rng()
+        start_index = rng.integers(0, fchans)
+        stop_index = rng.integers(0, fchans)
         drift_rate = frame.get_drift_rate(start_index, stop_index)
 
         signal = frame.add_constant_signal(f_start=frame.get_frequency(start_index),

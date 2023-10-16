@@ -658,8 +658,9 @@ frequency per se. In these cases, you can calculate a drift frequency using the
 
 .. code-block:: Python
 
-    start_index = np.random.randint(0, 1024)
-    stop_index = np.random.randint(0, 1024)
+    rng = np.random.default_rng()
+    start_index = rng.integers(0, 1024)
+    stop_index = rng.integers(0, 1024)
     drift_rate = frame.get_drift_rate(start_index, stop_index)
 
 Custom metadata

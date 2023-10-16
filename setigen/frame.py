@@ -555,7 +555,7 @@ class Frame(object):
                             or len(x_mean_array) != len(x_min_array)):
                         raise IndexError('To share a random index, all parameter \
                                           arrays must be the same length!')
-                    i = self.rng.randint(len(x_mean_array))
+                    i = self.rng.integers(len(x_mean_array))
                     x_mean, x_std, x_min = (x_mean_array[i],
                                             x_std_array[i],
                                             x_min_array[i])
@@ -574,7 +574,7 @@ class Frame(object):
                     if len(x_mean_array) != len(x_std_array):
                         raise IndexError('To share a random index, all parameter \
                                           arrays must be the same length!')
-                    i = self.rng.randint(len(x_mean_array))
+                    i = self.rng.integers(len(x_mean_array))
                     x_mean, x_std = x_mean_array[i], x_std_array[i]
                 else:
                     x_mean, x_std = sample_from_obs \

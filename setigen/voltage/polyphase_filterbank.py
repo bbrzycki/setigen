@@ -46,7 +46,7 @@ class PolyphaseFilterbank(object):
         self._get_pfb_window()
         
         # Estimate stds after channelizing Gaussian with mean 0, std 1
-        self._get_channelized_stds()
+        self.channelized_stds = None
         
     def _reset_cache(self):
         """
@@ -54,33 +54,85 @@ class PolyphaseFilterbank(object):
         """
         self.cache = None
                 
-    def _get_channelized_stds(self):
+    def estimate_channelized_stds(self, factor=10000, seed=None):
         """
         Estimate standard deviations in real and imaginary components after channelizing
         a zero-mean Gaussian distribution with variance 1. 
+
+        Parameters
+        ----------
+        factor : int, default : 10000
+            Use :code:`factor * num_branches` samples for estimation
+        seed : None, int, Generator, optional
+            Random seed or seed generator
+
+        Return 
+        ------
+        channelized_stds : array
+            Array of standard deviation estimates
         """
-        sample_v = xp.random.normal(0, 1, self.num_branches * 10000)
-        v_pfb = self.channelize(sample_v, use_cache=False)
+        rng = xp.random.default_rng(seed)
+        sample_v = rng.normal(0, 1, factor * self.num_branches)
+        v_pfb = self.channelize(sample_v, cache=False)
         self.channelized_stds = xp.array([v_pfb.real.std(), v_pfb.imag.std()])
+        return self.channelized_stds
         
     def _get_pfb_window(self):
         """
-        Creates and saves PFB windowing coefficients. Saves frequency response shape
-        and ratio of maximum to mean of the frequency response.
+        Creates and saves PFB windowing coefficients. 
         """
-        self.window = get_pfb_window(self.num_taps, self.num_branches, self.window_fn)
-        
-        # Somewhat arbitrary length to calculate spectral response, representing 
-        # fftlength in fine channelization. Only needed to estimate peak to mean response
-        length = 64 * self.num_taps
-        freq_response_x = xp.zeros(self.num_branches * length)
+        self.window = get_pfb_window(self.num_taps, 
+                                     self.num_branches, 
+                                     self.window_fn)
+
+    def get_response(self, fftlength=512):
+        """
+        Saves frequency response shape and ratio of maximum to mean of the 
+        frequency response.
+
+        Parameters
+        ----------
+        fftlength : int, default : 512
+            FFT length used in fine channelization, which must be a multiple of
+            num_taps (:code:`fftlength = factor * num_taps`)
+
+        Return 
+        ------
+        response : array
+            Half-coarse channel frequency response
+        """
+        if fftlength % self.num_taps != 0:
+            raise ValueError(f"fftlength ({fftlength}) must be a multiple of taps ({self.num_taps})")
+        freq_response_x = xp.zeros(self.num_branches * fftlength)
         freq_response_x[:self.num_taps*self.num_branches] = self.window
         h = xp.fft.fft(freq_response_x)
-        half_coarse_chan = (xp.abs(h)**2)[:length//2]+(xp.abs(h)**2)[length//2:length][::-1]
+        half_coarse_chan = (xp.abs(h)**2)[:fftlength//2]+(xp.abs(h)**2)[fftlength//2:fftlength][::-1]
         self.response = self.half_coarse_chan = half_coarse_chan
         self.max_mean_ratio = xp.max(half_coarse_chan) / xp.mean(half_coarse_chan)
-        
-    def channelize(self, x, use_cache=True):
+        return half_coarse_chan
+
+    def tile_response(self, num_chans, fftlength=512):
+        """
+        Construct tiled PFB frequency response.
+
+        Parameters
+        ----------
+        num_chans : int
+            Number of coarse channels to tile
+        fftlength : int, default : 512
+            FFT length used in fine channelization, which must be a multiple of
+            num_taps (:code:`fftlength = factor * num_taps`)
+
+        Return 
+        ------
+        response : array
+            Multiple coarse channel frequency response
+        """
+        response = self.get_response(fftlength=fftlength)
+        return xp.tile(xp.concatenate([response[::-1], response]), 
+                       num_chans)
+
+    def channelize(self, x, cache=True):
         """
         Channelize input voltages by applying the PFB and taking a normalized FFT. 
 
@@ -88,13 +140,15 @@ class PolyphaseFilterbank(object):
         ----------
         x : array
             Array of voltages
+        cache : bool, default : True
+            Option to cache last section of data, which is excluded in PFB step
             
         Returns
         -------
         X_pfb : array
             Post-FFT complex voltages
         """
-        if use_cache:
+        if cache:
             # Cache last section of data, which is excluded in PFB step
             if self.cache is not None:
                 x = xp.concatenate([self.cache, x])

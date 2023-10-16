@@ -46,11 +46,10 @@ class Antenna(object):
             Number of polarizations, can be 1 or 2
         t_start : float, optional
             Start time, in seconds
-        seed : int, optional
-            Integer seed between 0 and 2**32. If None, the random number generator
-            will use a random seed.
+        seed : None, int, Generator, optional
+            Random seed or seed generator
         """
-        self.rng = xp.random.RandomState(seed)
+        self.rng = xp.random.default_rng(seed)
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate
@@ -169,11 +168,10 @@ class MultiAntennaArray(object):
             array background. If None, uses 0 delay for all Antennas.
         t_start : float, optional
             Start time, in seconds
-        seed : int, optional
-            Integer seed between 0 and 2**32. If None, the random number generator
-            will use a random seed.
+        seed : None, int, Generator, optional
+            Random seed or seed generator
         """
-        self.rng = xp.random.RandomState(seed)
+        self.rng = xp.random.default_rng(seed)
         
         if delays is None:
             self.delays = xp.zeros(num_antennas)

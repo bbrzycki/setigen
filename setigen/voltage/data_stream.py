@@ -55,12 +55,11 @@ class DataStream(object):
             is True, for which fch1 is the minimum frequency.
         t_start : float, optional
             Start time, in seconds
-        seed : int, optional
-            Integer seed between 0 and 2**32. If None, the random number generator
-            will use a random seed.
+        seed : None, int, Generator, optional
+            Random seed or seed generator
         """
         #: Random number generator
-        self.rng = xp.random.RandomState(seed) 
+        self.rng = xp.random.default_rng(seed)
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate

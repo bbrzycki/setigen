@@ -46,6 +46,7 @@ class Frame(object):
                  fch1=6*u.GHz,
                  ascending=False,
                  data=None,
+                 seed=None,
                  **kwargs):
         """
         Initialize a Frame object either from an existing .fil/.h5 file or
@@ -90,10 +91,13 @@ class Frame(object):
             determined by observational parameters.
         data : ndarray, optional
             2D array of intensities to preload into frame
+        seed : None, int, Generator, optional
+            Random seed or seed generator
         **kwargs
             For convenience, the :code:`shape` keyword can be used in place of individually
             setting :code:`fchans` and :code:`tchans`, so that :code:`shape=(tchans, fchans)`.
         """
+        self.rng = np.random.default_rng(seed)
         if None not in [fchans, tchans] or 'shape' in kwargs or data is not None:
             self.waterfall = None
 
@@ -308,6 +312,7 @@ class Frame(object):
                                          fftlength=fftlength,
                                          int_factor=int_factor)
         if data is not None:
+            print(param_dict['tchans'], tchans)
             assert param_dict['tchans'] == tchans
         
         frame = cls(fchans=fchans,
@@ -442,7 +447,10 @@ class Frame(object):
         cap intensities at 0), but this is optional.
         """
         if noise_type == 'chi2':
-            noise = distributions.chi2(x_mean, self.chi2_df, self.shape)
+            noise = distributions.chi2(x_mean, 
+                                       self.chi2_df, 
+                                       self.shape, 
+                                       seed=self.rng)
             
             # Based on variance of ideal chi-squared distribution
             x_std = np.sqrt(2 * self.chi2_df) * x_mean / self.chi2_df
@@ -452,11 +460,13 @@ class Frame(object):
                     noise = distributions.truncated_gaussian(x_mean,
                                                              x_std,
                                                              x_min,
-                                                             self.shape)
+                                                             self.shape,
+                                                             seed=self.rng)
                 else:
                     noise = distributions.gaussian(x_mean,
                                                    x_std,
-                                                   self.shape)
+                                                   self.shape,
+                                                   seed=self.rng)
             else:
                 sys.exit('x_std must be given')
         else:
@@ -529,8 +539,11 @@ class Frame(object):
             x_min_array = sample_noise_params[:, 2] * scale_factor
             
         if noise_type == 'chi2':
-            x_mean = np.random.choice(x_mean_array)
-            noise = distributions.chi2(x_mean, self.chi2_df, self.shape)
+            x_mean = self.rng.choice(x_mean_array)
+            noise = distributions.chi2(x_mean, 
+                                       self.chi2_df, 
+                                       self.shape,
+                                       seed=self.rng)
             
             # Based on variance of ideal chi-squared distribution
             x_std = np.sqrt(2 * self.chi2_df) * x_mean / self.chi2_df
@@ -542,7 +555,7 @@ class Frame(object):
                             or len(x_mean_array) != len(x_min_array)):
                         raise IndexError('To share a random index, all parameter \
                                           arrays must be the same length!')
-                    i = np.random.randint(len(x_mean_array))
+                    i = self.rng.randint(len(x_mean_array))
                     x_mean, x_std, x_min = (x_mean_array[i],
                                             x_std_array[i],
                                             x_min_array[i])
@@ -554,13 +567,14 @@ class Frame(object):
                 noise = distributions.truncated_gaussian(x_mean,
                                                          x_std,
                                                          x_min,
-                                                         self.shape)
+                                                         self.shape,
+                                                         seed=self.rng)
             else:
                 if share_index:
                     if len(x_mean_array) != len(x_std_array):
                         raise IndexError('To share a random index, all parameter \
                                           arrays must be the same length!')
-                    i = np.random.randint(len(x_mean_array))
+                    i = self.rng.randint(len(x_mean_array))
                     x_mean, x_std = x_mean_array[i], x_std_array[i]
                 else:
                     x_mean, x_std = sample_from_obs \
@@ -569,7 +583,8 @@ class Frame(object):
 
                 noise = distributions.gaussian(x_mean,
                                                x_std,
-                                               self.shape)
+                                               self.shape,
+                                               seed=self.rng)
         else:
             sys.exit('{} is not a valid noise type'.format(noise_type))
 

@@ -88,7 +88,7 @@ def sine_path(f_start, drift_rate, period, amplitude):
 
 
 def simple_rfi_path(f_start, drift_rate, spread, spread_type='uniform', 
-                    rfi_type='stationary'):
+                    rfi_type='stationary', seed=None):
     """
     A crude simulation of one style of RFI that shows up, in which the signal
     jumps around in frequency. This method samples the center frequency for
@@ -107,21 +107,24 @@ def simple_rfi_path(f_start, drift_rate, spread, spread_type='uniform',
     rfi_type : {"stationary", "random_walk"}, default: "stationary"
         The "stationary" option only offsets with respect to a straight-line 
         path, but "random_walk" accumulates frequency offsets over time.
+    seed : None, int, Generator, optional
+        Random seed or seed generator
 
     Return
     ------
     path : func
     """
+    rng = np.random.default_rng(seed)
     f_start = unit_utils.get_value(f_start, u.Hz)
     drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
     spread = unit_utils.get_value(spread, u.Hz)
 
     def path(t):
         if spread_type == 'uniform':
-            f_offset = np.random.uniform(-spread / 2., spread / 2., size=t.shape)
+            f_offset = rng.uniform(-spread / 2., spread / 2., size=t.shape)
         elif spread_type == 'normal':
             factor = 2 * np.sqrt(2 * np.log(2))
-            f_offset = np.random.normal(0, spread / factor, size=t.shape)
+            f_offset = rng.normal(0, spread / factor, size=t.shape)
         else:
             sys.exit('{} is not a valid spread type!'.format(spread_type))
             

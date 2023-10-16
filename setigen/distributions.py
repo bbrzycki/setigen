@@ -10,18 +10,19 @@ def fwhm(sigma):
     return fwhm_m * sigma
     
 
-def gaussian(x_mean, x_std, shape):
-    return np.random.normal(x_mean, x_std, shape)
+def gaussian(x_mean, x_std, shape, seed=None):
+    rng = np.random.default_rng(seed)
+    return rng.normal(x_mean, x_std, shape)
 
 
-def truncated_gaussian(x_mean, x_std, x_min, shape):
+def truncated_gaussian(x_mean, x_std, x_min, shape, seed=None):
     """
     Sample from a normal distribution, but enforces a minimum value.
     """
-    return np.maximum(gaussian(x_mean, x_std, shape), x_min)
+    return np.maximum(gaussian(x_mean, x_std, shape, seed), x_min)
 
 
-def chi2(x_mean, chi2_df, shape):
+def chi2(x_mean, chi2_df, shape, seed=None):
     """
     Chi-squared distribution centered at a specific mean.
     
@@ -38,4 +39,5 @@ def chi2(x_mean, chi2_df, shape):
     dist : ndarray
         Array of chi-squared noise
     """
-    return np.random.chisquare(df=chi2_df, size=shape) * x_mean / chi2_df
+    rng = np.random.default_rng(seed)
+    return rng.chisquare(df=chi2_df, size=shape) * x_mean / chi2_df

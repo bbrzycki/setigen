@@ -500,7 +500,7 @@ class RawVoltageBackend(object):
                             self.digitizer_stage_t += time.time() - t
 
                         t = time.time()
-                        v = self.filterbank[antenna][pol].channelize(v)
+                        v = self.filterbank[antenna][pol].channelize(v, cache=True)
                         v = v[:, self.start_chan:self.start_chan+self.num_chans]
                         self.filterbank_stage_t += time.time() - t
 
@@ -514,7 +514,10 @@ class RawVoltageBackend(object):
                                 self.requantizer[antenna][pol].quantizer_i.target_mean = 0
     
                                 # Start off assuming signals are embedded in Gaussian noise with std 1
+                                if self.filterbank[antenna][pol].channelized_stds is None:
+                                    self.filterbank[antenna][pol].estimate_channelized_stds()
                                 custom_stds = self.filterbank[antenna][pol].channelized_stds
+                                
                                 # If digitizing real voltages, scale up by the appropriate factor
                                 if digitize:
                                     custom_stds *= self.digitizer[antenna][pol].target_std

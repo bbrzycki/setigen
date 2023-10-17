@@ -111,35 +111,29 @@ def test_raw_creation(antenna_setup,
                                   phase=np.pi/2)
     
     rvb.record(output_file_stem=tmp_path / 'example_1block',
-               num_blocks=1, 
+               num_blocks=2, 
                length_mode='num_blocks',
                header_dict={'HELLO': 'test_value',
                             'TELESCOP': 'GBT'},
                verbose=False)
     
-    # Check out header
-    header_dict = {}
-    with open(tmp_path / 'example_1block.0000.raw', "rb") as f:
-        i = 1
-        chunk = f.read(80)
-        while True:
-            key, item = chunk.decode().split('=')
-            header_dict[key.strip()] = item.strip().strip("''")
+    raw_path = tmp_path / 'example_1block.0000.raw'
+    header_dict = stg.voltage.read_header(raw_path)
 
-            chunk = f.read(80)
-            if f"{'END':<80}".encode() in chunk:
-                break
-            i += 1
-    
     assert header_dict['CHAN_BW'] == '2.9296875'
     assert header_dict['OBSBW'] == '187.5'
     assert header_dict['OBSFREQ'] == '6092.28515625'
     assert header_dict['TBIN'] == '3.41333333333333E-07'
     assert header_dict['BLOCSIZE'] == '2048'
     assert header_dict['HELLO'] == 'test_value'
+
+    assert stg.voltage.get_blocks_in_file(raw_path) == 2
+    raw_stem = stg.voltage.get_stem(raw_path)
+    assert stg.voltage.get_blocks_per_file(raw_stem) == 2
+    assert stg.voltage.get_total_blocks(raw_stem) == 2
     
     # Reduce data
-    wf_data = stg.voltage.get_waterfall_from_raw(tmp_path / 'example_1block.0000.raw',
+    wf_data = stg.voltage.get_waterfall_from_raw(raw_path,
                                                  block_size=block_size,
                                                  num_chans=num_chans,
                                                  int_factor=1,

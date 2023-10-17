@@ -162,7 +162,7 @@ class RawVoltageBackend(object):
         
         self.input_file_stem = None # Filename stem for input RAW data
         self.input_header_dict = None # RAW header
-        self.header_size = None # Size of header in file (bytes)
+        self.header_size = None # Size of header in file (bytes), including padding
         self.input_num_blocks = None # Total number of blocks in supplied input RAW data
         self.input_file_handler = None # Current file handler for input RAW data
     
@@ -235,7 +235,11 @@ class RawVoltageBackend(object):
         backend.input_file_stem = input_file_stem   
         backend.input_num_blocks = raw_utils.get_total_blocks(input_file_stem)
         backend.input_header_dict = raw_utils.read_header(f'{input_file_stem}.0000.raw')
-        backend.header_size = int(512 * np.ceil((80 * (len(backend.input_header_dict) + 1)) / 512))
+
+        if int(backend.input_header_dict.get("DIRECTIO", 0)) == 0:
+            backend.header_size = 80 * (len(backend.input_header_dict) + 1)
+        else:
+            backend.header_size = int(512 * np.ceil((80 * (len(backend.input_header_dict) + 1)) / 512))
         
         return backend
     
@@ -364,7 +368,7 @@ class RawVoltageBackend(object):
         f.write(f"{'END':<80}".encode())
         header_lines += 1
 
-        # pad header if directio
+        # Pad header if directio
         if directio:
             f.write(bytearray(512 - (80 * header_lines % 512))) 
 
@@ -378,6 +382,10 @@ class RawVoltageBackend(object):
         """
         _ = self.input_file_handler.read(self.header_size)
         data_chunk = self.input_file_handler.read(self.block_size)
+
+        print(len(data_chunk))
+        print(self.block_size)
+        print(data_chunk)
         
         obsnchan = self.num_chans * self.num_antennas
         rawbuffer = np.frombuffer(data_chunk, dtype=np.int8).reshape((obsnchan, int(self.block_size / obsnchan)))

@@ -126,11 +126,20 @@ def test_raw_creation(antenna_setup,
     assert header_dict['TBIN'] == '3.41333333333333E-07'
     assert header_dict['BLOCSIZE'] == '2048'
     assert header_dict['HELLO'] == 'test_value'
-
     assert stg.voltage.get_blocks_in_file(raw_path) == 2
+
     raw_stem = stg.voltage.get_stem(raw_path)
+    raw_params = stg.voltage.get_raw_params(raw_stem)
+    assert raw_params['block_size'] == 2048
+    assert raw_params['chan_bw'] == 2929687.5
+    assert raw_params['num_antennas'] == 1
+    assert raw_params['obs_length'] == pytest.approx(5.461333333333333e-06)
+
     assert stg.voltage.get_blocks_per_file(raw_stem) == 2
     assert stg.voltage.get_total_blocks(raw_stem) == 2
+
+    # Test dist plots 
+    stg.voltage.raw_utils.get_dists(raw_path)
     
     # Reduce data
     wf_data = stg.voltage.get_waterfall_from_raw(raw_path,

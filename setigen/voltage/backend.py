@@ -632,7 +632,7 @@ class RawVoltageBackend(object):
             header_dict = self._header_add_from_template(header_dict)
         if self.input_header_dict is not None:
             header_dict = self._header_add_from_input_header(header_dict)
-        # update header with config last to honour prior entries
+        # Update header with config last to honor prior entries
         header_dict = self._header_populate_configuration(header_dict)
         
         # Mark each antenna and data stream as the start of the observation

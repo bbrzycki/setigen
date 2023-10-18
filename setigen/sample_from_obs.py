@@ -60,7 +60,7 @@ def get_parameter_distributions(waterfall_fn, fchans, tchans=None, f_shift=None)
         If None, just uses the entire integration time
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
-        None, defaults to :code:`f_shift=f_window` so that there is no
+        None, defaults to ``f_shift=f_window`` so that there is no
         overlap between new filterbank files
 
     Returns
@@ -112,7 +112,7 @@ def get_mean_distribution(waterfall_fn, fchans, tchans=None, f_shift=None):
         If None, just uses the entire integration time
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
-        None, defaults to :code:`f_shift=f_window` so that there is no
+        None, defaults to ``f_shift=f_window`` so that there is no
         overlap between new filterbank files
 
     Returns

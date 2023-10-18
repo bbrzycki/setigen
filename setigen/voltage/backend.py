@@ -67,7 +67,7 @@ class RawVoltageBackend(object):
             Number of blocks to be saved per RAW file
         num_subblocks : int, optional
             Number of partitions per block, used for computation. If 
-            :code:`num_subblocks=1`, one block's worth of data will be passed 
+            ``num_subblocks=1``, one block's worth of data will be passed 
             through the pipeline and recorded at once. Use this parameter to 
             reduce memory load, especially when using GPU acceleration.
         """
@@ -197,7 +197,7 @@ class RawVoltageBackend(object):
             Index of first coarse channel to be recorded
         num_subblocks : int, optional
             Number of partitions per block, used for computation. If 
-            :code:`num_subblocks=1`, one block's worth of data will be passed 
+            ``num_subblocks=1``, one block's worth of data will be passed 
             through the pipeline and recorded at once. Use this parameter to 
             reduce memory load, especially when using GPU acceleration.
             
@@ -571,7 +571,7 @@ class RawVoltageBackend(object):
         """
         Calculate the number of blocks required as a function of observation length, in seconds. Note that only 
         an integer number of blocks will be recorded, so the actual observation length may be shorter than the 
-        :code:`obs_length` provided.
+        ``obs_length`` provided.
         """
         return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         
@@ -695,7 +695,7 @@ def get_block_size(num_antennas=1,
                    int_factor=4):
     """
     Calculate block size, given a desired number of time bins per RAW data block 
-    :code:`tchans_per_block`. Takes in backend parameters, including fine channelization
+    ``tchans_per_block``. Takes in backend parameters, including fine channelization
     factors. Can be used to calculate reasonable block sizes for raw voltage recording.
     
     Parameters
@@ -741,8 +741,8 @@ def get_total_obs_num_samples(obs_length=None,
                               num_chans=64):
     """
     Calculate number of required real voltage time samples for as given 
-    :code:`obs_length` or :code:`num_blocks`, without directly using a 
-    :code:`RawVoltageBackend` object. 
+    ``obs_length`` or ``num_blocks``, without directly using a 
+    ``RawVoltageBackend`` object. 
     
     Parameters
     ----------

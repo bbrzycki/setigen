@@ -137,15 +137,14 @@ def sinc2_f_profile(width, width_mode='fwhm', trunc=True):
     truncated at the first root (e.g. zeroed out for more distant frequencies).
 
     Note that you can model an ideal cosine signal by using 
-    :code:`width=2*frame.df`, :code:`width_mode="crossing"`, and 
-    :code:`trunc=False`.
+    ``width=2*frame.df``, ``width_mode="crossing"``, and ``trunc=False``.
     
     Parameters
     ----------
     width : float or astropy.Quantity
         Signal width, in Hz
     width_mode : {"fwhm", "crossing"}, default: "fwhm"
-        How to interpret :code:`width`. Can be "fwhm" or "crossing", for 
+        How to interpret ``width``. Can be "fwhm" or "crossing", for 
         zero crossing.
     trunc : bool, default: True
         Whether to truncate signal after first zero crossing

@@ -666,13 +666,13 @@ class Frame(object):
             frequencies of length ``tchans``). Makes ``t_subsamples`` calculations
             per time sample.
         integrate_t_profile : bool, optional
-            Option to integrate t_profile in the time direction. Note that
-            this option only makes sense if the provided t_profile can be
+            Option to integrate ``t_profile`` in the time direction. Note that
+            this option only makes sense if the provided ``t_profile`` can be
             evaluated at the sub time sample level (e.g. as opposed to
             returning an array of intensities of length ``tchans``). Makes
             ``t_subsamples`` calculations per time sample.
         integrate_f_profile : bool, optional
-            Option to integrate f_profile in the frequency direction. Makes
+            Option to integrate ``f_profile`` in the frequency direction. Makes
             ``f_subsamples`` calculations per time sample.
         doppler_smearing : bool, optional
             Option to numerically "Doppler smear" spectral power over 
@@ -884,11 +884,11 @@ class Frame(object):
             Signal intensity
         width : astropy.Quantity
             Signal width in frequency units
-        f_profile_type : str, optional
-            Can be 'box', 'sinc2', 'gaussian', 'lorentzian', or 'voigt', based on the desired spectral profile
-        doppler_smearing : bool, optional
+        f_profile_type : {"sinc2", "box", "gaussian", "lorentzian", "voigt}, default: "sinc2"
+            Signal spectral profile
+        doppler_smearing : bool, optional, default: False
             Option to numerically "Doppler smear" spectral power over 
-            frequency bins. At time t, averages drift_rate / frame.unit_drift_rate 
+            frequency bins. At time t, averages ``drift_rate / frame.unit_drift_rate`` 
             copies of the signal centered at evenly spaced center frequencies between 
             times t and t+1. This causes the effective drop in power when 
             the signal crosses multiple bins.
@@ -1175,7 +1175,7 @@ class Frame(object):
     def check_waterfall(self):
         """
         If an associated Waterfall object exists, update and return it. Otherwise,
-        return None. Useful to chain with setigen.Frame.from_data() if manipulating
+        return None. Useful to chain with ``setigen.Frame.from_data()`` if manipulating
         completely synthetic data.
         """
         if self.waterfall is None:
@@ -1229,7 +1229,8 @@ class Frame(object):
     @classmethod
     def load_pickle(cls, filename):
         """
-        Load Frame object from a pickled file (.pickle), created with Frame.save_pickle.
+        Load Frame object from a pickled file (.pickle), created with 
+        :func:`~setigen.frame.Frame.save_pickle`.
         """
         with open(filename, 'rb') as f:
             frame = pickle.load(f)
@@ -1251,11 +1252,12 @@ def params_from_backend(obs_length=300,
     sample_rate : float, optional
         Physical sample rate, in Hz, for collecting real voltage data
     num_branches : int, optional
-        Number of PFB branches. Note that this corresponds to ``num_branches / 2`` coarse channels.
+        Number of PFB branches. Note that this corresponds to 
+        ``num_branches / 2`` coarse channels.
     fftlength : int, optional
         FFT length to be used in fine channelization
     int_factor : int, optional
-        Integration factor used in fine channelization. Determines tchans.
+        Integration factor used in fine channelization. Determines ``tchans``.
 
     Returns
     -------

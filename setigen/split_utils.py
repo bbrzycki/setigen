@@ -26,7 +26,7 @@ def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
         If None, just uses the entire integration time
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
-        None, defaults to :code:`f_shift=fchans` so that there is no
+        None, defaults to ``f_shift=fchans`` so that there is no
         overlap between new filterbank files
 
     Returns
@@ -86,7 +86,7 @@ def split_fil(waterfall_fn, output_dir, fchans, tchans=None, f_shift=None):
         If None, just uses the entire integration time
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
-        None, defaults to :code:`f_shift=fchans` so that there is no
+        None, defaults to ``f_shift=fchans`` so that there is no
         overlap between new filterbank files
 
     Returns

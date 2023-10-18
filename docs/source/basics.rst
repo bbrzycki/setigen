@@ -15,7 +15,7 @@ you're starting with.
 
 For an empty frame with known parameters, you may use standard instantiation. In this case,
 you need to provide frame dimensions, time and frequency resolutions, starting frequency
-(:code:`fch1`), and whether frequencies should be considered increasing or decreasing
+(``fch1``), and whether frequencies should be considered increasing or decreasing
 when writing to file. Note that within a Frame object, signal calculations are done with
 increasing frequencies regardless of this parameter.
 
@@ -60,18 +60,18 @@ actual frame resolution, you may use :func:`setigen.frame.Frame.from_backend_par
                                           ascending=False,
                                           data=None)
                                           
-where :code:`obs_length` is the integration period, :code:`sample_rate` is the 
+where ``obs_length`` is the integration period, ``sample_rate`` is the 
 sampling rate in Hz, code:`num_branches` is the branches in the polyphase 
 filterbank, code:`fftlength` is the number of fine channels per coarse channel, 
-and :code:`int_factor` is the integration factor used in data reduction. Note 
-that :code:`int_factor` is set to determine the number of time bins in the 
-frame. You may also set the :code:`data` parameter to include existing 2D data, 
-from which :code:`fchans` will be automatically inferred. Since multiple 
-:code:`int_factor` values may correspond to the same number of time bins, for 
-clarity we do not also infer :code:`int_factor` just from the dimensions of the 
+and ``int_factor`` is the integration factor used in data reduction. Note 
+that ``int_factor`` is set to determine the number of time bins in the 
+frame. You may also set the ``data`` parameter to include existing 2D data, 
+from which ``fchans`` will be automatically inferred. Since multiple 
+``int_factor`` values may correspond to the same number of time bins, for 
+clarity we do not also infer ``int_factor`` just from the dimensions of the 
 data.
 
-Finally, you can construct a frame directly from a :code:`.fil`/:code:`.h5` file or Waterfall object:
+Finally, you can construct a frame directly from a ``.fil``/``.h5`` file or Waterfall object:
 
 .. code-block:: Python
     
@@ -139,7 +139,7 @@ synthetic signal. To visualize the resulting frame, we can use
 
 .. image:: images/basic_signal.png
 
-In |setigen|, we use :code:`astropy.units` to exactly specify where signals
+In |setigen|, we use ``astropy.units`` to exactly specify where signals
 should be in time-frequency space. Astropy automatically handles unit conversions
 (MHz -> Hz, etc.), which is a nice convenience. Nevertheless, you can also use normal
 SI units (Hz, s) without additional modifiers, in which case the above code would become:
@@ -168,7 +168,7 @@ SI units (Hz, s) without additional modifiers, in which case the above code woul
                               stg.box_f_profile(width=20),
                               stg.constant_bp_profile(level=1))
 
-So, it isn't quite necessary to use :code:`astropy.units`, but it's an option
+So, it isn't quite necessary to use ``astropy.units``, but it's an option
 to avoid manual unit conversion and calculation.
 
 
@@ -177,27 +177,27 @@ Using prepackaged signal functions
 
 With :mod:`setigen`'s pre-written signal functions, you can generate a variety
 of signals right off the bat. The main signal parameters that customize the
-synthetic signal are :code:`path`, :code:`t_profile`, :code:`f_profile`, and
-:code:`bp_profile`.
+synthetic signal are ``path``, ``t_profile``, ``f_profile``, and
+``bp_profile``.
 
-:code:`path` describes the path of the signal in time-frequency space. The
-:code:`path` function takes in a time and outputs 'central' frequency
+``path`` describes the path of the signal in time-frequency space. The
+``path`` function takes in a time and outputs 'central' frequency
 corresponding to that time.
 
-:code:`t_profile` (time profile) describes the intensity of the signal over
-time. The :code:`t_profile` function takes in a time and outputs an intensity.
+``t_profile`` (time profile) describes the intensity of the signal over
+time. The ``t_profile`` function takes in a time and outputs an intensity.
 
-:code:`f_profile` (frequency profile) describes the intensity of the signal
-within a time sample as a function of relative frequency. The :code:`f_profile`
+``f_profile`` (frequency profile) describes the intensity of the signal
+within a time sample as a function of relative frequency. The ``f_profile``
 function takes in a frequency and a central frequency and computes an intensity.
 This function is used to control the spectral shape of the signal (with respect
 to a central frequency), which may be a square wave, a Gaussian, or any custom
 shape!
 
-:code:`bp_profile` describes the intensity of the signal over the bandpass of
-frequencies. Whereas :code:`f_profile` computes intensity with respect to a
-relative frequency, :code:`bp_profile` computes intensity with respect to the
-absolute frequency value. The :code:`bp_profile` function takes in a frequency
+``bp_profile`` describes the intensity of the signal over the bandpass of
+frequencies. Whereas ``f_profile`` computes intensity with respect to a
+relative frequency, ``bp_profile`` computes intensity with respect to the
+absolute frequency value. The ``bp_profile`` function takes in a frequency
 and outputs an intensity as well.
 
 All these functions combine to form the final synthetic signal, which means
@@ -225,8 +225,8 @@ repetition, each example script will assume the same basic setup:
                       dt=dt,
                       fch1=fch1)
 
-:code:`paths` - trajectories in time-frequency space
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``paths`` - trajectories in time-frequency space
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Constant path
 ~~~~~~~~~~~~~
@@ -285,8 +285,8 @@ RFI-like path
 
 This path randomly varies in frequency, as in some RFI signals, using
 :func:`~setigen.funcs.paths.simple_rfi_path`. The following example shows two
-such signals, with :code:`rfi_type` set to 'stationary' and 'random_walk'. You 
-can define :code:`drift_rate` to set these signals in relation to a straight
+such signals, with ``rfi_type`` set to 'stationary' and 'random_walk'. You 
+can define ``drift_rate`` to set these signals in relation to a straight
 line path.
 
 .. code-block:: Python
@@ -311,8 +311,8 @@ line path.
 
 .. image:: images/rfi_signal.png
 
-:code:`t_profiles` - intensity variation with time
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``t_profiles`` - intensity variation with time
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Constant intensity
 ~~~~~~~~~~~~~~~~~~
@@ -368,8 +368,8 @@ And here's an example with the level a bit higher than the amplitude:
 
 .. image:: images/sine_intensity_1_3.png
 
-:code:`f_profiles` - intensity variation with time
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``f_profiles`` - intensity variation with time
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Box / square intensity profile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -405,8 +405,8 @@ signal:
 
 .. image:: images/sinc2_profile.png
 
-By default, the function has the parameter :code:`trunc=True` to truncate the 
-sinc squared function at the first zero-crossing. With :code:`trunc=False` 
+By default, the function has the parameter ``trunc=True`` to truncate the 
+sinc squared function at the first zero-crossing. With ``trunc=False`` 
 and using a larger width to show the effect:
 
 .. code-block:: Python
@@ -450,7 +450,7 @@ Multiple Gaussian intensity profile
 The profile :func:`~setigen.funcs.f_profiles.multiple_gaussian_f_profile`,
 generates a symmetric signal with three Gaussians; one main signal and two
 smaller signals on either side. This is mostly a demonstration that 
-:code:`f_profile` functions can be composite, and you can create custom 
+``f_profile`` functions can be composite, and you can create custom 
 functions like this (`Advanced`_).
 
 .. code-block:: Python
@@ -518,9 +518,9 @@ A minimal working example for adding noise is:
 
 This adds chi-squared noise scaled to a mean of 10. :func:`~setigen.frame.Frame.add_noise` 
 returns a 2D numpy array containing only the synthetic noise, and uses a default argument of
-:code:`noise_type=chi2`. Behind the scenes, the degrees of freedom used in the chi-squared 
+``noise_type=chi2``. Behind the scenes, the degrees of freedom used in the chi-squared 
 distribution are calculated using the frame resolution and can be accessed via the 
-:code:`frame.chi2_df` attribute.
+``frame.chi2_df`` attribute.
 
 
 Adding pure Gaussian noise
@@ -560,11 +560,11 @@ The :func:`~setigen.Frame.add_noise_from_obs` function also uses chi-squared noi
 selecting a mean intensity from the sampled observational distribution of means, and
 populating the frame with chi-squared noise accordingly. 
 
-Alternately, by setting :code:`noise_type=gaussian` or :code:`noise_type=normal` 
+Alternately, by setting ``noise_type=gaussian`` or ``noise_type=normal`` 
 the function will select a mean, standard deviation, and minimum from these arrays (not
 necessarily all corresponding to the same original observational sub-frame), and
 populates your frame with Gaussian noise. You can also set the
-:code:`share_index` parameter to True, to force these random noise parameter selections
+``share_index`` parameter to True, to force these random noise parameter selections
 to all correspond to the same original observational sub-frame.
 
 Note that these pre-loaded observations only
@@ -605,15 +605,15 @@ from which to sample if there's no need to truncate the noise at a lower bound.
 
 .. image:: images/noise_from_obs_params.png
 
-For chi-squared noise, only :code:`x_mean_array` is used. For Gaussian noise, by default,
+For chi-squared noise, only ``x_mean_array`` is used. For Gaussian noise, by default,
 random noise parameter selections are forced to use the same indices (as opposed 
-to randomly choosing a parameter from each array) via :code:`share_index=True`.
+to randomly choosing a parameter from each array) via ``share_index=True``.
 
 
 Convenience functions for signal generation
 -------------------------------------------
 
-There are a few functions included in :code:`Frame` that can help in constructing 
+There are a few functions included in ``Frame`` that can help in constructing 
 synthetic signals.
 
 SNR <-> Intensity
@@ -622,7 +622,7 @@ SNR <-> Intensity
 If a frame has background noise, we can calculate intensities corresponding to
 different signal-to-noise (SNR) values. Here, the SNR of a signal is obtained
 from integrating over the entire time axis, e.g. so that it reduces noise by
-:code:`sqrt(tchans)`.
+``sqrt(tchans)``.
 
 For example, the included signal parameter functions in |setigen| all calculate
 signals based on absolute intensities, so if you'd like to include a signal with
@@ -667,7 +667,7 @@ Custom metadata
 ^^^^^^^^^^^^^^^
 
 The Frame object includes a custom metadata property that allows you to manually
-track injected signal parameters. Accordingly, :code:`frame.metadata` is a simple
+track injected signal parameters. Accordingly, ``frame.metadata`` is a simple
 dictionary, making no assumptions about the type or number of signals you inject, or
 even what information to store. This property is mainly included as an easy way to save the
 data with the information you care about if you save and load frames with pickle.
@@ -718,8 +718,8 @@ If you would only like to save the frame data as a numpy array, you can do:
 
     frame.save_npy(filename='frame.npy')
 
-This just uses the :code:`numpy.save` and :code:`numpy.load` functions to save
-to :code:`.npy`. If needed, you can also load in the data using
+This just uses the ``numpy.save`` and ``numpy.load`` functions to save
+to ``.npy``. If needed, you can also load in the data using
 
 .. code-block:: Python
 
@@ -730,7 +730,7 @@ Using filterbank / HDF5
 
 If you are interfacing with other Breakthrough Listen or astronomy codebases,
 outputting |setigen| frames in filterbank or HDF5 format can be very useful. Note
-that saving to HDF5 can have some difficulties based on your :code:`bitshuffle`
+that saving to HDF5 can have some difficulties based on your ``bitshuffle``
 installation and other dependencies, but saving as a filterbank file is stable.
 
 We provide the following methods:
@@ -741,7 +741,7 @@ We provide the following methods:
     frame.save_hdf5(filename='frame.hdf5')
     frame.save_h5(filename='frame.h5')
 
-To get an equivalent :code:`blimpy` Waterfall object in the same Python session,
+To get an equivalent ``blimpy`` Waterfall object in the same Python session,
 use
 
 .. code-block:: Python

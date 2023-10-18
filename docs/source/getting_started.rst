@@ -11,7 +11,7 @@ observational data.
 
 Here's a minimal working example for a purely synthetic frame, injecting a constant
 intensity signal into a background of chi-squared noise. Parameters in |setigen| are
-specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in the example:
+specified either in terms of SI units (Hz, s) or ``astropy.units``, as in the example:
 
 .. code-block:: python
 
@@ -38,8 +38,9 @@ specified either in terms of SI units (Hz, s) or :code:`astropy.units`, as in th
 
 .. image:: images/gs_synth.png
 
-This simple signal can also be generated using the method :func:`~setigen.frame.Frame.add_constant_signal`,
-which is optimized for created signals of constant intensity and drift rate in large frames:
+This simple signal can also be generated using the method 
+:func:`~setigen.frame.Frame.add_constant_signal`, which is optimized for 
+creating signals of constant intensity and drift rate in large frames:
 
 .. code-block:: python
 
@@ -85,12 +86,12 @@ spectrograms and the default in |setigen|:
 .. image:: images/gs_obs_db.png
 
 Usually, filterbank data is saved with frequencies in descending order, with the first
-frequency bin centered at :code:`fch1`. |setigen| works with data in increasing frequency
+frequency bin centered at ``fch1``. |setigen| works with data in increasing frequency
 order, and will reverse the data order when appropriate if the frame is initialized with such 
 an observation. However, if you are working with data or would like to synthesize
-data for which :code:`fch1` should be the minimum frequency, set :code:`ascending=True` when 
+data for which ``fch1`` should be the minimum frequency, set ``ascending=True`` when 
 initializing the Frame object. Note that if you initialize Frame using a filterbank file with
-frequencies in increasing order, you do not need to set :code:`ascending` manually.
+frequencies in increasing order, you do not need to set ``ascending`` manually.
 
 .. code-block:: python
 
@@ -101,8 +102,10 @@ frequencies in increasing order, you do not need to set :code:`ascending` manual
                       fch1=6095.214842353016*u.MHz,
                       ascending=True)
 
-Assuming you have access to a data array, with corresponding resolution information, you can
-can also initialize a frame as follows. Just make sure that your data is already arranged in the desired frequency order; setting the :code:`ascending` parameter will only affect the frequency 
+Assuming you have access to a data array, with corresponding resolution 
+information, you can also initialize a frame as follows. Just make sure that 
+your data is already arranged in the desired frequency order; 
+setting the ``ascending`` parameter will only affect the frequency 
 values that are mapped to the provided data array.
 
 .. code-block:: python

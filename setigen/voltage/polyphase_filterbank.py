@@ -186,6 +186,7 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
     x_summed : array
         Array of voltages post-PFB weighting
     """
+    print(x.shape)
     W = int(len(x) / num_taps / num_branches)
     
     # Truncate data stream x to fit reshape step

@@ -20,6 +20,7 @@ def _get_extent_units(frame):
     else:
         return 1, "Hz"
     
+
 def _frequency_formatter(frame, xtype):
     if xtype == "fmid":
         def formatter(x, pos):

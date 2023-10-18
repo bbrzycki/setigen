@@ -94,6 +94,8 @@ class Cadence(collections.abc.MutableSequence):
                     for frame in self.frames])
     @property
     def obs_range(self):
+        if len(self.frames) == 0:
+            return None
         return self.frames[-1].t_stop - self.frames[0].t_start
         
     def _check(self, v):

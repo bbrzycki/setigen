@@ -207,12 +207,13 @@ def test_raw_injection_no_directio(antenna_setup,
     rvb.record(output_file_stem=raw_stem,
                num_blocks=2, 
                length_mode='num_blocks',
-               header_dict={'HELLO': 'test_value'},
+               header_dict={'HELLO': 'test_value',
+                            'TELESCOP': 'GBT'},
                load_template=False,
                verbose=True)
     
     header_dict = stg.voltage.read_header(raw_path)
-    assert header_dict['TELESCOP'] == 'SETIGEN '
+    assert header_dict['TELESCOP'] == 'GBT     '
     assert header_dict['OBSERVER'] == 'SETIGEN '
     assert header_dict['SRC_NAME'] == 'SYNTHETIC'
     assert header_dict['HELLO'] == 'test_value'
@@ -237,11 +238,17 @@ def test_raw_injection_no_directio(antenna_setup,
     assert read_rvb.header_size == 80 * (len(read_rvb.input_header_dict) + 1)
 
     read_raw_stem = tmp_path / 'example_1block_read'
-    read_raw_path = f"{raw_stem}.0000.raw"
+    read_raw_path = f"{read_raw_stem}.0000.raw"
     read_rvb.record(output_file_stem=read_raw_stem,
-                    length_mode='num_blocks',
                     header_dict={'HELLO': 'test_value'},
+                    load_template=False,
                     verbose=False)
+    
+    header_dict = stg.voltage.read_header(read_raw_path)
+    assert header_dict['TELESCOP'] == 'GBT_SETIGEN'
+    assert header_dict['OBSERVER'] == 'SETIGEN '
+    assert header_dict['SRC_NAME'] == 'SYNTHETIC'
+    assert header_dict['HELLO'] == 'test_value'
     
      # Reduce data
     wf_data = stg.voltage.get_waterfall_from_raw(read_raw_path,
@@ -285,7 +292,7 @@ def test_raw_injection_directio(antenna_setup,
                                   level=0.002,
                                   phase=np.pi/2)
     
-    # Test not using default obs template without zero-padding / directio
+    # Test not using default obs template with zero-padding / directio
     raw_stem = tmp_path / 'example_1block'
     raw_path = f"{raw_stem}.0000.raw"
     rvb.record(output_file_stem=raw_stem,
@@ -315,9 +322,8 @@ def test_raw_injection_directio(antenna_setup,
     assert read_rvb.header_size == int(512 * np.ceil((80 * (len(read_rvb.input_header_dict) + 1)) / 512))
 
     read_raw_stem = tmp_path / 'example_1block_read'
-    read_raw_path = f"{raw_stem}.0000.raw"
+    read_raw_path = f"{read_raw_stem}.0000.raw"
     read_rvb.record(output_file_stem=read_raw_stem,
-                    length_mode='num_blocks',
                     header_dict={'HELLO': 'test_value'},
                     verbose=False)
     
@@ -329,3 +335,73 @@ def test_raw_injection_directio(antenna_setup,
                                                  fftlength=1)
     
     assert wf_data.shape == (8, 64)
+
+
+def test_4bit_multiantenna(antenna_array_setup,
+                           tmp_path):
+    antenna_array = copy.deepcopy(antenna_array_setup)
+    for stream in antenna_array.bg_streams:
+        stream.add_noise(0, 1)
+    for antenna in antenna_array.antennas:
+        for stream in antenna.streams:
+            stream.add_noise(0, 1)
+
+    num_taps = 8
+    num_branches = 1024
+    
+    digitizers = [[stg.voltage.RealQuantizer(target_fwhm=8, 
+                                             num_bits=8)
+                   for pol in range(antenna_array.num_pols)]
+                  for antenna in antenna_array.antennas]
+    filterbanks = [[stg.voltage.PolyphaseFilterbank(num_taps=num_taps, 
+                                                    num_branches=num_branches)
+                    for pol in range(antenna_array.num_pols)]
+                   for antenna in antenna_array.antennas]
+    requantizers = [[stg.voltage.ComplexQuantizer(target_fwhm=8,
+                                                  num_bits=4)
+                     for pol in range(antenna_array.num_pols)]
+                    for antenna in antenna_array.antennas]
+
+    num_pols = antenna_array.num_pols
+    num_chans = 64
+    block_size = num_taps * num_chans * 2 * num_pols * antenna_array.num_antennas
+    rvb = stg.voltage.RawVoltageBackend(antenna_array,
+                                        digitizer=digitizers,
+                                        filterbank=filterbanks,
+                                        requantizer=requantizers,
+                                        start_chan=0,
+                                        num_chans=num_chans,
+                                        block_size=block_size,
+                                        blocks_per_file=128,
+                                        num_subblocks=32)
+
+    assert rvb.num_antennas == 3
+    assert rvb.num_bits == 4
+
+    raw_stem = tmp_path / 'example_multiantenna4bit'
+    raw_path = f"{raw_stem}.0000.raw"
+    rvb.record(output_file_stem=raw_stem,
+               num_blocks=2, 
+               length_mode='num_blocks',
+               header_dict={'HELLO': 'test_value'},
+               verbose=False)
+    
+    header_dict = stg.voltage.read_header(raw_path)
+    assert header_dict['NANTS'] == '3'
+    assert header_dict['NBITS'] == '4'
+
+    # Read back multiantenna file
+    read_rvb = stg.voltage.RawVoltageBackend.from_data(input_file_stem=raw_stem,
+                                                       antenna_source=antenna_array,
+                                                       digitizer=digitizers,
+                                                       filterbank=filterbanks,
+                                                       start_chan=0,
+                                                       num_subblocks=32)
+    assert read_rvb.num_antennas == 3
+    assert read_rvb.num_bits == 4
+
+    read_raw_stem = tmp_path / 'example_multiantenna4bit_read'
+    read_raw_path = f"{read_raw_stem}.0000.raw"
+    read_rvb.record(output_file_stem=read_raw_stem,
+                    header_dict={'HELLO': 'test_value'},
+                    verbose=False)

@@ -36,12 +36,12 @@ class Antenna(object):
         sample_rate : float, optional
             Physical sample rate, in Hz, for collecting real voltage data
         fch1 : astropy.Quantity, optional
-            Starting frequency of the first coarse channel, in Hz.
-            If ascending=True, fch1 is the minimum frequency; if ascending=False 
-            (default), fch1 is the maximum frequency.
+            Central frequency of the first coarse channel, in Hz.
+            If ``ascending=True``, ``fch1`` is the minimum frequency; if ``ascending=False`` 
+            (default), ``fch1`` is the maximum frequency.
         ascending : bool, optional
             Specify whether frequencies should be in ascending or descending order. Default 
-            is True, for which fch1 is the minimum frequency.
+            is True, for which ``fch1`` is the minimum frequency.
         num_pols : int, optional
             Number of polarizations, can be 1 or 2
         t_start : float, optional
@@ -155,12 +155,12 @@ class MultiAntennaArray(object):
         sample_rate : float, optional
             Physical sample rate, in Hz, for collecting real voltage data
         fch1 : astropy.Quantity, optional
-            Starting frequency of the first coarse channel, in Hz.
-            If ascending=True, fch1 is the minimum frequency; if ascending=False 
-            (default), fch1 is the maximum frequency.
+            Central frequency of the first coarse channel, in Hz.
+            If ``ascending=True``, ``fch1`` is the minimum frequency; if ``ascending=False`` 
+            (default), ``fch1`` is the maximum frequency.
         ascending : bool, optional
             Specify whether frequencies should be in ascending or descending order. Default 
-            is True, for which fch1 is the minimum frequency.
+            is True, for which ``fch1`` is the minimum frequency.
         num_pols : int, optional
             Number of polarizations, can be 1 or 2
         delays : array, optional
@@ -254,7 +254,7 @@ class MultiAntennaArray(object):
         First, background data stream voltages are computed. Then, for each Antenna, voltages
         are retrieved per polarization and summed with the corresponding background voltages, subject
         to that Antenna's sample delay. An appropriate number of background voltage samples are cached 
-        with the Antenna, according to the delay, so that regardless of :code:`num_samples`, each Antenna 
+        with the Antenna, according to the delay, so that regardless of ``num_samples``, each Antenna 
         data stream has enough background samples to add.
         
         Parameters

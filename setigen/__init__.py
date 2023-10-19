@@ -21,12 +21,11 @@ from setigen.sample_from_obs import (
 from setigen.split_utils import (
     split_waterfall_generator, split_fil, split_array
 )
-from setigen.stats import (
-    exclude_and_flatten, get_mean, get_std, get_min, compute_frame_stats
-)
 from setigen.unit_utils import cast_value, get_value
 from setigen.frame_utils import db, array, integrate, get_slice
-from setigen.normalize import sigma_clip_norm, sliding_norm, max_norm
+from setigen.normalize import (
+    sigma_clip_norm, sliding_norm, blimpy_clip, max_norm
+)
 from setigen.dedrift import dedrift
 from setigen.plots import plot_frame, plot_cadence
 

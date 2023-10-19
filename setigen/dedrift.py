@@ -27,14 +27,14 @@ def dedrift(fr, drift_rate=None):
             raise KeyError('Please specify a drift rate to account for')
             
     # Calculate maximum pixel offset and raise an exception if necessary
-    max_offset = int(abs(drift_rate) * fr.tchans * fr.dt / fr.df)
+    max_offset = int(np.round(abs(drift_rate) * fr.tchans * fr.dt / fr.df))
     if max_offset >= fr.fchans:
         raise ValueError(f'The provided drift rate ({drift_rate:.2f} Hz/s) ' 
                          f'is too high for the frame dimensions')
     tr_data = np.zeros((fr.data.shape[0], fr.data.shape[1] - max_offset))
 
     for i in range(fr.tchans):
-        offset = int(abs(drift_rate) * i * fr.dt / fr.df)
+        offset = int(np.round(abs(drift_rate) * i * fr.dt / fr.df))
         if drift_rate >= 0:
             start_idx = 0 + offset
             end_idx = start_idx + tr_data.shape[1]

@@ -1,6 +1,7 @@
 import sys
 import os
 import errno
+from pathlib import Path
 import numpy as np
 from blimpy import Waterfall
 
@@ -94,8 +95,7 @@ def split_fil(waterfall_fn, output_dir, fchans, tchans=None, f_shift=None):
     split_fns : list of str
         List of new filenames
     """
-    if output_dir[-1] != '/':
-        output_dir = output_dir + '/'
+    output_dir = Path(output_dir)
 
     try:
         os.makedirs(output_dir)
@@ -111,10 +111,10 @@ def split_fil(waterfall_fn, output_dir, fchans, tchans=None, f_shift=None):
     # Iterates down frequencies, starting from highest
     split_fns = []
     for i, waterfall in enumerate(split_generator):
-        output_fn = output_dir + '%s_%04d.fil' % (fchans, i)
+        output_fn = output_dir / f"{fchans}_{i:04d}.fil"
         waterfall.write_to_fil(output_fn)
         split_fns.append(output_fn)
-        print('Saved %s' % output_fn)
+        print(f"Saved {output_fn}")
     return split_fns
 
 
@@ -140,7 +140,7 @@ def split_array(data, f_sample_num=None, t_sample_num=None,
     split_data = []
 
     if not isinstance(data, np.ndarray):
-        sys.exit("Input data must be a NumPy array!")
+        raise ValueError("Input data must be a numpy array")
 
     height, width = data.shape
 
@@ -152,12 +152,12 @@ def split_array(data, f_sample_num=None, t_sample_num=None,
     if f_shift is None:
         f_shift = f_sample_num
     elif f_shift <= 0:
-        sys.exit("Invalid x-direction shift!")
+        raise ValueError(f"Invalid x-direction shift: {f_shift}")
 
     if t_shift is None:
         t_shift = t_sample_num
     elif t_shift <= 0:
-        sys.exit("Invalid y-direction shift!")
+        raise ValueError(f"Invalid y-direction shift: {t_shift}")
 
     # Save first frame, regardless of overstepping bounds
     y_start = 0
@@ -198,4 +198,4 @@ def split_array(data, f_sample_num=None, t_sample_num=None,
     if f_trim:
         split_data = list(filter(lambda A: A.shape[1] == f_sample_num,
                                  split_data))
-    return split_data
+    return np.array(split_data)

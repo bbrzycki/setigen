@@ -135,8 +135,8 @@ def periodic_gaussian_t_profile(pulse_width,
         # Apply the pulse offset to each tracked pulse
         offset_dict = dict(zip(unique_center_ks,
                                rng.normal(0,
-                                                pulse_offset_sigma,
-                                                unique_center_ks.shape)))
+                                          pulse_offset_sigma,
+                                          unique_center_ks.shape)))
         get_offsets = np.vectorize(lambda x: offset_dict[x])
 
         # Calculate the signs for each pulse

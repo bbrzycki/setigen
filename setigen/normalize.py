@@ -34,7 +34,7 @@ def sigma_clip_norm(fr, axis=None, as_data=None):
         
     if axis in ['f', 1]:
         axis = 1
-    else:
+    elif axis in ['t', 0]:
         axis = 0
 
     clipped_data = sigma_clip(as_data, axis=axis, masked=True)
@@ -44,12 +44,13 @@ def sigma_clip_norm(fr, axis=None, as_data=None):
     if isinstance(fr, Frame):
         n_frame = fr.copy()
         n_frame.data = data
+        n_frame._update_noise_frame_stats()
         return n_frame
     else:
         return data
     
 
-def sliding_norm(data, cols=0, exclude=0.0, to_db=False, use_median=False):
+def sliding_norm(data, cols=0, exclude=0.0, db=False, use_median=False):
     """
     Normalize data per frequency channel so that the noise level in data is
     controlled; using mean or median filter.
@@ -68,7 +69,7 @@ def sliding_norm(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     exclude : float, optional
         Fraction of brightest samples in each frequency bin to exclude in
         calculating mean and standard deviation
-    to_db : bool, optional
+    db : bool, optional
         Convert values to decibel equivalents *before* normalization
     use_median : bool, optional
         Use median and median absolute deviation instead of mean and standard
@@ -78,14 +79,13 @@ def sliding_norm(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     -------
     normalized_data : ndarray
         Normalized data
-
     """
 
     # Width of normalization window = 2 * cols + 1
     t_len, f_len = data.shape
     mean = np.empty(f_len)
     std = np.empty(f_len)
-    if to_db:
+    if db:
         data = frame_utils.db(data)
     for i in np.arange(f_len):
         if i < cols:
@@ -107,8 +107,39 @@ def sliding_norm(data, cols=0, exclude=0.0, to_db=False, use_median=False):
     return np.nan_to_num((data - mean) / std)
 
 
+def blimpy_clip(data, exclude=0):
+    """
+    Naive clipping method by excluding top fraction of intensities.
+
+    Parameters
+    ----------
+    data : ndarray
+        Time-frequency data
+    exclude : float, optional
+        Fraction of brightest samples to exclude in calculating mean and 
+        standard deviation
+
+    Returns
+    -------
+    data : ndarray
+        Clipped data
+    """
+    flat_data = data.flatten()
+    return np.sort(flat_data)[::-1][int(exclude * len(flat_data)):]
+
+
 def max_norm(data):
     """
     Simple normalization by dividing out by the brightest pixel.
+
+    Parameters
+    ----------
+    data : ndarray
+        Time-frequency data
+
+    Returns
+    -------
+    normalized_data : ndarray
+        Normalized data
     """
     return data / np.max(data)

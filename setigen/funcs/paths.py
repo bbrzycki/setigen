@@ -126,7 +126,7 @@ def simple_rfi_path(f_start, drift_rate, spread, spread_type='uniform',
             factor = 2 * np.sqrt(2 * np.log(2))
             f_offset = rng.normal(0, spread / factor, size=t.shape)
         else:
-            sys.exit('{} is not a valid spread type!'.format(spread_type))
+            raise ValueError(f"'{spread_type}' is not a valid spread type!")
             
         if rfi_type == 'random_walk':
             f_offset = np.cumsum(f_offset)

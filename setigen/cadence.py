@@ -94,6 +94,8 @@ class Cadence(collections.abc.MutableSequence):
                     for frame in self.frames])
     @property
     def obs_range(self):
+        if len(self.frames) == 0:
+            return None
         return self.frames[-1].t_stop - self.frames[0].t_start
         
     def _check(self, v):
@@ -136,7 +138,7 @@ class Cadence(collections.abc.MutableSequence):
     def overwrite_times(self):
         """
         Overwrite the starting time and time arrays used to compute signals
-        in each frame of the cadence, using slew_time (s) to space between 
+        in each frame of the cadence, using ``slew_time`` (s) to space between 
         frames.
         """
         for i, frame in enumerate(self.frames[1:]):
@@ -153,7 +155,7 @@ class Cadence(collections.abc.MutableSequence):
     def add_signal(self, *args, **kwargs):
         """
         Add signal to each frame in the cadence. Arguments are passed through
-        to :code:`Frame.add_signal`.
+        to :func:`~setigen.frame.Frame.add_signal`.
         """
         for frame in self.frames:
             frame.ts += frame.t_start - self.t_start
@@ -230,7 +232,7 @@ class OrderedCadence(Cadence):
     """
     A class that extends Cadence for imposing a cadence order, such as 
     "ABACAD" or "ABABAB". Order labels are added to each frame's metadata with
-    the :code:`order_label` keyword.
+    the ``order_label`` keyword.
 
     Parameters
     ----------

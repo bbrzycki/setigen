@@ -34,7 +34,7 @@ use the OrderedCadence:
     c = stg.OrderedCadence(frame_list, 
                            order="ABACAD")
                         
-The OrderedCadence adds an :code:`order_label` field to each frame's metadata, 
+The OrderedCadence adds an ``order_label`` field to each frame's metadata, 
 tracking the unique pointings. 
 
 Cadence objects supports Python list operations, such as append and slicing. In
@@ -71,7 +71,7 @@ As an example, if you wanted to add a drifting signal only to "A" observations:
 
 Cadence plotting has similar arguments to frame plotting, but you can also 
 have the subplots spaced out vertically in proportion to the slew time in 
-between observations by setting :code:`slew_times=True`.
+between observations by setting ``slew_times=True``.
 
 .. code-block:: Python
 

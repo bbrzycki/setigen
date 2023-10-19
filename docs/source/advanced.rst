@@ -17,23 +17,23 @@ Writing custom signal functions
 
 You can go beyond |setigen|'s pre-written signal functions by
 writing your own. For each :func:`~setigen.frame.Frame.Frame.add_signal` input parameter
-(:code:`path`, :code:`t_profile`, :code:`f_profile`, and :code:`bp_profile`),
+(``path``, ``t_profile``, ``f_profile``, and ``bp_profile``),
 you can pass in your own custom functions. Note that these inputs are themselves functions.
 
 It's important that the functions you pass into each parameter have the correct
 inputs and outputs. Specifically:
 
-    :code:`path`
+    ``path``
         Function that takes in time [array] ``t`` and outputs a frequency [array]
 
-    :code:`t_profile`
+    ``t_profile``
         Function that takes in time [array] ``t`` and outputs an intensity [array]
 
-    :code:`f_profile`
+    ``f_profile``
         Function that takes in frequency [array] ``f`` and a reference central
         frequency [array] ``f_center``, and outputs an intensity [array]
 
-    :code:`bp_profile`
+    ``bp_profile``
         Function that takes in frequency [array] ``f`` and outputs an intensity [array]
 
 For example, here's the code behind the sine path shape:
@@ -125,9 +125,9 @@ at only every (dt, df) offset would be too inaccurate.
 Optimization
 ~~~~~~~~~~~~
 
-To limit the range of signal computation, you can use the :code:`bounding_f_range`
-parameter of :code:`add_signal`. This takes in a tuple of frequencies
-:code:`(bounding_min, bounding_max)`, between which the signal will be computed.
+To limit the range of signal computation, you can use the ``bounding_f_range``
+parameter of ``add_signal``. This takes in a tuple of frequencies
+``(bounding_min, bounding_max)``, between which the signal will be computed.
 
 .. code-block:: Python
 
@@ -224,24 +224,24 @@ Accuracy
 
 To improve accuracy a bit, we can integrate signal computations over subsamples in
 time and frequency. The function :func:`~setigen.frame.Frame.add_signal` has three boolean parameters:
-:code:`integrate_path`, :code:`integrate_t_profile`, and :code:`integrate_f_profile`,
+``integrate_path``, ``integrate_t_profile``, and ``integrate_f_profile``,
 which control whether various integrations are turned on (by default, they are False).
-The former two depend on the :code:`t_subsamples` parameter, which is the number
-of bins per time sample (e.g. per dt) over which to integrate; likewise, :code:`integrate_f_profile`
-depends on the :code:`f_subsamples` parameter.
+The former two depend on the ``t_subsamples`` parameter, which is the number
+of bins per time sample (e.g. per dt) over which to integrate; likewise, ``integrate_f_profile``
+depends on the ``f_subsamples`` parameter.
 
-:code:`integrate_path` controls integration of the signal's center frequency with
-respect to time, :code:`path`. If your :code:`path` varies on timescales shorter than
+``integrate_path`` controls integration of the signal's center frequency with
+respect to time, ``path``. If your ``path`` varies on timescales shorter than
 the time resolution dt, then it could make sense to integrate to get more
 appropriate frequency positions.
 
-:code:`integrate_t_profile` controls integration of the intensity variation with respect to
-time, :code:`t_profile`. If your :code:`t_profile` varies on timescales shorter than the
+``integrate_t_profile`` controls integration of the intensity variation with respect to
+time, ``t_profile``. If your ``t_profile`` varies on timescales shorter than the
 time resolution dt, then it could make sense to integrate to get more
 appropriate intensities.
 
-:code:`integrate_f_profile` controls integration of the intensity variation with respect to
-frequency, :code:`f_profile`. If your :code:`f_profile` varies on spectral scales
+``integrate_f_profile`` controls integration of the intensity variation with respect to
+frequency, ``f_profile``. If your ``f_profile`` varies on spectral scales
 shorter than the frequency resolution df, then it could make sense to integrate
 to get more appropriate intensities.
 
@@ -312,7 +312,7 @@ Creating an injected synthetic signal dataset using observations
 
 We can create a dataset based on observations using the :mod:`~setigen.split_utils`
 module. We can use :func:`~setigen.split_utils.split_waterfall_generator` to create
-a Python generator that returns :code:`blimpy` Waterfall objects, from which we can create
+a Python generator that returns ``blimpy`` Waterfall objects, from which we can create
 |setigen| Frames. The function :func:`~setigen.sample_from_obs.get_parameter_distributions`
 actually uses this behind the scenes to iterate through observational data.
 
@@ -329,9 +329,9 @@ actually uses this behind the scenes to iterate through observational data.
     waterfall = next(waterfall_itr)
     frame = stg.Frame(waterfall)
 
-Here, :code:`f_shift` is the number of indices in the frequency direction to shift
-before making another slice or split of size :code:`fchans`. If :code:`f_shift=None`,
-it defaults to shifting over by :code:`fchans`, so that there is no overlap.
+Here, ``f_shift`` is the number of indices in the frequency direction to shift
+before making another slice or split of size ``fchans``. If ``f_shift=None``,
+it defaults to shifting over by ``fchans``, so that there is no overlap.
 
 To construct a full dataset, we can then use the generator to iterate over slices
 of data and save out frames. As a simple example:
@@ -341,8 +341,9 @@ of data and save out frames. As a simple example:
     for i, waterfall in enumerate(waterfall_itr):
         frame = stg.Frame(waterfall=waterfall)
 
-        start_index = np.random.randint(0, fchans)
-        stop_index = np.random.randint(0, fchans)
+        rng = np.random.default_rng()
+        start_index = rng.integers(0, fchans)
+        stop_index = rng.integers(0, fchans)
         drift_rate = frame.get_drift_rate(start_index, stop_index)
 
         signal = frame.add_constant_signal(f_start=frame.get_frequency(start_index),

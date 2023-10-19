@@ -1,6 +1,7 @@
 import numpy as np
 import glob
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 
 def format_header_line(key, value, as_strings=False):
@@ -55,7 +56,7 @@ def get_header_key_val(header_line):
         Header value (as string)
     """
     key = header_line[:8].strip()
-    value = header_line[9:].strip()#.strip("''")
+    value = header_line[9:].strip().strip("''")
     return key, value
 
 
@@ -81,6 +82,14 @@ def read_header(filename):
             header_dict[key] = val
             chunk = f.read(80)
     return header_dict
+
+
+def get_stem(filename):
+    """
+    Extract RAW stem from RAW filename.
+    """
+    raw_path = Path(filename)
+    return raw_path.parent / ''.join(raw_path.stem.split('.')[:-1])
 
 
 def get_raw_params(input_file_stem,

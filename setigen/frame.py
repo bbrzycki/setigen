@@ -46,6 +46,7 @@ class Frame(object):
                  fch1=6*u.GHz,
                  ascending=False,
                  data=None,
+                 seed=None,
                  **kwargs):
         """
         Initialize a Frame object either from an existing .fil/.h5 file or
@@ -55,14 +56,14 @@ class Frame(object):
         filename or the Waterfall object into the waterfall keyword.
 
         Otherwise, you can initialize a frame by specifying the parameters
-        fchans, tchans, df, dt, and even fch1, if it's important to
+        ``fchans``, ``tchans``, ``df``, ``dt``, and even ``fch1``, if it's important to
         specify frequencies (8 GHz is an arbitrary but reasonable choice
-        otherwise). Note that the frame resolutions df and dt are given 
+        otherwise). Note that the frame resolutions ``df`` and ``dt`` are given 
         defaults based on the Breakthrough Listen high frequency resolution
         data product -- be sure to change these if you are working with 
         different kinds of data.
         
-        The :code:`data` keyword is only necessary if you are also
+        The `data` keyword is only necessary if you are also
         preloading data that matches your specified frame dimensions and
         resolutions.
 
@@ -79,21 +80,24 @@ class Frame(object):
         dt : astropy.Quantity, optional
             Time resolution (e.g. in u.s)
         fch1 : astropy.Quantity, optional
-            Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
-            If ascending=True, fch1 is the minimum frequency; if ascending=False 
-            (default), fch1 is the maximum frequency.
+            Central frequency of first channel. If ``ascending=True``, 
+            ``fch1`` is the minimum frequency; if ``ascending=False`` 
+            (default), ``fch1`` is the maximum frequency.
         ascending : bool, optional
             Specify whether frequencies should be in ascending order, so that 
-            fch1 is the minimum frequency. Default is False, for which fch1
+            ``fch1`` is the minimum frequency. Default is False, for which ``fch1``
             is the maximum frequency. This is overwritten if a waterfall
-            object is provided, where ascending will be automatically 
+            object is provided, where ``ascending`` will be automatically 
             determined by observational parameters.
         data : ndarray, optional
             2D array of intensities to preload into frame
+        seed : None, int, Generator, optional
+            Random seed or seed generator
         **kwargs
-            For convenience, the :code:`shape` keyword can be used in place of individually
-            setting :code:`fchans` and :code:`tchans`, so that :code:`shape=(tchans, fchans)`.
+            For convenience, the ``shape`` keyword can be used in place of individually
+            setting ``fchans`` and ``tchans``, so that ``shape=(tchans, fchans)``.
         """
+        self.rng = np.random.default_rng(seed)
         if None not in [fchans, tchans] or 'shape' in kwargs or data is not None:
             self.waterfall = None
 
@@ -196,14 +200,14 @@ class Frame(object):
         dt : astropy.Quantity
             Time resolution (e.g. in u.s)
         fch1 : astropy.Quantity
-            Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
-            If ascending=True, fch1 is the minimum frequency; if ascending=False 
-            (default), fch1 is the maximum frequency.
+            Central frequency of first channel. If ``ascending=True``, 
+            ``fch1`` is the minimum frequency; if ``ascending=False`` 
+            (default), ``fch1`` is the maximum frequency.
         ascending : bool
             Specify whether frequencies should be in ascending order, so that 
-            fch1 is the minimum frequency. Default is False, for which fch1
+            ``fch1`` is the minimum frequency. Default is False, for which ``fch1``
             is the maximum frequency. This is overwritten if a waterfall
-            object is provided, where ascending will be automatically 
+            object is provided, where ``ascending`` will be automatically 
             determined by observational parameters.
         data : ndarray
             2D array of intensities to preload into frame
@@ -211,7 +215,7 @@ class Frame(object):
             Dictionary of features associated with the frame
         waterfall : Waterfall, optional
             Associated Waterfall object if data is derived from another frame object 
-            (accessed via frame.get_waterfall()) or a blimpy waterfall object
+            (accessed via ``frame.get_waterfall()``) or a blimpy waterfall object
             
         Returns
         -------
@@ -256,37 +260,37 @@ class Frame(object):
                             data=None):
         """
         Create frame based on backend / software related parameters.
-        Either :code:`fchans` or :code:`data` must be provided to get number of frequency
-        channels to create. If a 2D numpy array for :code:`data` is provided, :code:`fchans`
-        will be inferred. The parameter :code:`int_factor` must still be provided 
-        to determine :code:`tchans`; there is a check that the data dimensions also match.
-        Since multiple :code:`int_factor` values may correspond to the same :code:`tchans`, 
-        for clarity we do not infer :code:`int_factor` just from the dimensions of the data.
+        Either ``fchans`` or ``data`` must be provided to get number of frequency
+        channels to create. If a 2D numpy array for ``data`` is provided, ``fchans``
+        will be inferred. The parameter ``int_factor`` must still be provided 
+        to determine ``tchans``; there is a check that the data dimensions also match.
+        Since multiple ``int_factor`` values may correspond to the same ``tchans``, 
+        for clarity we do not infer ``int_factor`` just from the dimensions of the data.
         
         Parameters
         ----------
         fchans : int, optional
-            Number of frequency samples. Should be provided if :code:`data` is None.
+            Number of frequency samples. Should be provided if ``data`` is None.
         obs_length : float, optional
             Length of observation in seconds
         sample_rate : float, optional
             Physical sample rate, in Hz, for collecting real voltage data
         num_branches : int, optional
-            Number of PFB branches. Note that this corresponds to :code:`num_branches / 2` coarse channels.
+            Number of PFB branches. Note that this corresponds to ``num_branches / 2`` coarse channels.
         fftlength : int, optional
             FFT length to be used in fine channelization
         int_factor : int, optional
-            Integration factor used in fine channelization. Determines tchans.
+            Integration factor used in fine channelization. Determines ``tchans``.
         fch1 : astropy.Quantity, optional
-            Frequency of channel 1, as in filterbank file headers (e.g. in u.Hz).
-            If ascending=True, fch1 is the minimum frequency; if ascending=False 
-            (default), fch1 is the maximum frequency.
+            Central frequency of first channel. If ``ascending=True``, 
+            ``fch1`` is the minimum frequency; if ``ascending=False`` 
+            (default), ``fch1`` is the maximum frequency.
         ascending : bool, optional
             Specify whether frequencies should be in ascending order, so that 
-            fch1 is the minimum frequency. Default is False, for which fch1
+            ``fch1`` is the minimum frequency. Default is False, for which ``fch1``
             is the maximum frequency.
         data : ndarray, optional
-            2D array of intensities to preload into frame. If provided, :code:`fchans`
+            2D array of intensities to preload into frame. If provided, ``fchans``
             will be inferred from this. 
             
         Returns
@@ -308,6 +312,7 @@ class Frame(object):
                                          fftlength=fftlength,
                                          int_factor=int_factor)
         if data is not None:
+            print(param_dict['tchans'], tchans)
             assert param_dict['tchans'] == tchans
         
         frame = cls(fchans=fchans,
@@ -387,7 +392,7 @@ class Frame(object):
     @property 
     def ts_ext(self):
         """
-        Extended time array of length :code:`tchans + 1`, including the ending
+        Extended time array of length ``tchans + 1``, including the ending
         timestamp.    
         """
         return np.append(self.ts, self.ts[-1] + self.dt)
@@ -401,7 +406,7 @@ class Frame(object):
         return np.std(self.data)
 
     def get_total_stats(self):
-        return self.mean(), self.std()
+        return self.mean, self.std
 
     def get_noise_stats(self):
         return self.noise_mean, self.noise_std
@@ -433,16 +438,35 @@ class Frame(object):
         By default, synthesize radiometer noise based on a chi-squared
         distribution. Alternately, can generate pure Gaussian noise.
         
-        Specifying noise_type='chi2' will only use x_mean,
-        and ignore other parameters. Specifying noise_type='normal' or 'gaussian' 
+        Specifying ``noise_type='chi2'`` will only use ``x_mean``,
+        and ignore other parameters. Specifying ``noise_type='gaussian'``
         will use all arguments (if provided).
         
         When adding Gaussian noise to the frame, the minimum is simply a
         lower bound for intensities in the data (e.g. it may make sense to
         cap intensities at 0), but this is optional.
+
+        Parameters
+        ----------
+        x_mean : float
+            Target mean
+        x_std : float, optional
+            Target standard deviation
+        x_min : float, optional
+            Lower bound for Gaussian noise
+        noise_type : {"chi2", "gaussian", "normal"}, default: "chi2"
+            Distribution to use for synthetic noise
+
+        Return
+        ------
+        noise : ndarray
+            Array of synthetic noise
         """
         if noise_type == 'chi2':
-            noise = distributions.chi2(x_mean, self.chi2_df, self.shape)
+            noise = distributions.chi2(x_mean, 
+                                       self.chi2_df, 
+                                       self.shape, 
+                                       seed=self.rng)
             
             # Based on variance of ideal chi-squared distribution
             x_std = np.sqrt(2 * self.chi2_df) * x_mean / self.chi2_df
@@ -452,15 +476,17 @@ class Frame(object):
                     noise = distributions.truncated_gaussian(x_mean,
                                                              x_std,
                                                              x_min,
-                                                             self.shape)
+                                                             self.shape,
+                                                             seed=self.rng)
                 else:
                     noise = distributions.gaussian(x_mean,
                                                    x_std,
-                                                   self.shape)
+                                                   self.shape,
+                                                   seed=self.rng)
             else:
-                sys.exit('x_std must be given')
+                raise ValueError("x_std must be given")
         else:
-            sys.exit('{} is not a valid noise type'.format(noise_type))
+            raise ValueError(f"'{noise_type}' is not a valid noise type")
                 
         self.data += noise
 
@@ -488,8 +514,8 @@ class Frame(object):
         (tchans, fchans) = (32, 1024). These sample noise parameters consist
         of 126500 samples for mean, std, and min of each observation.
         
-        Specifying noise_type='chi2' will only use x_mean_array (if provided),
-        and ignore other parameters. Specifying noise_type='normal' will use
+        Specifying ``noise_type='chi2'`` will only use ``x_mean_array`` (if provided),
+        and ignore other parameters. Specifying noise_type='gaussian' will use
         all arrays (if provided).
 
         Note: this method will attempt to scale the noise parameters to match
@@ -498,18 +524,22 @@ class Frame(object):
 
         Parameters
         ----------
-        x_mean_array : ndarray
+        x_mean_array : ndarray, optional
             Array of potential means
-        x_std_array : ndarray
+        x_std_array : ndarray, optional
             Array of potential standard deviations
         x_min_array : ndarray, optional
             Array of potential minimum values
-        share_index : bool
+        share_index : bool, optional, default: True
             Whether to select noise parameters from the same index across each
-            provided array. If share_index is True, then each array must be
-            the same length.
-        noise_type : string
-            Distribution to use for synthetic noise; 'chi2', 'normal', 'gaussian'
+            provided array. If True, then each array must be the same length.
+        noise_type : {"chi2", "gaussian", "normal"}, default: "chi2"
+            Distribution to use for synthetic noise
+
+        Return
+        ------
+        noise : ndarray
+            Array of synthetic noise
         """
         if (x_mean_array is None
             and x_std_array is None
@@ -529,8 +559,11 @@ class Frame(object):
             x_min_array = sample_noise_params[:, 2] * scale_factor
             
         if noise_type == 'chi2':
-            x_mean = np.random.choice(x_mean_array)
-            noise = distributions.chi2(x_mean, self.chi2_df, self.shape)
+            x_mean = self.rng.choice(x_mean_array)
+            noise = distributions.chi2(x_mean, 
+                                       self.chi2_df, 
+                                       self.shape,
+                                       seed=self.rng)
             
             # Based on variance of ideal chi-squared distribution
             x_std = np.sqrt(2 * self.chi2_df) * x_mean / self.chi2_df
@@ -542,7 +575,7 @@ class Frame(object):
                             or len(x_mean_array) != len(x_min_array)):
                         raise IndexError('To share a random index, all parameter \
                                           arrays must be the same length!')
-                    i = np.random.randint(len(x_mean_array))
+                    i = self.rng.integers(len(x_mean_array))
                     x_mean, x_std, x_min = (x_mean_array[i],
                                             x_std_array[i],
                                             x_min_array[i])
@@ -550,28 +583,32 @@ class Frame(object):
                     x_mean, x_std, x_min = sample_from_obs \
                                            .sample_gaussian_params(x_mean_array,
                                                                    x_std_array,
-                                                                   x_min_array)
+                                                                   x_min_array,
+                                                                   seed=self.rng)
                 noise = distributions.truncated_gaussian(x_mean,
                                                          x_std,
                                                          x_min,
-                                                         self.shape)
+                                                         self.shape,
+                                                         seed=self.rng)
             else:
                 if share_index:
                     if len(x_mean_array) != len(x_std_array):
                         raise IndexError('To share a random index, all parameter \
                                           arrays must be the same length!')
-                    i = np.random.randint(len(x_mean_array))
+                    i = self.rng.integers(len(x_mean_array))
                     x_mean, x_std = x_mean_array[i], x_std_array[i]
                 else:
                     x_mean, x_std = sample_from_obs \
                                     .sample_gaussian_params(x_mean_array,
-                                                            x_std_array)
+                                                            x_std_array,
+                                                            seed=self.rng)
 
                 noise = distributions.gaussian(x_mean,
                                                x_std,
-                                               self.shape)
+                                               self.shape,
+                                               seed=self.rng)
         else:
-            sys.exit('{} is not a valid noise type'.format(noise_type))
+            raise ValueError(f"'{noise_type}' is not a valid noise type")
 
         self.data += noise
 
@@ -628,20 +665,20 @@ class Frame(object):
             position in t-f space. Note that this option only makes sense if
             the provided path can be evaluated at the sub frequency sample
             level (e.g. as opposed to returning a pre-computed array of
-            frequencies of length :code:`tchans`). Makes :code:`t_subsamples` calculations
+            frequencies of length ``tchans``). Makes ``t_subsamples`` calculations
             per time sample.
         integrate_t_profile : bool, optional
-            Option to integrate t_profile in the time direction. Note that
-            this option only makes sense if the provided t_profile can be
+            Option to integrate ``t_profile`` in the time direction. Note that
+            this option only makes sense if the provided ``t_profile`` can be
             evaluated at the sub time sample level (e.g. as opposed to
-            returning an array of intensities of length :code:`tchans`). Makes
-            :code:`t_subsamples` calculations per time sample.
+            returning an array of intensities of length ``tchans``). Makes
+            ``t_subsamples`` calculations per time sample.
         integrate_f_profile : bool, optional
-            Option to integrate f_profile in the frequency direction. Makes
-            :code:`f_subsamples` calculations per time sample.
+            Option to integrate ``f_profile`` in the frequency direction. Makes
+            ``f_subsamples`` calculations per time sample.
         doppler_smearing : bool, optional
             Option to numerically "Doppler smear" spectral power over 
-            frequency bins. At time t, averages :code:`smearing_subsamples` copies of
+            frequency bins. At time t, averages ``smearing_subsamples`` copies of
             the signal centered at evenly spaced center frequencies between 
             times t and t+1. This causes the effective drop in power when 
             the signal crosses multiple bins.
@@ -696,7 +733,7 @@ class Frame(object):
         >>> plt.show()
 
         To run within a script, simply exclude the first line:
-        :code:`%matplotlib inline`.
+        ``%matplotlib inline``.
 
         """
         if bounding_f_range is None:
@@ -849,11 +886,11 @@ class Frame(object):
             Signal intensity
         width : astropy.Quantity
             Signal width in frequency units
-        f_profile_type : str, optional
-            Can be 'box', 'sinc2', 'gaussian', 'lorentzian', or 'voigt', based on the desired spectral profile
-        doppler_smearing : bool, optional
+        f_profile_type : {"sinc2", "box", "gaussian", "lorentzian", "voigt}, default: "sinc2"
+            Signal spectral profile
+        doppler_smearing : bool, optional, default: False
             Option to numerically "Doppler smear" spectral power over 
-            frequency bins. At time t, averages drift_rate / frame.unit_drift_rate 
+            frequency bins. At time t, averages ``drift_rate / frame.unit_drift_rate`` 
             copies of the signal centered at evenly spaced center frequencies between 
             times t and t+1. This causes the effective drop in power when 
             the signal crosses multiple bins.
@@ -1034,8 +1071,8 @@ class Frame(object):
             Input frame or Numpy array
         axis : int or str
             Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
-        mode : str
-            Integration mode, 'mean' or 'sum'
+        mode : {"mean", "sum"}, default: "mean"
+            Integration mode
         normalize : bool
             Whether to normalize integrated array to mean 0, std 1
             
@@ -1140,7 +1177,7 @@ class Frame(object):
     def check_waterfall(self):
         """
         If an associated Waterfall object exists, update and return it. Otherwise,
-        return None. Useful to chain with setigen.Frame.from_data() if manipulating
+        return None. Useful to chain with ``setigen.Frame.from_data()`` if manipulating
         completely synthetic data.
         """
         if self.waterfall is None:
@@ -1182,7 +1219,7 @@ class Frame(object):
         """
         Load frame data from a .npy file.
         """
-        self.set_data(np.load(filename))
+        self.data = np.load(filename)
 
     def save_pickle(self, filename):
         """
@@ -1194,7 +1231,8 @@ class Frame(object):
     @classmethod
     def load_pickle(cls, filename):
         """
-        Load Frame object from a pickled file (.pickle), created with Frame.save_pickle.
+        Load Frame object from a pickled file (.pickle), created with 
+        :func:`~setigen.frame.Frame.save_pickle`.
         """
         with open(filename, 'rb') as f:
             frame = pickle.load(f)
@@ -1216,11 +1254,12 @@ def params_from_backend(obs_length=300,
     sample_rate : float, optional
         Physical sample rate, in Hz, for collecting real voltage data
     num_branches : int, optional
-        Number of PFB branches. Note that this corresponds to :code:`num_branches / 2` coarse channels.
+        Number of PFB branches. Note that this corresponds to 
+        ``num_branches / 2`` coarse channels.
     fftlength : int, optional
         FFT length to be used in fine channelization
     int_factor : int, optional
-        Integration factor used in fine channelization. Determines tchans.
+        Integration factor used in fine channelization. Determines ``tchans``.
 
     Returns
     -------

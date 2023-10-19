@@ -67,7 +67,7 @@ class RawVoltageBackend(object):
             Number of blocks to be saved per RAW file
         num_subblocks : int, optional
             Number of partitions per block, used for computation. If 
-            :code:`num_subblocks=1`, one block's worth of data will be passed 
+            ``num_subblocks=1``, one block's worth of data will be passed 
             through the pipeline and recorded at once. Use this parameter to 
             reduce memory load, especially when using GPU acceleration.
         """
@@ -101,8 +101,9 @@ class RawVoltageBackend(object):
             assert len(self.digitizer[0]) == self.num_pols
             for antenna in range(self.num_antennas):
                 for pol in range(self.num_pols):
-                    digitizer = self.digitizer[antenna][pol]
-                    assert isinstance(digitizer, quantization.RealQuantizer) or isinstance(digitizer, quantization.ComplexQuantizer)
+                    assert isinstance(self.digitizer[antenna][pol], 
+                                      (quantization.RealQuantizer, 
+                                       quantization.ComplexQuantizer))
         else:
             raise TypeError('Digitizer is incorrect type!')
         
@@ -116,8 +117,8 @@ class RawVoltageBackend(object):
             assert len(self.filterbank[0]) == self.num_pols
             for antenna in range(self.num_antennas):
                 for pol in range(self.num_pols):
-                    filterbank = self.filterbank[antenna][pol]
-                    assert isinstance(self.filterbank, polyphase_filterbank.PolyphaseFilterbank)
+                    assert isinstance(self.filterbank[antenna][pol], 
+                                      polyphase_filterbank.PolyphaseFilterbank)
         else:
             raise TypeError('Filterbank is incorrect type!')
             
@@ -140,8 +141,8 @@ class RawVoltageBackend(object):
             assert len(self.requantizer[0]) == self.num_pols
             for antenna in range(self.num_antennas):
                 for pol in range(self.num_pols):
-                    requantizer = self.requantizer[antenna][pol]
-                    assert isinstance(self.requantizer, quantization.ComplexQuantizer)
+                    assert isinstance(self.requantizer[antenna][pol], 
+                                      quantization.ComplexQuantizer)
         else:
             raise TypeError('Requantizer is incorrect type!')
         self.num_bits = self.requantizer[0][0].num_bits
@@ -162,7 +163,7 @@ class RawVoltageBackend(object):
         
         self.input_file_stem = None # Filename stem for input RAW data
         self.input_header_dict = None # RAW header
-        self.header_size = None # Size of header in file (bytes)
+        self.header_size = None # Size of header in file (bytes), including padding
         self.input_num_blocks = None # Total number of blocks in supplied input RAW data
         self.input_file_handler = None # Current file handler for input RAW data
     
@@ -196,7 +197,7 @@ class RawVoltageBackend(object):
             Index of first coarse channel to be recorded
         num_subblocks : int, optional
             Number of partitions per block, used for computation. If 
-            :code:`num_subblocks=1`, one block's worth of data will be passed 
+            ``num_subblocks=1``, one block's worth of data will be passed 
             through the pipeline and recorded at once. Use this parameter to 
             reduce memory load, especially when using GPU acceleration.
             
@@ -212,15 +213,18 @@ class RawVoltageBackend(object):
         
         blocks_per_file = raw_utils.get_blocks_per_file(input_file_stem)
         
-        if isinstance(requantizer, quantization.ComplexQuantizer):
-            requantizer.num_bits = raw_params['num_bits']
-            requantizer.quantizer_r.num_bits = raw_params['num_bits']
-            requantizer.quantizer_i.num_bits = raw_params['num_bits']
-        elif isinstance(requantizer, list):
-            for r in requantizer:
-                r.num_bits = raw_params['num_bits']
-                r.quantizer_r.num_bits = raw_params['num_bits']
-                r.quantizer_i.num_bits = raw_params['num_bits']
+        requantizer.num_bits = raw_params['num_bits']
+        requantizer.quantizer_r.num_bits = raw_params['num_bits']
+        requantizer.quantizer_i.num_bits = raw_params['num_bits']
+        # if isinstance(requantizer, quantization.ComplexQuantizer):
+        #     requantizer.num_bits = raw_params['num_bits']
+        #     requantizer.quantizer_r.num_bits = raw_params['num_bits']
+        #     requantizer.quantizer_i.num_bits = raw_params['num_bits']
+        # elif isinstance(requantizer, list):
+        #     for r in requantizer:
+        #         r.num_bits = raw_params['num_bits']
+        #         r.quantizer_r.num_bits = raw_params['num_bits']
+        #         r.quantizer_i.num_bits = raw_params['num_bits']
         
         backend = cls(antenna_source,
                       digitizer=digitizer,
@@ -235,7 +239,11 @@ class RawVoltageBackend(object):
         backend.input_file_stem = input_file_stem   
         backend.input_num_blocks = raw_utils.get_total_blocks(input_file_stem)
         backend.input_header_dict = raw_utils.read_header(f'{input_file_stem}.0000.raw')
-        backend.header_size = int(512 * np.ceil((80 * (len(backend.input_header_dict) + 1)) / 512))
+
+        if int(backend.input_header_dict.get("DIRECTIO", 0)) == 0:
+            backend.header_size = 80 * (len(backend.input_header_dict) + 1)
+        else:
+            backend.header_size = int(512 * np.ceil((80 * (len(backend.input_header_dict) + 1)) / 512))
         
         return backend
     
@@ -252,16 +260,16 @@ class RawVoltageBackend(object):
         # Set header values determined by pipeline parameters
         if 'TELESCOP' not in header_dict:
             header_dict['TELESCOP'] = 'SETIGEN'
-            if self.input_header_dict is not None:
-                header_dict['TELESCOP'] = f"{self.input_header_dict['TELESCOP']}_SETIGEN"
+        elif self.input_header_dict is not None and 'SETIGEN' not in self.input_header_dict['TELESCOP']:
+            header_dict['TELESCOP'] = f"{self.input_header_dict['TELESCOP'].strip()}_SETIGEN"
         if 'OBSERVER' not in header_dict:
             header_dict['OBSERVER'] = 'SETIGEN'
-            if self.input_header_dict is not None:
-                header_dict['OBSERVER'] = f"{self.input_header_dict['OBSERVER']}_SETIGEN"
+        elif self.input_header_dict is not None and 'SETIGEN' not in self.input_header_dict['OBSERVER']:
+            header_dict['OBSERVER'] = f"{self.input_header_dict['OBSERVER'].strip()}_SETIGEN"
         if 'SRC_NAME' not in header_dict:
             header_dict['SRC_NAME'] = 'SYNTHETIC'
-            if self.input_header_dict is not None:
-                header_dict['SRC_NAME'] = f"{self.input_header_dict['SRC_NAME']}_SETIGEN"
+        elif self.input_header_dict is not None and 'SYNTHETIC' not in self.input_header_dict['SRC_NAME']:
+            header_dict['SRC_NAME'] = f"{self.input_header_dict['SRC_NAME'].strip()}_SETIGEN"
         
         # Should not be able to manually change these header values
         header_dict['NBITS'] = self.num_bits
@@ -364,7 +372,7 @@ class RawVoltageBackend(object):
         f.write(f"{'END':<80}".encode())
         header_lines += 1
 
-        # pad header if directio
+        # Pad header if directio
         if directio:
             f.write(bytearray(512 - (80 * header_lines % 512))) 
 
@@ -500,7 +508,7 @@ class RawVoltageBackend(object):
                             self.digitizer_stage_t += time.time() - t
 
                         t = time.time()
-                        v = self.filterbank[antenna][pol].channelize(v)
+                        v = self.filterbank[antenna][pol].channelize(v, cache=True)
                         v = v[:, self.start_chan:self.start_chan+self.num_chans]
                         self.filterbank_stage_t += time.time() - t
 
@@ -514,7 +522,10 @@ class RawVoltageBackend(object):
                                 self.requantizer[antenna][pol].quantizer_i.target_mean = 0
     
                                 # Start off assuming signals are embedded in Gaussian noise with std 1
+                                if self.filterbank[antenna][pol].channelized_stds is None:
+                                    self.filterbank[antenna][pol].estimate_channelized_stds()
                                 custom_stds = self.filterbank[antenna][pol].channelized_stds
+                                
                                 # If digitizing real voltages, scale up by the appropriate factor
                                 if digitize:
                                     custom_stds *= self.digitizer[antenna][pol].target_std
@@ -560,7 +571,7 @@ class RawVoltageBackend(object):
         """
         Calculate the number of blocks required as a function of observation length, in seconds. Note that only 
         an integer number of blocks will be recorded, so the actual observation length may be shorter than the 
-        :code:`obs_length` provided.
+        ``obs_length`` provided.
         """
         return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         
@@ -629,7 +640,7 @@ class RawVoltageBackend(object):
             header_dict = self._header_add_from_template(header_dict)
         if self.input_header_dict is not None:
             header_dict = self._header_add_from_input_header(header_dict)
-        # update header with config last to honour prior entries
+        # Update header with config last to honor prior entries
         header_dict = self._header_populate_configuration(header_dict)
         
         # Mark each antenna and data stream as the start of the observation
@@ -684,7 +695,7 @@ def get_block_size(num_antennas=1,
                    int_factor=4):
     """
     Calculate block size, given a desired number of time bins per RAW data block 
-    :code:`tchans_per_block`. Takes in backend parameters, including fine channelization
+    ``tchans_per_block``. Takes in backend parameters, including fine channelization
     factors. Can be used to calculate reasonable block sizes for raw voltage recording.
     
     Parameters
@@ -730,8 +741,8 @@ def get_total_obs_num_samples(obs_length=None,
                               num_chans=64):
     """
     Calculate number of required real voltage time samples for as given 
-    :code:`obs_length` or :code:`num_blocks`, without directly using a 
-    :code:`RawVoltageBackend` object. 
+    ``obs_length`` or ``num_blocks``, without directly using a 
+    ``RawVoltageBackend`` object. 
     
     Parameters
     ----------

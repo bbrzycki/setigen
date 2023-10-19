@@ -34,11 +34,11 @@ class DataStream(object):
         """
         Initialize a DataStream object with a sampling rate and frequency range.
 
-        By default, :code:`setigen.voltage` does not employ heterodyne mixing and filtering
+        By default, ``setigen.voltage`` does not employ heterodyne mixing and filtering
         to focus on a frequency bandwidth. Instead, the sensitive range is determined
-        by these parameters; starting at the frequency :code:`fch1` and spanning the Nyquist 
-        range :code:`sample_rate / 2` in the increasing or decreasing frequency direction,
-        as specified by :code:`ascending`. Note that accordingly, the spectral response will
+        by these parameters; starting at the frequency ``fch1`` and spanning the Nyquist 
+        range ``sample_rate / 2`` in the increasing or decreasing frequency direction,
+        as specified by ``ascending``. Note that accordingly, the spectral response will
         be susceptible to aliasing, so take care that the desired frequency range is
         correct and that signals are injected at appropriate frequencies. 
 
@@ -47,20 +47,19 @@ class DataStream(object):
         sample_rate : float, optional
             Physical sample rate, in Hz, for collecting real voltage data
         fch1 : astropy.Quantity, optional
-            Starting frequency of the first coarse channel, in Hz.
-            If ascending=True, fch1 is the minimum frequency; if ascending=False 
-            (default), fch1 is the maximum frequency.
+            Central frequency of the first coarse channel, in Hz.
+            If ``ascending=True``, ``fch1`` is the minimum frequency; if ``ascending=False`` 
+            (default), ``fch1`` is the maximum frequency.
         ascending : bool, optional
             Specify whether frequencies should be in ascending or descending order. Default 
-            is True, for which fch1 is the minimum frequency.
+            is True, for which ``fch1`` is the minimum frequency.
         t_start : float, optional
             Start time, in seconds
-        seed : int, optional
-            Integer seed between 0 and 2**32. If None, the random number generator
-            will use a random seed.
+        seed : None, int, Generator, optional
+            Random seed or seed generator
         """
         #: Random number generator
-        self.rng = xp.random.RandomState(seed) 
+        self.rng = xp.random.default_rng(seed)
         
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate
@@ -109,7 +108,7 @@ class DataStream(object):
         
     def update_noise(self, stats_calc_num_samples=10000):
         """
-        Replace self.noise_std by calculating out a few samples and estimating the 
+        Replace ``self.noise_std`` by calculating out a few samples and estimating the 
         standard deviation of the voltages.
 
         Parameters
@@ -134,9 +133,9 @@ class DataStream(object):
         
         Note that if this DataStream has custom signals or noise, it might not
         'know' what the noise standard deviation is. In this case, one should run
-        :func:`~setigen.voltage.data_stream.DataStream.update_noise()` to update the 
+        :func:`~setigen.voltage.data_stream.DataStream.update_noise` to update the 
         DataStream's estimate for the noise. Note that this actually runs 
-        :func:`~setigen.voltage.data_stream.DataStream.get_samples()` for the calculation, so
+        :func:`~setigen.voltage.data_stream.DataStream.get_samples` for the calculation, so
         if your custom signal functions have mutable properties, make sure to reset these
         (if necessary) before saving out data. 
         """
@@ -146,7 +145,7 @@ class DataStream(object):
         """
         Add Gaussian noise source to data stream. This essentially adds a lambda function that
         gets the appropriate number of noise samples to add to the voltage array when 
-        :code:`get_samples()` is called. Updates noise property to reflect
+        :func:`~setigen.voltage.data_stream.DataStream.get_samples` is called. Updates noise property to reflect
         added noise.
         
         Parameters
@@ -253,19 +252,19 @@ class BackgroundDataStream(DataStream):
         The main extension is that we also pass in a list of DataStreams, belonging to all
         the Antennas within a MultiAntennaArray, for the same corresponding polarization. 
         When noise is added to a BackgroundDataStream, the noise standard deviation gets 
-        propagated to each Antenna DataStream via the :code:`DataStream.bg_noise_std` property.
+        propagated to each Antenna DataStream via the ``DataStream.bg_noise_std`` property.
 
         Parameters
         ----------
         sample_rate : float, optional
             Physical sample rate, in Hz, for collecting real voltage data
         fch1 : astropy.Quantity, optional
-            Starting frequency of the first coarse channel, in Hz.
-            If ascending=True, fch1 is the minimum frequency; if ascending=False 
-            (default), fch1 is the maximum frequency.
+            Central frequency of the first coarse channel, in Hz.
+            If ``ascending=True``, ``fch1`` is the minimum frequency; if ``ascending=False`` 
+            (default), ``fch1`` is the maximum frequency.
         ascending : bool, optional
             Specify whether frequencies should be in ascending or descending order. Default 
-            is True, for which fch1 is the minimum frequency.
+            is True, for which ``fch1`` is the minimum frequency.
         t_start : float, optional
             Start time, in seconds
         seed : int, optional
@@ -308,7 +307,7 @@ class BackgroundDataStream(DataStream):
         """
         Add Gaussian noise source to data stream. This essentially adds a lambda function that
         gets the appropriate number of noise samples to add to the voltage array when 
-        :code:`get_samples()` is called. Updates noise property to reflect
+        :func:`~setigen.voltage.data_stream.DataStream.get_samples` is called. Updates noise property to reflect
         added noise. Further, set all child antenna background noise values.
         
         Parameters
@@ -324,7 +323,7 @@ class BackgroundDataStream(DataStream):
         
 def estimate_stats(voltages, stats_calc_num_samples=10000):
     """
-    Estimate mean and standard deviation, truncating to at most :code:`stats_calc_num_samples` samples 
+    Estimate mean and standard deviation, truncating to at most ``stats_calc_num_samples`` samples 
     to reduce computation.
 
     Parameters

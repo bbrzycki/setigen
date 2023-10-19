@@ -68,7 +68,8 @@ def periodic_gaussian_t_profile(pulse_width,
                                 pnum=3,
                                 amplitude=1,
                                 level=1,
-                                min_level=0):
+                                min_level=0,
+                                seed=None):
     """
     Intensity varying as Gaussian pulses, allowing for variation in the arrival
     time of each pulse.
@@ -95,11 +96,14 @@ def periodic_gaussian_t_profile(pulse_width,
         Baseline intensity level
     min_level : float, default: 0
         Minimum intensity level
+    seed : None, int, Generator, optional
+        Random seed or seed generator
 
     Return
     ------
     t_profile : func
     """
+    rng = np.random.default_rng(seed)
     period = unit_utils.get_value(period, u.s)
 
     factor = 2 * np.sqrt(2 * np.log(2))
@@ -130,15 +134,15 @@ def periodic_gaussian_t_profile(pulse_width,
 
         # Apply the pulse offset to each tracked pulse
         offset_dict = dict(zip(unique_center_ks,
-                               np.random.normal(0,
-                                                pulse_offset_sigma,
-                                                unique_center_ks.shape)))
+                               rng.normal(0,
+                                          pulse_offset_sigma,
+                                          unique_center_ks.shape)))
         get_offsets = np.vectorize(lambda x: offset_dict[x])
 
         # Calculate the signs for each pulse
         sign_list = []
         for c in unique_center_ks:
-            x = np.random.uniform(0, 1)
+            x = rng.uniform(0, 1)
             if (pulse_direction == 'up'
                     or pulse_direction == 'rand' and x < 0.5):
                 sign_list.append(1)

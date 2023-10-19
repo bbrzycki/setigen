@@ -5,7 +5,10 @@ from . import waterfall_utils
 from . import split_utils
 
 
-def sample_gaussian_params(x_mean_array, x_std_array, x_min_array=None):
+def sample_gaussian_params(x_mean_array, 
+                           x_std_array, 
+                           x_min_array=None, 
+                           seed=None):
     """
     Sample Gaussian parameters (mean, std, min) from provided arrays.
 
@@ -20,6 +23,8 @@ def sample_gaussian_params(x_mean_array, x_std_array, x_min_array=None):
         Array of potential standard deviations
     x_min_array : ndarray, optional
         Array of potential minimum values
+    seed : None, int, Generator, optional
+        Random seed or seed generator
 
     Returns
     -------
@@ -30,15 +35,16 @@ def sample_gaussian_params(x_mean_array, x_std_array, x_min_array=None):
     x_min
         If x_min_array provided, selected minimum of distribution
     """
-    x_mean = np.random.choice(x_mean_array)
-    x_std = np.random.choice(x_std_array)
+    rng = np.random.default_rng(seed)
+    x_mean = rng.choice(x_mean_array)
+    x_std = rng.choice(x_std_array)
 
     # Somewhat arbitrary decision to ensure that the mean is at least the
     # standard deviation
     x_mean = np.maximum(x_mean, x_std)
 
     if x_min_array is not None:
-        x_min = np.random.choice(x_min_array)
+        x_min = rng.choice(x_min_array)
         return x_mean, x_std, x_min
 
     return x_mean, x_std
@@ -60,7 +66,7 @@ def get_parameter_distributions(waterfall_fn, fchans, tchans=None, f_shift=None)
         If None, just uses the entire integration time
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
-        None, defaults to :code:`f_shift=f_window` so that there is no
+        None, defaults to ``f_shift=f_window`` so that there is no
         overlap between new filterbank files
 
     Returns
@@ -112,7 +118,7 @@ def get_mean_distribution(waterfall_fn, fchans, tchans=None, f_shift=None):
         If None, just uses the entire integration time
     f_shift : int, optional
         Number of samples to shift when splitting filterbank. If
-        None, defaults to :code:`f_shift=f_window` so that there is no
+        None, defaults to ``f_shift=f_window`` so that there is no
         overlap between new filterbank files
 
     Returns

@@ -33,7 +33,7 @@ def get_level(snr,
               fftlength,
               obs_length=None, 
               num_blocks=None,
-              length_mode='obs_length',):
+              length_mode='obs_length'):
     """
     Calculate required signal level as a function of desired SNR, assuming initial noise 
     variance of 1. This is calculated for a single polarization. This further assumes the signal

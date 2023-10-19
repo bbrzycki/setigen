@@ -82,14 +82,6 @@ setigen.sample\_from\_obs module
     :undoc-members:
     :show-inheritance:
 
-setigen.stats module
---------------------
-
-.. automodule:: setigen.stats
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 setigen.unit\_utils module
 --------------------------
 

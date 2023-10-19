@@ -41,8 +41,8 @@ def integrate(fr, axis='t', mode='mean', normalize=False):
         Input frame or Numpy array
     axis : int or str
         Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
-    mode : str
-        Integration mode, 'mean' or 'sum'
+    mode : {"mean", "sum"}, default: "mean"
+        Integration mode
     normalize : bool
         Option to normalize integrated array to mean 0, std 1
     

@@ -406,7 +406,7 @@ class Frame(object):
         return np.std(self.data)
 
     def get_total_stats(self):
-        return self.mean(), self.std()
+        return self.mean, self.std
 
     def get_noise_stats(self):
         return self.noise_mean, self.noise_std
@@ -484,9 +484,9 @@ class Frame(object):
                                                    self.shape,
                                                    seed=self.rng)
             else:
-                sys.exit('x_std must be given')
+                raise ValueError("x_std must be given")
         else:
-            sys.exit('{} is not a valid noise type'.format(noise_type))
+            raise ValueError(f"'{noise_type}' is not a valid noise type")
                 
         self.data += noise
 
@@ -583,7 +583,8 @@ class Frame(object):
                     x_mean, x_std, x_min = sample_from_obs \
                                            .sample_gaussian_params(x_mean_array,
                                                                    x_std_array,
-                                                                   x_min_array)
+                                                                   x_min_array,
+                                                                   seed=self.rng)
                 noise = distributions.truncated_gaussian(x_mean,
                                                          x_std,
                                                          x_min,
@@ -599,14 +600,15 @@ class Frame(object):
                 else:
                     x_mean, x_std = sample_from_obs \
                                     .sample_gaussian_params(x_mean_array,
-                                                            x_std_array)
+                                                            x_std_array,
+                                                            seed=self.rng)
 
                 noise = distributions.gaussian(x_mean,
                                                x_std,
                                                self.shape,
                                                seed=self.rng)
         else:
-            sys.exit('{} is not a valid noise type'.format(noise_type))
+            raise ValueError(f"'{noise_type}' is not a valid noise type")
 
         self.data += noise
 
@@ -1069,8 +1071,8 @@ class Frame(object):
             Input frame or Numpy array
         axis : int or str
             Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
-        mode : str
-            Integration mode, 'mean' or 'sum'
+        mode : {"mean", "sum"}, default: "mean"
+            Integration mode
         normalize : bool
             Whether to normalize integrated array to mean 0, std 1
             
@@ -1217,7 +1219,7 @@ class Frame(object):
         """
         Load frame data from a .npy file.
         """
-        self.set_data(np.load(filename))
+        self.data = np.load(filename)
 
     def save_pickle(self, filename):
         """

@@ -72,7 +72,7 @@ class PolyphaseFilterbank(object):
             Array of standard deviation estimates
         """
         rng = xp.random.default_rng(seed)
-        sample_v = rng.normal(0, 1, factor * self.num_branches)
+        sample_v = rng.standard_normal(size=factor * self.num_branches)
         v_pfb = self.channelize(sample_v, cache=False)
         self.channelized_stds = xp.array([v_pfb.real.std(), v_pfb.imag.std()])
         return self.channelized_stds
@@ -186,7 +186,6 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
     x_summed : array
         Array of voltages post-PFB weighting
     """
-    print(x.shape)
     W = int(len(x) / num_taps / num_branches)
     
     # Truncate data stream x to fit reshape step

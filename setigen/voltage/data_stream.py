@@ -155,9 +155,7 @@ class DataStream(object):
         v_std : float
             Noise standard deviation
         """
-        noise_func = lambda ts: self.rng.normal(loc=v_mean, 
-                                                scale=v_std,
-                                                size=len(ts))
+        noise_func = lambda ts: v_mean + v_std * self.rng.standard_normal(size=len(ts))
         
         # Variances add, not standard deviations
         self.noise_std = xp.sqrt(self.noise_std**2 + v_std**2)

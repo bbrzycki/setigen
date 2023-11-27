@@ -42,6 +42,7 @@ def _frequency_formatter(frame, ftype):
 
 def plot_frame(frame, 
                ftype="fmid", 
+               ttype="same",
                db=True, 
                colorbar=True, 
                label=False,
@@ -57,10 +58,14 @@ def plot_frame(frame,
     frame : Frame
         Frame to plot
     ftype : {"fmid", "fmin", "f", "px"}, default: "fmid"
-        Types of axis labels, particularly the x-axis. "px" puts axes in units 
+        Type of frequency axis labels. "px" puts the axis in units 
         of pixels. The others are all in frequency: "fmid" shows frequencies 
         relative to the central frequency, "fmin" is relative to the minimum 
         frequency, and "f" is absolute frequency.
+    ttype : {"same", "trel", "px"}, default: "same"
+        Type of time axis labels. "same" matches time axis style with the 
+        frequency axis. "px" puts the axis in units of pixels, and "trel" sets
+        the axis in time units relative to the start.
     db : bool, default: True
         Option to convert intensities to dB
     colorbar : bool, default: True
@@ -71,7 +76,7 @@ def plot_frame(frame,
         Option to include minor ticks on both axes
     grid : bool, default: False
         Option to overplot grid from major ticks
-    invert_axes : bool, default: False
+    swap_axes : bool, default: False
         Option to swap frequency and time axes
 
     Return 
@@ -86,40 +91,42 @@ def plot_frame(frame,
 
     # matplotlib extend order is (left, right, bottom, top)
     if ftype == "fmid":
-        extent = (
-            frame.fmin - frame.fmid - frame.df / 2,
-            frame.fmax - frame.fmid + frame.df / 2,
-            frame.tchans * frame.dt, 
-            0
-        )
+        f_edge_min = frame.fmin - frame.fmid - frame.df / 2
+        f_edge_max = frame.fmax - frame.fmid + frame.df / 2
     elif ftype == "fmin":
-        extent = (
-            -frame.df / 2,
-            frame.fmax - frame.fmin + frame.df / 2,
-            frame.tchans * frame.dt, 
-            0
-        ) 
+        f_edge_min = -frame.df / 2
+        f_edge_max = frame.fmax - frame.fmin + frame.df / 2
     elif ftype == "f":
-        extent = (
-            frame.fmin - frame.df / 2,
-            frame.fmax + frame.df / 2,
-            frame.tchans * frame.dt, 
-            0
-        )
+        f_edge_min = frame.fmin - frame.df / 2
+        f_edge_max = frame.fmax + frame.df / 2
     else: 
         # ftype == "px"
-        extent = (
-            -1 / 2,
-            frame.fchans - 1 / 2,
-            frame.tchans - 1 / 2, 
-            -1 / 2
-        ) 
+        f_edge_min = -1 / 2
+        f_edge_max = frame.fchans - 1 / 2
 
-    if swap_axes:
+    if ttype == "same":
+        if ftype in ["fmid", "fmin", "f"]:
+            t_edge_min = 0
+            t_edge_max = frame.tchans * frame.dt
+        else:
+            t_edge_min = -1 / 2
+            t_edge_max = frame.tchans - 1 / 2
+    elif ttype == "trel":
+        t_edge_min = 0
+        t_edge_max = frame.tchans * frame.dt
+    else:
+        # ttype == "px"
+        t_edge_min = -1 / 2
+        t_edge_max = frame.tchans - 1 / 2
+
+    # Arrange spectrogram plot and data as necessary
+    if not swap_axes:
+        extent = (f_edge_min, f_edge_max, t_edge_max, t_edge_min)
+    else:
         data = data.T[::-1, :]
-        extent = np.array(extent)[[3, 2, 0, 1]]
+        extent = (t_edge_min, t_edge_max, f_edge_min, f_edge_max)
 
-    # display the waterfall plot
+    # Display the waterfall plot
     p = plt.imshow(data,
                    aspect="auto",
                    rasterized=True,
@@ -136,12 +143,12 @@ def plot_frame(frame,
             
     # Format axes
     ax = plt.gca()
-    if swap_axes:
-        faxis = ax.yaxis
-        taxis = ax.xaxis 
-    else:
+    if not swap_axes:
         faxis = ax.xaxis 
         taxis = ax.yaxis
+    else:
+        faxis = ax.yaxis
+        taxis = ax.xaxis 
         
     faxis.set_major_locator(ticker.MaxNLocator(nbins=5))
     if minor_ticks:
@@ -149,7 +156,6 @@ def plot_frame(frame,
         taxis.set_minor_locator(ticker.AutoMinorLocator())
 
     if ftype in ["fmid", "fmin", "f"]:
-        tlabel = "Time (s)"
         faxis.set_major_formatter(plt.FuncFormatter(_frequency_formatter(frame, ftype)))
         units = _get_extent_units(frame)[1]
         if ftype == "fmid":
@@ -162,6 +168,16 @@ def plot_frame(frame,
     else:
         # ftype == "px"
         flabel = "Frequency (px)"
+    
+    if ttype == "same":
+        if ftype in ["fmid", "fmin", "f"]:
+            tlabel = "Time (s)"
+        else:
+            tlabel = "Time (px)"
+    elif ttype == "trel":
+        tlabel = "Time (s)"
+    else:
+        # ttype == "px"
         tlabel = "Time (px)"
 
     faxis.set_label_text(flabel)
@@ -189,6 +205,7 @@ def plot_frame(frame,
                  
 def plot_cadence(cadence, 
                  ftype="fmid", 
+                 ttype="same",
                  db=True, 
                  slew_times=False,
                  colorbar=True, 
@@ -209,6 +226,10 @@ def plot_cadence(cadence,
         of pixels. The others are all in frequency: "fmid" shows frequencies 
         relative to the central frequency, "fmin" is relative to the minimum 
         frequency, and "f" is absolute frequency.
+    ttype : {"same", "trel", "px"}, default: "same"
+        Type of time axis labels. "same" matches time axis style with the 
+        frequency axis. "px" puts the axis in units of pixels, and "trel" sets
+        the axis in time units relative to the start.
     db : bool, default: True
         Option to convert intensities to dB
     slew_times : bool, default: False
@@ -273,14 +294,15 @@ def plot_cadence(cadence,
             plt.title(f"Source: {frame.source_name}")
             
         last_plot = plot_frame(frame, 
-                                   ftype=ftype,
-                                   db=db,
-                                   colorbar=False,
-                                   label=labels,
-                                   minor_ticks=minor_ticks,
-                                   grid=grid,
-                                   vmin=px_min, 
-                                   vmax=px_max)
+                                ftype=ftype,
+                                ttype=ttype,
+                                db=db,
+                                colorbar=False,
+                                label=labels,
+                                minor_ticks=minor_ticks,
+                                grid=grid,
+                                vmin=px_min, 
+                                vmax=px_max)
         
         if i != len(cadence) - 1:
             plt.xlabel(None)

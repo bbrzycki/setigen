@@ -21,13 +21,13 @@ def _get_extent_units(frame):
         return 1, "Hz"
     
 
-def _frequency_formatter(frame, xtype):
-    if xtype == "fmid":
+def _frequency_formatter(frame, ftype):
+    if ftype == "fmid":
         def formatter(x, pos):
             return x / _get_extent_units(frame)[0]
             x = x / _get_extent_units(frame)[0]
             return f"{int(x):d}"
-    elif xtype == "fmin": 
+    elif ftype == "fmin": 
         def formatter(x, pos):
             return x / _get_extent_units(frame)[0]
             x = x / _get_extent_units(frame)[0]
@@ -41,12 +41,13 @@ def _frequency_formatter(frame, xtype):
 
 
 def plot_frame(frame, 
-               xtype="fmid", 
+               ftype="fmid", 
                db=True, 
                colorbar=True, 
                label=False,
                minor_ticks=False,
                grid=False,
+               swap_axes=False,
                **kwargs):
     """
     Plot frame spectrogram data.
@@ -55,7 +56,7 @@ def plot_frame(frame,
     ----------
     frame : Frame
         Frame to plot
-    xtype : {"fmid", "fmin", "f", "px"}, default: "fmid"
+    ftype : {"fmid", "fmin", "f", "px"}, default: "fmid"
         Types of axis labels, particularly the x-axis. "px" puts axes in units 
         of pixels. The others are all in frequency: "fmid" shows frequencies 
         relative to the central frequency, "fmin" is relative to the minimum 
@@ -70,6 +71,8 @@ def plot_frame(frame,
         Option to include minor ticks on both axes
     grid : bool, default: False
         Option to overplot grid from major ticks
+    invert_axes : bool, default: False
+        Option to swap frequency and time axes
 
     Return 
     ------
@@ -82,21 +85,21 @@ def plot_frame(frame,
         data = frame_utils.db(data)
 
     # matplotlib extend order is (left, right, bottom, top)
-    if xtype == "fmid":
+    if ftype == "fmid":
         extent = (
             frame.fmin - frame.fmid - frame.df / 2,
             frame.fmax - frame.fmid + frame.df / 2,
             frame.tchans * frame.dt, 
             0
         )
-    elif xtype == "fmin":
+    elif ftype == "fmin":
         extent = (
             -frame.df / 2,
             frame.fmax - frame.fmin + frame.df / 2,
             frame.tchans * frame.dt, 
             0
         ) 
-    elif xtype == "f":
+    elif ftype == "f":
         extent = (
             frame.fmin - frame.df / 2,
             frame.fmax + frame.df / 2,
@@ -104,13 +107,17 @@ def plot_frame(frame,
             0
         )
     else: 
-        # xtype == "px"
+        # ftype == "px"
         extent = (
             -1 / 2,
             frame.fchans - 1 / 2,
             frame.tchans - 1 / 2, 
             -1 / 2
         ) 
+
+    if swap_axes:
+        data = data.T[::-1, :]
+        extent = np.array(extent)[[3, 2, 0, 1]]
 
     # display the waterfall plot
     p = plt.imshow(data,
@@ -129,29 +136,36 @@ def plot_frame(frame,
             
     # Format axes
     ax = plt.gca()
-    ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
-    if minor_ticks:
-        ax.xaxis.set_minor_locator(ticker.AutoMinorLocator(n=5))
-        ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-
-    if xtype in ["fmid", "fmin", "f"]:
-        ylabel = "Time (s)"
-        ax.xaxis.set_major_formatter(plt.FuncFormatter(_frequency_formatter(frame, xtype)))
-        units = _get_extent_units(frame)[1]
-        if xtype == "fmid":
-            xlabel = f"Relative Frequency ({units}) from {frame.fmid * 1e-6:.6f} MHz"
-        elif xtype == "fmin":
-            xlabel = f"Relative Frequency ({units}) from {frame.fmin * 1e-6:.6f} MHz"
-        else:
-            # xtype == "f"
-            xlabel = f"Frequency (MHz)"
+    if swap_axes:
+        faxis = ax.yaxis
+        taxis = ax.xaxis 
     else:
-        # xtype == "px"
-        xlabel = "Frequency (px)"
-        ylabel = "Time (px)"
+        faxis = ax.xaxis 
+        taxis = ax.yaxis
+        
+    faxis.set_major_locator(ticker.MaxNLocator(nbins=5))
+    if minor_ticks:
+        faxis.set_minor_locator(ticker.AutoMinorLocator(n=5))
+        taxis.set_minor_locator(ticker.AutoMinorLocator())
 
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
+    if ftype in ["fmid", "fmin", "f"]:
+        tlabel = "Time (s)"
+        faxis.set_major_formatter(plt.FuncFormatter(_frequency_formatter(frame, ftype)))
+        units = _get_extent_units(frame)[1]
+        if ftype == "fmid":
+            flabel = f"Relative Frequency ({units}) from {frame.fmid * 1e-6:.6f} MHz"
+        elif ftype == "fmin":
+            flabel = f"Relative Frequency ({units}) from {frame.fmin * 1e-6:.6f} MHz"
+        else:
+            # ftype == "f"
+            flabel = f"Frequency (MHz)"
+    else:
+        # ftype == "px"
+        flabel = "Frequency (px)"
+        tlabel = "Time (px)"
+
+    faxis.set_label_text(flabel)
+    taxis.set_label_text(tlabel)
     
     if grid:
         plt.grid(True)
@@ -174,7 +188,7 @@ def plot_frame(frame,
 
                  
 def plot_cadence(cadence, 
-                 xtype="fmid", 
+                 ftype="fmid", 
                  db=True, 
                  slew_times=False,
                  colorbar=True, 
@@ -190,7 +204,7 @@ def plot_cadence(cadence,
     ----------
     cadence : Cadence
         Cadence to plot
-    xtype : {"fmid", "fmin", "f", "px"}, default: "fmid"
+    ftype : {"fmid", "fmin", "f", "px"}, default: "fmid"
         Types of axis labels, particularly the x-axis. "px" puts axes in units 
         of pixels. The others are all in frequency: "fmid" shows frequencies 
         relative to the central frequency, "fmin" is relative to the minimum 
@@ -259,7 +273,7 @@ def plot_cadence(cadence,
             plt.title(f"Source: {frame.source_name}")
             
         last_plot = plot_frame(frame, 
-                                   xtype=xtype,
+                                   ftype=ftype,
                                    db=db,
                                    colorbar=False,
                                    label=labels,

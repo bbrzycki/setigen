@@ -104,7 +104,7 @@ instead of functions.
                      stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
-    frame.plot(xtype="px", db=False)
+    frame.plot(ftype="px", db=False)
     plt.savefig('frame.png', bbox_inches='tight')
     plt.show()
 

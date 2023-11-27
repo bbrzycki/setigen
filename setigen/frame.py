@@ -1019,7 +1019,7 @@ class Frame(object):
         ----------
         frame : Frame
             Frame to plot
-        xtype : {"fmid", "fmin", "f", "px"}, default: "fmid"
+        ftype : {"fmid", "fmin", "f", "px"}, default: "fmid"
             Types of axis labels, particularly the x-axis. "px" puts axes in units 
             of pixels. The others are all in frequency: "fmid" shows frequencies 
             relative to the central frequency, "fmin" is relative to the minimum 

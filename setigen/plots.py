@@ -57,15 +57,15 @@ def plot_frame(frame,
     ----------
     frame : Frame
         Frame to plot
-    ftype : {"fmid", "fmin", "f", "px"}, default: "fmid"
-        Type of frequency axis labels. "px" puts the axis in units 
-        of pixels. The others are all in frequency: "fmid" shows frequencies 
+    ftype : {"fmid", "fmin", "f", "px", "bins"}, default: "fmid"
+        Type of frequency axis labels. "px" and "bins" put the axis in units of 
+        pixels (bins). The others are all in frequency: "fmid" shows frequencies 
         relative to the central frequency, "fmin" is relative to the minimum 
         frequency, and "f" is absolute frequency.
-    ttype : {"same", "trel", "px"}, default: "same"
+    ttype : {"same", "trel", "px", "bins"}, default: "same"
         Type of time axis labels. "same" matches time axis style with the 
-        frequency axis. "px" puts the axis in units of pixels, and "trel" sets
-        the axis in time units relative to the start.
+        frequency axis. "px" and "bins" put the axis in units of pixels (bins), 
+        and "trel" sets the axis in time units relative to the start.
     db : bool, default: True
         Option to convert intensities to dB
     colorbar : bool, default: True
@@ -100,7 +100,7 @@ def plot_frame(frame,
         f_edge_min = frame.fmin - frame.df / 2
         f_edge_max = frame.fmax + frame.df / 2
     else: 
-        # ftype == "px"
+        # ftype == "px" or "bins"
         f_edge_min = -1 / 2
         f_edge_max = frame.fchans - 1 / 2
 
@@ -115,7 +115,7 @@ def plot_frame(frame,
         t_edge_min = 0
         t_edge_max = frame.tchans * frame.dt
     else:
-        # ttype == "px"
+        # ttype == "px" or "bins"
         t_edge_min = -1 / 2
         t_edge_max = frame.tchans - 1 / 2
 
@@ -166,19 +166,19 @@ def plot_frame(frame,
             # ftype == "f"
             flabel = f"Frequency (MHz)"
     else:
-        # ftype == "px"
-        flabel = "Frequency (px)"
+        # ftype == "px" or "bins"
+        flabel = f"Frequency ({ftype})"
     
     if ttype == "same":
         if ftype in ["fmid", "fmin", "f"]:
             tlabel = "Time (s)"
         else:
-            tlabel = "Time (px)"
+            tlabel = f"Time ({ftype})"
     elif ttype == "trel":
         tlabel = "Time (s)"
     else:
-        # ttype == "px"
-        tlabel = "Time (px)"
+        # ttype == "px" or "bins"
+        tlabel = f"Time ({ttype})"
 
     faxis.set_label_text(flabel)
     taxis.set_label_text(tlabel)
@@ -221,15 +221,15 @@ def plot_cadence(cadence,
     ----------
     cadence : Cadence
         Cadence to plot
-    ftype : {"fmid", "fmin", "f", "px"}, default: "fmid"
-        Types of axis labels, particularly the x-axis. "px" puts axes in units 
-        of pixels. The others are all in frequency: "fmid" shows frequencies 
+    ftype : {"fmid", "fmin", "f", "px", "bins"}, default: "fmid"
+        Type of frequency axis labels. "px" and "bins" put the axis in units of 
+        pixels (bins). The others are all in frequency: "fmid" shows frequencies 
         relative to the central frequency, "fmin" is relative to the minimum 
         frequency, and "f" is absolute frequency.
-    ttype : {"same", "trel", "px"}, default: "same"
+    ttype : {"same", "trel", "px", "bins"}, default: "same"
         Type of time axis labels. "same" matches time axis style with the 
-        frequency axis. "px" puts the axis in units of pixels, and "trel" sets
-        the axis in time units relative to the start.
+        frequency axis. "px" and "bins" put the axis in units of pixels (bins), 
+        and "trel" sets the axis in time units relative to the start.
     db : bool, default: True
         Option to convert intensities to dB
     slew_times : bool, default: False

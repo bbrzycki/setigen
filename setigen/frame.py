@@ -1019,15 +1019,15 @@ class Frame(object):
         ----------
         frame : Frame
             Frame to plot
-        ftype : {"fmid", "fmin", "f", "px"}, default: "fmid"
-            Type of frequency axis labels. "px" puts the axis in units 
-            of pixels. The others are all in frequency: "fmid" shows frequencies 
+        ftype : {"fmid", "fmin", "f", "px", "bin"}, default: "fmid"
+            Type of frequency axis labels. "px" and "bin" put the axis in units of 
+            pixels (bins). The others are all in frequency: "fmid" shows frequencies 
             relative to the central frequency, "fmin" is relative to the minimum 
             frequency, and "f" is absolute frequency.
-        ttype : {"same", "trel", "px"}, default: "same"
+        ttype : {"same", "trel", "px", "bin"}, default: "same"
             Type of time axis labels. "same" matches time axis style with the 
-            frequency axis. "px" puts the axis in units of pixels, and "trel" sets
-            the axis in time units relative to the start.
+            frequency axis. "px" and "bin" put the axis in units of pixels (bins), 
+            and "trel" sets the axis in time units relative to the start.
         db : bool, default: True
             Option to convert intensities to dB
         colorbar : bool, default: True

@@ -129,7 +129,7 @@ def voigt_f_profile(g_width, l_width):
     return f_profile
 
 
-def sinc2_f_profile(width, width_mode='fwhm', trunc=True):
+def sinc2_f_profile(width, width_mode="crossing", trunc=True):
     """
     Sinc squared profile; width is the FWHM of the squared normalized sinc function.
     
@@ -143,8 +143,8 @@ def sinc2_f_profile(width, width_mode='fwhm', trunc=True):
     ----------
     width : float or astropy.Quantity
         Signal width, in Hz
-    width_mode : {"fwhm", "crossing"}, default: "fwhm"
-        How to interpret ``width``. Can be "fwhm" or "crossing", for 
+    width_mode : {"crossing", "fwhm"}, default: "crossing"
+        How to interpret ``width``. Can be "crossing" or "fwhm", for 
         zero crossing.
     trunc : bool, default: True
         Whether to truncate signal after first zero crossing

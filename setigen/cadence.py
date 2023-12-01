@@ -168,46 +168,9 @@ class Cadence(collections.abc.MutableSequence):
         """
         return [func(frame) for frame in self.frames]
     
+    @plots._copy_docstring(plots.plot_cadence)
     def plot(self, *args, **kwargs):
-        """
-        Plot cadence as a multi-panel figure.
-
-        Parameters
-        ----------
-        cadence : Cadence
-            Cadence to plot
-        ftype : {"fmid", "fmin", "f", "px", "bins"}, default: "fmid"
-            Type of frequency axis labels. "px" and "bins" put the axis in units of 
-            pixels (bins). The others are all in frequency: "fmid" shows frequencies 
-            relative to the central frequency, "fmin" is relative to the minimum 
-            frequency, and "f" is absolute frequency.
-        ttype : {"same", "trel", "px", "bins"}, default: "same"
-            Type of time axis labels. "same" matches time axis style with the 
-            frequency axis. "px" and "bins" put the axis in units of pixels (bins), 
-            and "trel" sets the axis in time units relative to the start.
-        db : bool, default: True
-            Option to convert intensities to dB
-        slew_times : bool, default: False
-            Option to space subplots vertically proportional to slew times
-        colorbar : bool, default: True
-            Whether to display colorbar
-        labels : bool, default: True
-            Option to place target name as a label in each subplot
-        title : bool, default: False
-            Option to place first source name as the figure title
-        minor_ticks : bool, default: False
-            Option to include minor ticks on both axes
-        grid : bool, default: False
-            Option to overplot grid from major ticks
-
-        Return 
-        ------
-        axs : matplotlib.axes.Axes
-            Axes subplots
-        cax : matplotlib.axes.Axes
-            Colorbar axes, if created
-        """
-        plots.plot_cadence(self, *args, **kwargs)
+        return plots.plot_cadence(self, *args, **kwargs)
         
     def consolidate(self):
         """

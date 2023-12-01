@@ -6,6 +6,16 @@ from matplotlib.offsetbox import AnchoredText
 from . import frame_utils
 
 
+def _copy_docstring(copy_func):
+    """
+    Copy plotting docstring, for convenience in class plotting methods.
+    """
+    def wrapped(func):
+        func.__doc__ = copy_func.__doc__ 
+        return func
+    return wrapped
+
+
 def _get_extent_units(frame):
     """
     Simple function to get best frequency units for plots.

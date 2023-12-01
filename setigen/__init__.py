@@ -9,7 +9,6 @@ from setigen.funcs import (
     lorentzian_f_profile, voigt_f_profile, sinc2_f_profile,
     constant_bp_profile
 )
-from setigen import voltage
 
 from setigen.distributions import fwhm, gaussian, truncated_gaussian, chi2
 from setigen.waterfall_utils import (

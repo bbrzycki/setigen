@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from setigen._version import __version__
 
+from setigen import funcs
 from setigen.funcs import (
     constant_path, squared_path, sine_path, simple_rfi_path,
     constant_t_profile, sine_t_profile, periodic_gaussian_t_profile,
@@ -9,6 +10,7 @@ from setigen.funcs import (
     lorentzian_f_profile, voigt_f_profile, sinc2_f_profile,
     constant_bp_profile
 )
+from setigen import voltage
 
 from setigen.distributions import fwhm, gaussian, truncated_gaussian, chi2
 from setigen.waterfall_utils import (

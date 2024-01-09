@@ -1,11 +1,8 @@
-import sys
-import os.path
 import copy
 import time
 import pathlib
 
 import numpy as np
-import matplotlib.pyplot as plt
 try:
     import cPickle as pickle
 except:
@@ -22,8 +19,9 @@ from . import waterfall_utils
 from . import distributions
 from . import sample_from_obs
 from . import unit_utils
-from . import frame_utils
+from . import slice
 from . import plots
+from . import utils
 
 from .funcs import paths
 from .funcs import t_profiles
@@ -189,7 +187,7 @@ class Frame(object):
         self.metadata = self.get_params()
 
     @classmethod
-    def from_data(cls, df, dt, fch1, ascending, data, metadata={}, waterfall=None):
+    def from_data(cls, df, dt, fch1, ascending, data, metadata={}, waterfall=None, seed=None):
         """
         Initialize Frame more directly from 2D numpy array of data.
         
@@ -216,6 +214,8 @@ class Frame(object):
         waterfall : Waterfall, optional
             Associated Waterfall object if data is derived from another frame object 
             (accessed via ``frame.get_waterfall()``) or a blimpy waterfall object
+        seed : None, int, Generator, optional
+            Random seed or seed generator
             
         Returns
         -------
@@ -229,7 +229,8 @@ class Frame(object):
                     dt=dt,
                     fch1=fch1,
                     ascending=ascending,
-                    data=data)
+                    data=data,
+                    seed=seed)
         frame.add_metadata(metadata)
 
         # Remove h5 object, which can't be pickled
@@ -241,11 +242,11 @@ class Frame(object):
         return frame
 
     @classmethod
-    def from_waterfall(cls, waterfall):
+    def from_waterfall(cls, waterfall, seed=None):
         """
         Instantiate Frame using a filterbank file or blimpy Waterfall object.
         """
-        return cls(waterfall=waterfall)
+        return cls(waterfall=waterfall, seed=seed)
     
     @classmethod
     def from_backend_params(cls,
@@ -257,7 +258,8 @@ class Frame(object):
                             int_factor=51,
                             fch1=6*u.GHz,
                             ascending=False,
-                            data=None):
+                            data=None,
+                            seed=None):
         """
         Create frame based on backend / software related parameters.
         Either ``fchans`` or ``data`` must be provided to get number of frequency
@@ -292,6 +294,8 @@ class Frame(object):
         data : ndarray, optional
             2D array of intensities to preload into frame. If provided, ``fchans``
             will be inferred from this. 
+        seed : None, int, Generator, optional
+            Random seed or seed generator
             
         Returns
         -------
@@ -319,7 +323,8 @@ class Frame(object):
                     **param_dict,
                     fch1=fch1,
                     ascending=ascending,
-                    data=data)
+                    data=data,
+                    seed=seed)
         return frame
         
     def copy(self):
@@ -544,8 +549,7 @@ class Frame(object):
         if (x_mean_array is None
             and x_std_array is None
                 and x_min_array is None):
-            my_path = os.path.abspath(os.path.dirname(__file__))
-            path = os.path.join(my_path, 'assets/sample_noise_params.npy')
+            path = pathlib.Path(__file__).parent.resolve() / "assets/sample_noise_params.npy"
             sample_noise_params = np.load(path)
 
             # Accounts for scaling from FFT length and time/freq resolutions
@@ -1011,57 +1015,23 @@ class Frame(object):
     def update_metadata(self, new_metadata):
         self.add_metadata(new_metadata)
         
-    @plots._copy_docstring(plots.plot_frame)
+    @utils._copy_docstring(plots.plot_frame)
     def plot(self, *args, **kwargs):
         return plots.plot_frame(self, *args, **kwargs)
         
-    def get_slice(self, l, r):
-        """
-        Slice frame data with left and right index bounds.
-    
-        Parameters
-        ----------
-        l : int
-            Left bound
-        r : int
-            Right bound
-
-        Returns
-        -------
-        s_fr : Frame
-            Sliced frame
-        """
-        return frame_utils.get_slice(self, l, r)
+    @utils._copy_docstring(slice.get_slice)
+    def get_slice(self, *args, **kwargs):
+        return slice.get_slice(self, *args, **kwargs)
         
-    def integrate(self, axis='t', mode='mean', normalize=False):
-        """
-        Integrate along either time ('t', 0) or frequency ('f', 1) axes, to create 
-        spectra or time series data. Mode is either 'mean' or 'sum'.
-    
-        Parameters
-        ----------
-        data : Frame, or 2D ndarray
-            Input frame or Numpy array
-        axis : int or str
-            Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
-        mode : {"mean", "sum"}, default: "mean"
-            Integration mode
-        normalize : bool
-            Whether to normalize integrated array to mean 0, std 1
-            
-        Returns
-        -------
-        output : ndarray
-            Integrated product
-        """
-        return frame_utils.integrate(self, axis=axis, mode=mode, normalize=normalize)
+    # @utils._copy_docstring(frame_utils.integrate)
+    # def integrate(self, *args, **kwargs):
+    #     return frame_utils.integrate(self, *args, **kwargs)
         
     def _update_waterfall(self, filename=None, max_load=1):
         # If entirely synthetic, base filterbank structure on existing sample data
         if self.waterfall is None:
-            my_path = os.path.abspath(os.path.dirname(__file__))
-            path = os.path.join(my_path, 'assets/sample.fil')
-            self.waterfall = Waterfall(path, max_load=max_load)
+            path = pathlib.Path(__file__).parent.resolve() / "assets/sample.fil"
+            self.waterfall = Waterfall(str(path), max_load=max_load)
             self.waterfall.header['source_name'] = self.source_name
             self.waterfall.header['rawdatafile'] = 'Synthetic'
 
@@ -1120,9 +1090,7 @@ class Frame(object):
         self.waterfall.file_header.update(header_attr)
         
         if filename is not None:
-            if not os.path.isabs(filename):
-                filename = os.path.abspath(filename)
-            self.waterfall.container.filename = filename
+            self.waterfall.container.filename = str(pathlib.Path(filename).resolve())
         self.waterfall.container.idx_data = len(sigproc.generate_sigproc_header(self.waterfall))
         
     def _encode_bytestrings(self):

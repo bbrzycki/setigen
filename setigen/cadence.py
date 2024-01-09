@@ -3,6 +3,7 @@ import numpy as np
 
 from . import frame as _frame
 from . import plots
+from . import utils
 
 
 class Cadence(collections.abc.MutableSequence):
@@ -168,7 +169,7 @@ class Cadence(collections.abc.MutableSequence):
         """
         return [func(frame) for frame in self.frames]
     
-    @plots._copy_docstring(plots.plot_cadence)
+    @utils._copy_docstring(plots.plot_cadence)
     def plot(self, *args, **kwargs):
         return plots.plot_cadence(self, *args, **kwargs)
         

@@ -1,4 +1,3 @@
-import sys
 import os
 
 GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
@@ -11,6 +10,7 @@ else:
     import numpy as xp
 import numpy as np
 
+import pathlib
 from tqdm import tqdm
 import time
 import copy
@@ -313,8 +313,7 @@ class RawVoltageBackend(object):
         header_dict : dict, optional
             Dictionary of header values to set.
         """
-        my_path = os.path.abspath(os.path.dirname(__file__))
-        path = os.path.join(my_path, 'header_template.txt')
+        path = pathlib.Path(__file__).parent.resolve() / "assets/header_template.txt"
         with open(path, 'r') as t:
             for line in t.readlines():
                 key = line[:8].strip()

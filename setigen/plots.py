@@ -3,17 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.offsetbox import AnchoredText
 
-from . import frame_utils
-
-
-def _copy_docstring(copy_func):
-    """
-    Copy plotting docstring, for convenience in class plotting methods.
-    """
-    def wrapped(func):
-        func.__doc__ = copy_func.__doc__ 
-        return func
-    return wrapped
+from . import utils
 
 
 def _get_extent_units(frame):
@@ -97,7 +87,7 @@ def plot_frame(frame,
     # Scale intensity if necessary (log vs. linear)
     data = frame.data
     if db:
-        data = frame_utils.db(data)
+        data = utils.db(data)
 
     # matplotlib extend order is (left, right, bottom, top)
     if ftype == "fmid":
@@ -294,8 +284,8 @@ def plot_cadence(cadence,
             if px_max < np.max(data):
                 px_max = np.max(data)
     if db:
-        px_min = frame_utils.db(px_min)
-        px_max = frame_utils.db(px_max)
+        px_min = utils.db(px_min)
+        px_max = utils.db(px_max)
     
     # Plot real observations
     for i, frame in enumerate(cadence):

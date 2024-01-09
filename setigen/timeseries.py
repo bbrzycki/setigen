@@ -1,6 +1,7 @@
 import numpy as np
 from astropy import units as u
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 from . import frame 
 
@@ -76,12 +77,7 @@ class TimeSeries(frame.Frame):
         if minor_ticks:
             taxis.set_minor_locator(ticker.AutoMinorLocator())
 
-        if ttype == "same":
-            if ftype in ["fmid", "fmin", "f"]:
-                tlabel = "Time (s)"
-            else:
-                tlabel = f"Time ({ftype})"
-        elif ttype == "trel":
+        if ttype == "trel":
             tlabel = "Time (s)"
         else:
             # ttype == "px" or "bins"

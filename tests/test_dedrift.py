@@ -21,7 +21,7 @@ def test_dedrift():
             frame.add_metadata({"drift_rate": drift_rate})
 
             dd_frame = stg.dedrift(frame)
-            assert np.max(dd_frame.integrate()) == pytest.approx(1)
+            assert np.max(stg.integrate(dd_frame)) == pytest.approx(1)
 
             dd_frame = stg.dedrift(frame, drift_rate=drift_rate)
-            assert np.max(dd_frame.integrate()) == pytest.approx(1)
+            assert np.max(stg.integrate(dd_frame)) == pytest.approx(1)

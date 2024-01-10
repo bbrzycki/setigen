@@ -68,3 +68,15 @@ def integrate(fr, axis='t', mode='mean', normalize=False, as_frame=False):
         return data.flatten()
 
 
+def spectrum(fr, mode="mean", normalize=False):
+    """
+    Produce default Spectrum object from spectrogram Frame.
+    """
+    return integrate(fr, axis=0, mode=mode, normalize=normalize, as_frame=True) 
+
+
+def timeseries(fr, mode="mean", normalize=False):
+    """
+    Produce default TimeSeries object from spectrogram Frame.
+    """
+    return integrate(fr, axis=1, mode=mode, normalize=normalize, as_frame=True)

@@ -109,6 +109,5 @@ class TimeSeries(frame.Frame):
         acf /= acf[0] # This is essentially the variance (scaled by len(ts))
         return acf
 
-
     def acf(self, remove_spike=False):
         return self.autocorr(remove_spike=remove_spike)

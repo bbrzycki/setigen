@@ -1,5 +1,9 @@
 import collections
 import numpy as np
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 from . import frame as _frame
 from . import plots
@@ -194,6 +198,23 @@ class Cadence(collections.abc.MutableSequence):
                                       for frame in self.frames],
                                      axis=0)
         return c_frame
+
+    def save_pickle(self, filename):
+        """
+        Save entire cadence as a pickled file (.pickle).
+        """
+        with open(filename, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load_pickle(cls, filename):
+        """
+        Load Cadence object from a pickled file (.pickle), created with 
+        :func:`~setigen.cadence.Cadence.save_pickle`.
+        """
+        with open(filename, 'rb') as f:
+            cad = pickle.load(f)
+        return cad
         
         
 class OrderedCadence(Cadence):

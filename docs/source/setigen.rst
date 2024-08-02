@@ -5,6 +5,7 @@ Signal parameter functions
 --------------------------
 
 .. toctree::
+   :maxdepth: 1
 
     setigen.funcs
 
@@ -25,11 +26,21 @@ setigen.cadence module
     :members:
     :undoc-members:
     :show-inheritance:
-    
-setigen.frame\_utils module
---------------------------------
 
-.. automodule:: setigen.frame_utils
+setigen.spectrum module
+-----------------------
+
+.. automodule:: setigen.spectrum
+    :special-members: __init__
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+setigen.timeseries module
+-------------------------
+
+.. automodule:: setigen.timeseries
+    :special-members: __init__
     :members:
     :undoc-members:
     :show-inheritance:

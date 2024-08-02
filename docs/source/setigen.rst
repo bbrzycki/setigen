@@ -5,7 +5,7 @@ Signal parameter functions
 --------------------------
 
 .. toctree::
-   :maxdepth: 1
+    :maxdepth: 1
 
     setigen.funcs
 

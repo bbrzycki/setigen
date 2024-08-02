@@ -153,6 +153,6 @@ def test_basic_cadence_injection(cadence_setup):
                     doppler_smearing=True)
 
     for i in range(0, 6, 2):
-        assert np.max(cad[i].integrate()) > 1.25
+        assert np.max(stg.integrate(cad[i])) > 1.25
     for i in range(1, 6, 2):
-        assert np.max(cad[i].integrate()) < 1.11
+        assert np.max(stg.integrate(cad[i])) < 1.11

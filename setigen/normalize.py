@@ -1,10 +1,10 @@
 import numpy as np
 from astropy.stats import median_absolute_deviation, sigma_clip
-from . import frame_utils
+from . import utils
 from .frame import Frame
 
 
-def sigma_clip_norm(fr, axis=None, as_data=None):
+def sigma_clip_norm(fr, axis=None, background=None):
     """
     Normalize data by subtracting out noise background, determined by
     sigma clipping.
@@ -16,7 +16,7 @@ def sigma_clip_norm(fr, axis=None, as_data=None):
     axis : int
         Axis along which data should be normalized. If None, will
         compute statistics over the entire data frame. 
-    as_data : Frame or ndarray
+    background : Frame or ndarray
         Data to be used for noise calculations
         
     Returns
@@ -24,20 +24,20 @@ def sigma_clip_norm(fr, axis=None, as_data=None):
     n_data
         Returns normalized data in the same type as f
     """
-    data = frame_utils.array(fr)
+    data = utils.array(fr)
     
-    if as_data is None:
+    if background is None:
         # If `data` is a Frame object, just use its data
-        as_data = data
+        background = data
     else:
-        as_data = frame_utils.array(as_data)
+        background = utils.array(background)
         
     if axis in ['f', 1]:
         axis = 1
     elif axis in ['t', 0]:
         axis = 0
 
-    clipped_data = sigma_clip(as_data, axis=axis, masked=True)
+    clipped_data = sigma_clip(background, axis=axis, masked=True)
     data = data - np.mean(clipped_data, axis=axis, keepdims=True)
     data = data / np.std(clipped_data, axis=axis, keepdims=True)
     
@@ -86,7 +86,7 @@ def sliding_norm(data, cols=0, exclude=0.0, db=False, use_median=False):
     mean = np.empty(f_len)
     std = np.empty(f_len)
     if db:
-        data = frame_utils.db(data)
+        data = utils.db(data)
     for i in np.arange(f_len):
         if i < cols:
             start = 0

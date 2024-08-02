@@ -1,4 +1,3 @@
-import sys
 import os
 
 GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
@@ -11,6 +10,7 @@ else:
     import numpy as xp
 import numpy as np
 
+import pathlib
 from tqdm import tqdm
 import time
 import copy
@@ -171,8 +171,8 @@ class RawVoltageBackend(object):
     def from_data(cls, 
                   input_file_stem,
                   antenna_source,
-                  digitizer,
-                  filterbank,
+                  digitizer=None,
+                  filterbank=None,
                   start_chan=0,
                   num_subblocks=32):
         """
@@ -186,10 +186,10 @@ class RawVoltageBackend(object):
             Filename or path stem to input RAW data
         antenna_source : Antenna or MultiAntennaArray
             Antenna or MultiAntennaArray, from which real voltage data is created
-        digitizer : RealQuantizer or ComplexQuantizer, or list
+        digitizer : RealQuantizer or ComplexQuantizer, or list, optional
             Quantizer used to digitize input voltages. Either a single object to be used as a template
             for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
-        filterbank : PolyphaseFilterbank, or list
+        filterbank : PolyphaseFilterbank, or list, optional
             Polyphase filterbank object used to channelize voltages. Either a single object to be used as a 
             template for each antenna and polarization, or a 2D list of filterbank objects of shape 
             (num_antennas, num_pols).
@@ -206,6 +206,10 @@ class RawVoltageBackend(object):
         backend : RawVoltageBackend
             Created backend object
         """
+        if digitizer == None:
+            digitizer = quantization.RealQuantizer()
+        if filterbank == None:
+            filterbank = polyphase_filterbank.PolyphaseFilterbank()
         requantizer = quantization.ComplexQuantizer()
         
         raw_params = raw_utils.get_raw_params(input_file_stem=input_file_stem,
@@ -309,8 +313,7 @@ class RawVoltageBackend(object):
         header_dict : dict, optional
             Dictionary of header values to set.
         """
-        my_path = os.path.abspath(os.path.dirname(__file__))
-        path = os.path.join(my_path, 'header_template.txt')
+        path = pathlib.Path(__file__).parent.resolve() / "assets/header_template.txt"
         with open(path, 'r') as t:
             for line in t.readlines():
                 key = line[:8].strip()
@@ -544,7 +547,7 @@ class RawVoltageBackend(object):
                             v = self.requantizer[antenna][pol].quantize(v)
                             self.requantizer_stage_t += time.time() - t
 
-                        # Convert to numpy array if using cupy
+                        # Convert to numpy array if using cupy, per GPU memory constraints
                         try:
                             R = xp.asnumpy(xp.real(v).T)  
                             I = xp.asnumpy(xp.imag(v).T)  

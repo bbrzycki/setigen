@@ -90,12 +90,13 @@ instead of functions.
                       fch1=6095.214842353016*u.MHz)
     frame.add_noise(x_mean=10)
 
-    path_array = np.random.uniform(frame.get_frequency(200),
-                                   frame.get_frequency(400),
-                                   32)
-    t_profile_array = np.random.uniform(frame.get_intensity(snr=20),
-                                        frame.get_intensity(snr=40),
-                                        32)
+    rng = np.random.default_rng()
+    path_array = rng.uniform(frame.get_frequency(200),
+                             frame.get_frequency(400),
+                             32)
+    t_profile_array = rng.uniform(frame.get_intensity(snr=20),
+                                  frame.get_intensity(snr=40),
+                                  32)
 
     frame.add_signal(path_array,
                      t_profile_array,
@@ -103,7 +104,7 @@ instead of functions.
                      stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
-    frame.plot(xtype="px", db=False)
+    frame.plot(ftype="px", db=False)
     plt.savefig('frame.png', bbox_inches='tight')
     plt.show()
 
@@ -203,12 +204,13 @@ setting too small of a bounding frequency range can look like:
                       fch1=6095.214842353016*u.MHz)
     frame.add_noise(x_mean=10)
 
-    path_array = np.random.uniform(frame.get_frequency(200),
-                                   frame.get_frequency(400),
-                                   32)
-    t_profile_array = np.random.uniform(frame.get_intensity(snr=20),
-                                        frame.get_intensity(snr=40),
-                                        32)
+    rng = np.random.default_rng()
+    path_array = rng.uniform(frame.get_frequency(200),
+                             frame.get_frequency(400),
+                             32)
+    t_profile_array = rng.uniform(frame.get_intensity(snr=20),
+                                  frame.get_intensity(snr=40),
+                                  32)
 
     frame.add_signal(path_array,
                      t_profile_array,

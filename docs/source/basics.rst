@@ -38,7 +38,8 @@ If you have a 2D Numpy array of spectrogram data, you may alternatively use
     
     import numpy as np
     
-    data = np.random.normal(size=(16, 1024))
+    rng = np.random.default_rng()
+    data = rng.normal(size=(16, 1024))
     frame = stg.Frame.from_data(df=2.7939677238464355*u.Hz,
                                 dt=18.253611008*u.s,
                                 fch1=6095.214842353016*u.MHz,

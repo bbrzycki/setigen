@@ -25,9 +25,9 @@ Plotting frames
 There are a variety of options for plotting frames, meant to produce 
 publication-ready images. The main function is :func:`~setigen.frame.Frame.plot`.
 
-You may choose what style of axes ticks and labels to use with the parameter 
-``xtype``. By default, ``xtype=fmid`` expresses the `x`-axis as the 
-relative offset from the central frequency.
+You may choose what style of axes ticks and labels to use with the parameters 
+``ftype`` and ``ttype``. By default, ``ftype=fmid`` expresses the frequency axis 
+as the relative offset from the central frequency.
 
 .. code-block:: Python
 
@@ -35,30 +35,30 @@ relative offset from the central frequency.
 
 .. image:: images/plot_fmid.png
 
-``xtype=fmid`` expresses the `x`-axis as the relative offset from the 
+``ftype=fmid`` expresses the frequency axis as the relative offset from the 
 minimum frequency. In addition, we can disable the dB scaling of the 
 colorbar and turn on minor ticks:
 
 .. code-block:: Python
 
-    fr.plot(xtype="fmin", db=False, minor_ticks=True)
+    fr.plot(ftype="fmin", db=False, minor_ticks=True)
 
 .. image:: images/plot_fmin.png
 
-``xtype=f`` expresses the `x`-axis as absolute frequencies in MHz. 
+``ftype=f`` expresses the frequency axis as absolute frequencies in MHz. 
 In addition, we can turn on a grid:
 
 .. code-block:: Python
 
-    fr.plot(xtype="f", grid=True)
+    fr.plot(ftype="f", grid=True)
 
 .. image:: images/plot_f.png
 
-Finally, ``xtype=px`` expresses both axes in terms of pixels.
+Finally, ``ftype=px`` expresses both axes in terms of pixels.
 
 .. code-block:: Python
 
-    fr.plot(xtype="fmin", db=False)
+    fr.plot(ftype="fmin", db=False)
 
 .. image:: images/plot_px.png
 
@@ -69,12 +69,17 @@ is a time array of length ``tchans + 1`` that includes the end of the frame):
 
 .. code-block:: Python
 
-    fr.plot(xtype="fmid", db=True)
+    fr.plot(ftype="fmid", db=True)
     plt.plot(fr.ts_ext * drift_rate + fr.get_frequency(index=fr.fchans//2) - fr.fmid, 
              fr.ts_ext,
              c='k')
 
 .. image:: images/plot_fmid_line.png
+
+The time axis type is ``ttype="same"``, by default, which matches the time 
+units to the frequency axis units. You can set the time units to be in seconds
+relative to the start (``"trel"``) or pixels (``"px"``). You may also swap the 
+axes by setting ``swap_axes=True`` as an optional argument.
 
 The plotting function uses ``matplotlib.pyplot.imshow`` behind
 the scenes, which means you can still control plot parameters before and after

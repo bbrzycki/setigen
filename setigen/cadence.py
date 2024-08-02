@@ -1,8 +1,13 @@
 import collections
 import numpy as np
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 from . import frame as _frame
 from . import plots
+from . import utils
 
 
 class Cadence(collections.abc.MutableSequence):
@@ -168,42 +173,9 @@ class Cadence(collections.abc.MutableSequence):
         """
         return [func(frame) for frame in self.frames]
     
+    @utils._copy_docstring(plots.plot_cadence)
     def plot(self, *args, **kwargs):
-        """
-        Plot cadence as a multi-panel figure.
-
-        Parameters
-        ----------
-        cadence : Cadence
-            Cadence to plot
-        xtype : {"fmid", "fmin", "f", "px"}, default: "fmid"
-            Types of axis labels, particularly the x-axis. "px" puts axes in units 
-            of pixels. The others are all in frequency: "fmid" shows frequencies 
-            relative to the central frequency, "fmin" is relative to the minimum 
-            frequency, and "f" is absolute frequency.
-        db : bool, default: True
-            Option to convert intensities to dB
-        slew_times : bool, default: False
-            Option to space subplots vertically proportional to slew times
-        colorbar : bool, default: True
-            Whether to display colorbar
-        labels : bool, default: True
-            Option to place target name as a label in each subplot
-        title : bool, default: False
-            Option to place first source name as the figure title
-        minor_ticks : bool, default: False
-            Option to include minor ticks on both axes
-        grid : bool, default: False
-            Option to overplot grid from major ticks
-
-        Return 
-        ------
-        axs : matplotlib.axes.Axes
-            Axes subplots
-        cax : matplotlib.axes.Axes
-            Colorbar axes, if created
-        """
-        plots.plot_cadence(self, *args, **kwargs)
+        return plots.plot_cadence(self, *args, **kwargs)
         
     def consolidate(self):
         """
@@ -226,6 +198,23 @@ class Cadence(collections.abc.MutableSequence):
                                       for frame in self.frames],
                                      axis=0)
         return c_frame
+
+    def save_pickle(self, filename):
+        """
+        Save entire cadence as a pickled file (.pickle).
+        """
+        with open(filename, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load_pickle(cls, filename):
+        """
+        Load Cadence object from a pickled file (.pickle), created with 
+        :func:`~setigen.cadence.Cadence.save_pickle`.
+        """
+        with open(filename, 'rb') as f:
+            cad = pickle.load(f)
+        return cad
         
         
 class OrderedCadence(Cadence):

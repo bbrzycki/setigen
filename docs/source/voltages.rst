@@ -189,7 +189,8 @@ example showing how you might generate Gaussian noise "signal":
 .. code-block:: python
 
     def my_noise_source(ts):
-        return np.random.normal(0, 1, len(ts))
+        rng = np.random.default_rng()
+        return rng.normal(0, 1, len(ts))
         
     stream.add_signal(my_noise_source)
                          

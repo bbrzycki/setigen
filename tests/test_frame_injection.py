@@ -80,7 +80,7 @@ def test_injection_options():
                               level=1,
                               width=2*frame.df,
                               f_profile_type="sinc2")
-    assert np.max(frame.integrate(mode='s')) == frame.tchans
+    assert np.max(stg.integrate(frame, mode='s')) == frame.tchans
 
     frame.zero_data()
     frame.add_constant_signal(frame.get_frequency(frame.fchans//2),
@@ -88,7 +88,7 @@ def test_injection_options():
                               level=1,
                               width=2*frame.df,
                               f_profile_type="gaussian")
-    assert np.max(frame.integrate(mode='s')) == frame.tchans
+    assert np.max(stg.integrate(frame, mode='s')) == frame.tchans
 
     frame.zero_data()
     frame.add_constant_signal(frame.get_frequency(frame.fchans//2),
@@ -96,7 +96,7 @@ def test_injection_options():
                               level=1,
                               width=2*frame.df,
                               f_profile_type="lorentzian")
-    assert np.max(frame.integrate(mode='s')) == frame.tchans
+    assert np.max(stg.integrate(frame, mode='s')) == frame.tchans
 
     frame.zero_data()
     frame.add_constant_signal(frame.get_frequency(frame.fchans//2),
@@ -104,7 +104,7 @@ def test_injection_options():
                               level=1,
                               width=2*frame.df,
                               f_profile_type="voigt")
-    assert np.max(frame.integrate(mode='s')) == frame.tchans
+    assert np.max(stg.integrate(frame, mode='s')) == frame.tchans
 
     frame.zero_data()
     frame.add_constant_signal(frame.get_frequency(frame.fchans//2),
@@ -112,7 +112,7 @@ def test_injection_options():
                               level=1,
                               width=2*frame.df,
                               f_profile_type="box")
-    assert np.max(frame.integrate(mode='s')) == frame.tchans
+    assert np.max(stg.integrate(frame, mode='s')) == frame.tchans
     
 
 def test_injection_tools(tmp_path):

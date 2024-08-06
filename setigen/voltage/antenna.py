@@ -103,6 +103,10 @@ class Antenna(object):
         """
         self.add_time(0)
         
+    def clear(self):
+        for stream in self.streams:
+            stream.clear()
+
     def get_samples(self, num_samples):
         """
         Retrieve voltage samples from each polarization.
@@ -247,6 +251,15 @@ class MultiAntennaArray(object):
         """
         self.add_time(0)
             
+    def clear_bg(self):
+        for stream in self.bg_streams:
+            stream.clear()
+
+    def clear(self):
+        self.clear_bg() 
+        for antenna in self.antennas:
+            antenna.clear()
+
     def get_samples(self, num_samples):
         """
         Retrieve voltage samples from each antenna and polarization.

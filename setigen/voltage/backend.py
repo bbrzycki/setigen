@@ -92,7 +92,7 @@ class RawVoltageBackend(object):
         self.num_subblocks = num_subblocks
         
         self.digitizer = digitizer
-        if isinstance(self.digitizer, quantization.RealQuantizer) or isinstance(self.digitizer, quantization.ComplexQuantizer):
+        if isinstance(self.digitizer, quantization.BaseQuantizer):
             self.digitizer = [[copy.deepcopy(self.digitizer) 
                                for pol in range(self.num_pols)]
                               for antenna in range(self.num_antennas)]
@@ -102,8 +102,7 @@ class RawVoltageBackend(object):
             for antenna in range(self.num_antennas):
                 for pol in range(self.num_pols):
                     assert isinstance(self.digitizer[antenna][pol], 
-                                      (quantization.RealQuantizer, 
-                                       quantization.ComplexQuantizer))
+                                      quantization.BaseQuantizer)
         else:
             raise TypeError('Digitizer is incorrect type!')
         
@@ -130,9 +129,10 @@ class RawVoltageBackend(object):
         self.chan_bw = 1 / self.tbin
         if not self.ascending:
             self.chan_bw = -self.chan_bw
+        self.fch1_eff = self.fch1 - 0.5 * self.chan_bw
         
         self.requantizer = requantizer
-        if isinstance(self.requantizer, quantization.ComplexQuantizer):
+        if isinstance(self.requantizer, quantization.BaseComplexQuantizer):
             self.requantizer = [[copy.deepcopy(self.requantizer) 
                                  for pol in range(self.num_pols)]
                                 for antenna in range(self.num_antennas)]
@@ -142,7 +142,7 @@ class RawVoltageBackend(object):
             for antenna in range(self.num_antennas):
                 for pol in range(self.num_pols):
                     assert isinstance(self.requantizer[antenna][pol], 
-                                      quantization.ComplexQuantizer)
+                                      quantization.BaseComplexQuantizer)
         else:
             raise TypeError('Requantizer is incorrect type!')
         self.num_bits = self.requantizer[0][0].num_bits
@@ -579,6 +579,10 @@ class RawVoltageBackend(object):
         return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         
     
+    def get_coarse_freq(self, chan_idx):
+        return chan_idx * self.chan_bw + self.fch1_eff
+
+
     def record(self, 
                output_file_stem,
                obs_length=None, 

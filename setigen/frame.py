@@ -134,7 +134,13 @@ class Frame(object):
                 waterfall = str(waterfall)
             if isinstance(waterfall, str):
                 f_start = kwargs.get('f_start')
+                if f_start is not None:
+                    f_start = unit_utils.cast_value(f_start, u.Hz).to(u.MHz).value
+
                 f_stop = kwargs.get('f_stop')
+                if f_stop is not None:
+                    f_stop = unit_utils.cast_value(f_stop, u.Hz).to(u.MHz).value
+                    
                 self.waterfall = Waterfall(waterfall, f_start=f_start, f_stop=f_stop)
             elif isinstance(waterfall, Waterfall):
                 self.waterfall = waterfall

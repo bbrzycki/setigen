@@ -12,15 +12,94 @@ else:
 import numpy as np
 import scipy.signal
 import time
+import abc
 
 from . import data_stream
 
 
-class RealQuantizer(object):
+class BaseQuantizer(abc.ABC):
+    @abc.abstractmethod 
+    def _reset_cache(self):
+        return 
+    
+    @abc.abstractmethod
+    def quantize(self, voltages):
+        return
+    
+
+class BaseComplexQuantizer(abc.ABC):
+    quantizer_r : BaseQuantizer 
+    quantizer_i : BaseQuantizer 
+    
+    @abc.abstractmethod 
+    def _reset_cache(self):
+        return 
+    
+    @abc.abstractmethod
+    def quantize(self, voltages):
+        return
+
+
+class VRefQuantizer(BaseQuantizer):
+    def __init__(self, v_ref, num_bits=8):
+        self.v_ref = v_ref
+        self.num_bits = num_bits 
+
+    def _reset_cache(self):
+        pass 
+
+    def quantize(self, voltages):
+        q_voltages = quantize_real(voltages, 
+                                   target_mean=0,
+                                   target_std=2**(self.num_bits - 1),
+                                   num_bits=self.num_bits,
+                                   data_mean=0,
+                                   data_std=self.v_ref)
+
+        return q_voltages
+
+
+class ComplexVRefQuantizer(BaseComplexQuantizer):
+    def __init__(self, v_ref, num_bits=8):
+        self.v_ref = v_ref
+        self.num_bits = num_bits 
+        
+        self.quantizer_r = VRefQuantizer(v_ref=v_ref,
+                                         num_bits=num_bits)
+        self.quantizer_i = VRefQuantizer(v_ref=v_ref,
+                                         num_bits=num_bits)
+        
+    def _reset_cache(self):
+        """
+        Clear statistics and indices caches.
+        """
+        self.quantizer_r._reset_cache()
+        self.quantizer_i._reset_cache()
+    
+    def quantize(self, voltages):
+        """
+        Quantize input complex voltages.
+        
+        Parameters
+        ----------
+        voltages : array
+            Array of complex voltages
+            
+        Returns
+        -------
+        q_voltages : array
+            Array of complex quantized voltages
+        """
+        q_r = self.quantizer_r.quantize(xp.real(voltages))
+        q_i = self.quantizer_i.quantize(xp.imag(voltages))
+        
+        return q_r + q_i * 1j
+
+
+class RealQuantizer(BaseQuantizer):
     """
     Implement a quantizer for input voltages.
     """
-    
     def __init__(self,
                  target_mean=0,
                  target_fwhm=32, 
@@ -65,14 +144,12 @@ class RealQuantizer(object):
         self.stats_calc_period = stats_calc_period
         self.stats_calc_num_samples = stats_calc_num_samples
         
-    
     def _reset_cache(self):
         """
         Clear statistics and indices caches.
         """
         self.stats_calc_indices = 0
-        self.stats_cache = [None, None]
-             
+        self.stats_cache = [None, None]  
        
     def _set_target_stats(self, target_mean, target_std):
         """
@@ -89,7 +166,6 @@ class RealQuantizer(object):
         self.target_std = target_std
         self.target_fwhm = target_std * (2 * np.sqrt(2 * np.log(2)))
         
-    
     def quantize(self, voltages, custom_std=None):
         """
         Quantize input voltages. Cache voltage mean and standard deviation, per polarization and
@@ -129,7 +205,6 @@ class RealQuantizer(object):
 
         return q_voltages
     
-    
     def digitize(self, voltages, custom_std=None):
         """
         Quantize input voltages. Wrapper for :func:`~setigen.voltage.quantization.RealQuantizer.quantize`.
@@ -137,11 +212,10 @@ class RealQuantizer(object):
         return self.quantize(voltages, custom_std=custom_std)
     
     
-class ComplexQuantizer(object):
+class ComplexQuantizer(BaseComplexQuantizer):
     """
     Implement a quantizer for complex voltages, using a pair of RealQuantizers.
     """
-    
     def __init__(self,
                  target_mean=0,
                  target_fwhm=32, 
@@ -186,7 +260,6 @@ class ComplexQuantizer(object):
                                          num_bits=num_bits,
                                          stats_calc_period=stats_calc_period,
                                          stats_calc_num_samples=stats_calc_num_samples)
-        
     
     def _reset_cache(self):
         """
@@ -197,7 +270,6 @@ class ComplexQuantizer(object):
         self.quantizer_r._reset_cache()
         self.quantizer_i._reset_cache()
         
-    
     def quantize(self, voltages, custom_stds=None):
         """
         Quantize input complex voltages. Cache voltage means and standard deviations, per 

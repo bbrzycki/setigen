@@ -141,6 +141,10 @@ class DataStream(object):
         """
         return xp.sqrt(self.noise_std**2 + self.bg_noise_std**2)
     
+    def clear(self):
+        self.noise_sources = []
+        self.signal_sources = []
+
     def add_noise(self, v_mean, v_std):
         """
         Add Gaussian noise source to data stream. This essentially adds a lambda function that

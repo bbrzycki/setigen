@@ -5,7 +5,11 @@ from setigen.voltage.data_stream import (
 )
 from setigen.voltage.antenna import Antenna, MultiAntennaArray
 from setigen.voltage.polyphase_filterbank import PolyphaseFilterbank
-from setigen.voltage.quantization import RealQuantizer, ComplexQuantizer
+from setigen.voltage.quantization import (
+    BaseQuantizer, BaseComplexQuantizer,
+    RealQuantizer, ComplexQuantizer,
+    VRefQuantizer, ComplexVRefQuantizer
+)
 from setigen.voltage.backend import (
     RawVoltageBackend, get_block_size, get_total_obs_num_samples
 )

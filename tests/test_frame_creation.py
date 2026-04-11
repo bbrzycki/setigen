@@ -4,6 +4,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 import setigen as stg
 from astropy.time import Time
+from pathlib import Path
 
 
 def test_frame_copy_mjd():
@@ -56,3 +57,54 @@ def test_from_backend_params():
     assert frame.fchans == 256 
     assert frame.tchans == 128 
 
+
+def test_init_precedence_rules():
+    data = np.ones((3, 4))
+    frame = stg.Frame(fchans=99,
+                      tchans=88,
+                      shape=(3, 4),
+                      data=data,
+                      mjd=60000,
+                      t_start=12345,
+                      source_name="Test source")
+
+    assert frame.shape == (3, 4)
+    assert frame.fchans == 4
+    assert frame.tchans == 3
+    assert frame.t_start == pytest.approx(Time(60000, format='mjd').unix)
+    assert frame.source_name == "Test source"
+    assert_allclose(frame.data, data)
+
+
+def test_data_shape_takes_precedence_over_explicit_dimensions():
+    data = np.ones((2, 5))
+    frame = stg.Frame(fchans=10,
+                      tchans=20,
+                      data=data)
+
+    assert frame.shape == (2, 5)
+    assert frame.fchans == 5
+    assert frame.tchans == 2
+    assert_allclose(frame.data, data)
+
+
+def test_synthetic_mode_takes_precedence_over_waterfall():
+    path = Path(__file__).resolve().parent / "assets/sample.fil"
+    frame = stg.Frame(waterfall=path,
+                      shape=(2, 3))
+
+    assert frame.shape == (2, 3)
+    assert frame.waterfall is None
+
+
+def test_waterfall_path_selection_kwargs():
+    path = Path(__file__).resolve().parent / "assets/sample.fil"
+    full_frame = stg.Frame(waterfall=path)
+
+    subset_start = full_frame.get_frequency(100) * 1e-6
+    subset_stop = full_frame.get_frequency(900) * 1e-6
+    subset_frame = stg.Frame(waterfall=path,
+                             f_start=subset_start,
+                             f_stop=subset_stop)
+
+    assert subset_frame.fchans < full_frame.fchans

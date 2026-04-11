@@ -4,6 +4,11 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
 from . import frame 
+from ._plot.axes import (
+    _ResolvedAxisSpec,
+    _get_time_axis_label,
+    _get_timeseries_x_values,
+)
 
 
 class TimeSeries(frame.Frame):
@@ -64,11 +69,8 @@ class TimeSeries(frame.Frame):
         else:
             ip = self.array(db=db)
 
-        if ttype == "trel":
-            ts = self.ts
-        else:
-            # ttype == "px" or "bins"
-            ts = (self.ts - self.ts[0]) / self.dt
+        axis_spec = _ResolvedAxisSpec.from_values(ttype=ttype)
+        ts = _get_timeseries_x_values(self, axis_spec)
 
         plt.plot(ts, ip, **kwargs)
 
@@ -77,11 +79,7 @@ class TimeSeries(frame.Frame):
         if minor_ticks:
             taxis.set_minor_locator(ticker.AutoMinorLocator())
 
-        if ttype == "trel":
-            tlabel = "Time (s)"
-        else:
-            # ttype == "px" or "bins"
-            tlabel = f"Time ({ttype})"
+        tlabel = _get_time_axis_label(axis_spec)
 
         if db:
             ylabel = "Integrated Power (dB)"

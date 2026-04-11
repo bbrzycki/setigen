@@ -10,10 +10,6 @@ else:
     import numpy as xp
 
 from astropy import units as u
-from astropy.stats import sigma_clip
-
-import time
-
 from setigen import unit_utils
 
 
@@ -60,24 +56,24 @@ class DataStream(object):
         """
         #: Random number generator
         self.rng = xp.random.default_rng(seed)
-        
+
         self.sample_rate = unit_utils.get_value(sample_rate, u.Hz)
         self.dt = 1 / self.sample_rate
-        
+
         # For adjusting signal frequencies
         self.fch1 = unit_utils.get_value(fch1, u.Hz)
         self.ascending = ascending
-        
+
         # For estimating SNR for signals
         self.noise_std = 0
         self.bg_noise_std = 0
-        
+
         # Tracks start time of next sequence of data
         self.t_start = t_start
         self.start_obs = True
         self.ts = None
         self.v = None
-        
+
         # Hold functions that generate voltage values
         self.noise_sources = []
         self.signal_sources = []
@@ -86,7 +82,7 @@ class DataStream(object):
         """
         Set array of times for voltage calculation, and reset voltage array.
         """
-        self.ts = self.t_start + xp.linspace(0., 
+        self.ts = self.t_start + xp.linspace(0.,
                                              num_samples * self.dt,
                                              num_samples,
                                              endpoint=False)
@@ -118,10 +114,11 @@ class DataStream(object):
         """
         start_obs = self.start_obs
         t_start = self.t_start
-        
-        v = self.get_samples(num_samples=stats_calc_num_samples)
-        _, self.noise_std = estimate_stats(v, stats_calc_num_samples=stats_calc_num_samples)
-        
+
+        voltages = self.get_samples(num_samples=stats_calc_num_samples)
+        _, self.noise_std = estimate_stats(voltages,
+                                           stats_calc_num_samples=stats_calc_num_samples)
+
         self.start_obs = start_obs
         self.t_start = t_start
         
@@ -156,7 +153,7 @@ class DataStream(object):
             Noise standard deviation
         """
         noise_func = lambda ts: v_mean + v_std * self.rng.standard_normal(size=len(ts))
-        
+
         # Variances add, not standard deviations
         self.noise_std = xp.sqrt(self.noise_std**2 + v_std**2)
         self.noise_sources.append(noise_func)
@@ -182,14 +179,14 @@ class DataStream(object):
         """
         f_start = unit_utils.get_value(f_start, u.Hz)
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
-        
+
         def signal_func(ts):
             # Calculate adjusted center frequencies, according to chirp
             chirp_phase = 2 * xp.pi * ((f_start - self.fch1) * ts + 0.5 * drift_rate * ts**2)
             if not self.ascending:
                 chirp_phase = -chirp_phase
             return level * xp.cos(chirp_phase + phase)
-        
+
         self.signal_sources.append(signal_func)
         
     def add_signal(self, signal_func):
@@ -216,20 +213,18 @@ class DataStream(object):
             Array of voltage samples
         """
         self._update_t(num_samples)
-        
+
         for noise_func in self.noise_sources:
             self.v += noise_func(self.ts)
-            
+
         for signal_func in self.signal_sources:
-            # Ensure that the array is of the correct type
             signal_v = xp.array(signal_func(self.ts))
-            # If there are complex voltages, make sure to cast self.v to complex
             if not xp.iscomplexobj(self.v) and xp.iscomplexobj(signal_v):
                 self.v = self.v.astype(complex)
             self.v += signal_v
-            
+
         self.start_obs = False
-        
+
         return self.v
         
         

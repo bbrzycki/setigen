@@ -47,6 +47,132 @@ def elements_setup():
     return digitizer, filterbank, requantizer
 
 
+def test_raw_record_obs_length(antenna_setup,
+                               elements_setup,
+                               tmp_path):
+    antenna = copy.deepcopy(antenna_setup)
+    digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
+
+    num_taps = filterbank.num_taps
+    num_pols = antenna.num_pols
+    num_chans = 64
+    block_size = num_taps * num_chans * 2 * num_pols
+    rvb = stg.voltage.RawVoltageBackend(antenna,
+                                        digitizer=digitizer,
+                                        filterbank=filterbank,
+                                        requantizer=requantizer,
+                                        start_chan=0,
+                                        num_chans=num_chans,
+                                        block_size=block_size,
+                                        blocks_per_file=128,
+                                        num_subblocks=32)
+
+    raw_stem = tmp_path / 'example_obs_length'
+    raw_path = f"{raw_stem}.0000.raw"
+    rvb.record(output_file_stem=raw_stem,
+               obs_length=rvb.time_per_block * 2.1,
+               length_mode='obs_length',
+               verbose=False)
+
+    assert stg.voltage.get_blocks_in_file(raw_path) == 2
+
+
+def test_raw_record_length_mode_errors(antenna_setup,
+                                       elements_setup,
+                                       tmp_path):
+    antenna = copy.deepcopy(antenna_setup)
+    digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
+
+    num_taps = filterbank.num_taps
+    num_pols = antenna.num_pols
+    num_chans = 64
+    block_size = num_taps * num_chans * 2 * num_pols
+    rvb = stg.voltage.RawVoltageBackend(antenna,
+                                        digitizer=digitizer,
+                                        filterbank=filterbank,
+                                        requantizer=requantizer,
+                                        start_chan=0,
+                                        num_chans=num_chans,
+                                        block_size=block_size,
+                                        blocks_per_file=128,
+                                        num_subblocks=32)
+
+    with pytest.raises(ValueError, match="Value not given for 'obs_length'."):
+        rvb.record(output_file_stem=tmp_path / 'missing_obs_length',
+                   length_mode='obs_length',
+                   verbose=False)
+
+    with pytest.raises(ValueError, match="Value not given for 'num_blocks'."):
+        rvb.record(output_file_stem=tmp_path / 'missing_num_blocks',
+                   length_mode='num_blocks',
+                   verbose=False)
+
+    with pytest.raises(ValueError, match="Invalid option given for 'length_mode'."):
+        rvb.record(output_file_stem=tmp_path / 'invalid_length_mode',
+                   length_mode='not_a_mode',
+                   verbose=False)
+
+
+def test_raw_record_input_num_blocks_fallback(antenna_setup,
+                                              elements_setup,
+                                              tmp_path):
+    antenna = copy.deepcopy(antenna_setup)
+    digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
+
+    num_taps = filterbank.num_taps
+    num_pols = antenna.num_pols
+    num_chans = 64
+    block_size = num_taps * num_chans * 2 * num_pols
+    rvb = stg.voltage.RawVoltageBackend(antenna,
+                                        digitizer=digitizer,
+                                        filterbank=filterbank,
+                                        requantizer=requantizer,
+                                        start_chan=0,
+                                        num_chans=num_chans,
+                                        block_size=block_size,
+                                        blocks_per_file=128,
+                                        num_subblocks=32)
+    rvb.input_num_blocks = 3
+
+    raw_stem = tmp_path / 'example_input_num_blocks_fallback'
+    raw_path = f"{raw_stem}.0000.raw"
+    rvb.record(output_file_stem=raw_stem,
+               length_mode='obs_length',
+               verbose=False)
+
+    assert stg.voltage.get_blocks_in_file(raw_path) == 3
+
+
+def test_raw_record_splits_multiple_files(antenna_setup,
+                                          elements_setup,
+                                          tmp_path):
+    antenna = copy.deepcopy(antenna_setup)
+    digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
+
+    num_taps = filterbank.num_taps
+    num_pols = antenna.num_pols
+    num_chans = 64
+    block_size = num_taps * num_chans * 2 * num_pols
+    rvb = stg.voltage.RawVoltageBackend(antenna,
+                                        digitizer=digitizer,
+                                        filterbank=filterbank,
+                                        requantizer=requantizer,
+                                        start_chan=0,
+                                        num_chans=num_chans,
+                                        block_size=block_size,
+                                        blocks_per_file=2,
+                                        num_subblocks=32)
+
+    raw_stem = tmp_path / 'example_multi_file_split'
+    rvb.record(output_file_stem=raw_stem,
+               num_blocks=3,
+               length_mode='num_blocks',
+               verbose=False)
+
+    assert stg.voltage.get_blocks_in_file(f"{raw_stem}.0000.raw") == 2
+    assert stg.voltage.get_blocks_in_file(f"{raw_stem}.0001.raw") == 1
+
+
 def test_noise_injection(antenna_setup):
     antenna = copy.deepcopy(antenna_setup)
     for stream in antenna.streams:
@@ -169,6 +295,36 @@ def test_raw_creation(antenna_setup,
     assert wf_data.shape == (8, 64)
 
 
+def test_collect_data_block_direct(antenna_setup,
+                                   elements_setup):
+    antenna = copy.deepcopy(antenna_setup)
+    digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
+
+    num_taps = filterbank.num_taps
+    num_pols = antenna.num_pols
+    num_chans = 64
+    block_size = num_taps * num_chans * 2 * num_pols
+    rvb = stg.voltage.RawVoltageBackend(antenna,
+                                        digitizer=digitizer,
+                                        filterbank=filterbank,
+                                        requantizer=requantizer,
+                                        start_chan=0,
+                                        num_chans=num_chans,
+                                        block_size=block_size,
+                                        blocks_per_file=128,
+                                        num_subblocks=32)
+
+    antenna.x.add_noise(v_mean=0, v_std=1)
+    antenna.y.add_noise(v_mean=0, v_std=1)
+
+    voltages = rvb.collect_data_block(digitize=True,
+                                      requantize=False,
+                                      verbose=False)
+
+    assert voltages.shape == (num_chans, block_size // num_chans)
+    assert np.isfinite(voltages).all()
+
+
 def test_raw_injection_no_directio(antenna_setup, 
                                    elements_setup,
                                    tmp_path):
@@ -258,6 +414,74 @@ def test_raw_injection_no_directio(antenna_setup,
                                                  fftlength=1)
     
     assert wf_data.shape == (8, 64)
+
+
+def test_collect_data_block_requires_requantize_for_input_raw(antenna_setup,
+                                                              elements_setup,
+                                                              tmp_path):
+    antenna = copy.deepcopy(antenna_setup)
+    digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
+
+    num_taps = filterbank.num_taps
+    num_chans = 64
+    num_pols = antenna.num_pols
+    block_size = num_taps * num_chans * 2 * num_pols
+
+    rvb = stg.voltage.RawVoltageBackend(antenna,
+                                        digitizer=digitizer,
+                                        filterbank=filterbank,
+                                        requantizer=requantizer,
+                                        start_chan=0,
+                                        num_chans=num_chans,
+                                        block_size=block_size,
+                                        blocks_per_file=128,
+                                        num_subblocks=32)
+    antenna.x.add_noise(v_mean=0, v_std=1)
+    antenna.y.add_noise(v_mean=0, v_std=1)
+
+    raw_stem = tmp_path / 'example_collect_data_block_guard'
+    rvb.record(output_file_stem=raw_stem,
+               num_blocks=1,
+               length_mode='num_blocks',
+               verbose=False)
+
+    raw_params = stg.voltage.get_raw_params(input_file_stem=raw_stem,
+                                            start_chan=0)
+    read_antenna = stg.voltage.Antenna(sample_rate=rvb.sample_rate,
+                                       **raw_params)
+    read_rvb = stg.voltage.RawVoltageBackend.from_data(input_file_stem=raw_stem,
+                                                       antenna_source=read_antenna,
+                                                       digitizer=digitizer,
+                                                       filterbank=filterbank,
+                                                       start_chan=0,
+                                                       num_subblocks=32)
+
+    read_rvb.input_file_handler = open(f"{raw_stem}.0000.raw", "rb")
+    try:
+        with pytest.raises(ValueError, match="Must set 'requantize=True' when using input RAW data!"):
+            read_rvb.collect_data_block(requantize=False, verbose=False)
+    finally:
+        read_rvb.input_file_handler.close()
+
+
+def test_get_total_obs_num_samples_obs_length():
+    assert stg.voltage.get_total_obs_num_samples(obs_length=5.461333333333333e-06,
+                                                 length_mode='obs_length',
+                                                 num_antennas=1,
+                                                 sample_rate=3e9,
+                                                 block_size=2048,
+                                                 num_bits=8,
+                                                 num_pols=2,
+                                                 num_branches=1024,
+                                                 num_chans=64) == 16384
+
+
+def test_get_total_obs_num_samples_length_mode_errors():
+    with pytest.raises(ValueError, match="Value not given for 'obs_length'."):
+        stg.voltage.get_total_obs_num_samples(length_mode='obs_length')
+
+    with pytest.raises(ValueError, match="Invalid option given for 'length_mode'."):
+        stg.voltage.get_total_obs_num_samples(length_mode='not_a_mode')
 
 
 def test_raw_injection_directio(antenna_setup, 

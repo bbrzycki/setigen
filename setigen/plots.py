@@ -4,40 +4,17 @@ import matplotlib.ticker as ticker
 from matplotlib.offsetbox import AnchoredText
 
 from . import utils
-
-
-def _get_extent_units(frame):
-    """
-    Simple function to get best frequency units for plots.
-    """
-    f_range = np.abs(frame.fmax - frame.fmin)
-    if f_range > 2e9:
-        return 1e9, "GHz"
-    elif f_range > 2e6:
-        return 1e6, "MHz" 
-    elif f_range > 2e3:
-        return 1e3, "kHz" 
-    else:
-        return 1, "Hz"
-    
-
-def _frequency_formatter(frame, ftype):
-    if ftype == "fmid":
-        def formatter(x, pos):
-            return x / _get_extent_units(frame)[0]
-            x = x / _get_extent_units(frame)[0]
-            return f"{int(x):d}"
-    elif ftype == "fmin": 
-        def formatter(x, pos):
-            return x / _get_extent_units(frame)[0]
-            x = x / _get_extent_units(frame)[0]
-            return f"{int(x):d}"
-    else:
-        def formatter(x, pos):
-            return x / 1e6
-            x = x / 1e6
-            return f"{int(x):d}"
-    return formatter
+from ._plot.axes import (
+    _FrequencyAxisKind,
+    _ResolvedAxisSpec,
+    _TimeAxisKind,
+    _frequency_formatter,
+    _get_extent_units,
+    _get_frame_frequency_edges,
+    _get_frame_time_edges,
+    _get_frequency_axis_label,
+    _get_time_axis_label,
+)
 
 
 def plot_frame(frame, 
@@ -89,35 +66,10 @@ def plot_frame(frame,
     if db:
         data = utils.db(data)
 
-    # matplotlib extend order is (left, right, bottom, top)
-    if ftype == "fmid":
-        f_edge_min = frame.fmin - frame.fmid - frame.df / 2
-        f_edge_max = frame.fmax - frame.fmid + frame.df / 2
-    elif ftype == "fmin":
-        f_edge_min = -frame.df / 2
-        f_edge_max = frame.fmax - frame.fmin + frame.df / 2
-    elif ftype == "f":
-        f_edge_min = frame.fmin - frame.df / 2
-        f_edge_max = frame.fmax + frame.df / 2
-    else: 
-        # ftype == "px" or "bins"
-        f_edge_min = -1 / 2
-        f_edge_max = frame.fchans - 1 / 2
+    axis_spec = _ResolvedAxisSpec.from_values(ftype=ftype, ttype=ttype)
 
-    if ttype == "same":
-        if ftype in ["fmid", "fmin", "f"]:
-            t_edge_min = 0
-            t_edge_max = frame.tchans * frame.dt
-        else:
-            t_edge_min = -1 / 2
-            t_edge_max = frame.tchans - 1 / 2
-    elif ttype == "trel":
-        t_edge_min = 0
-        t_edge_max = frame.tchans * frame.dt
-    else:
-        # ttype == "px" or "bins"
-        t_edge_min = -1 / 2
-        t_edge_max = frame.tchans - 1 / 2
+    f_edge_min, f_edge_max = _get_frame_frequency_edges(frame, axis_spec)
+    t_edge_min, t_edge_max = _get_frame_time_edges(frame, axis_spec)
 
     # Arrange spectrogram plot and data as necessary
     if not swap_axes:
@@ -155,30 +107,10 @@ def plot_frame(frame,
         faxis.set_minor_locator(ticker.AutoMinorLocator(n=5))
         taxis.set_minor_locator(ticker.AutoMinorLocator())
 
-    if ftype in ["fmid", "fmin", "f"]:
+    if axis_spec.uses_frequency_units:
         faxis.set_major_formatter(plt.FuncFormatter(_frequency_formatter(frame, ftype)))
-        units = _get_extent_units(frame)[1]
-        if ftype == "fmid":
-            flabel = f"Relative Frequency ({units}) from {frame.fmid * 1e-6:.6f} MHz"
-        elif ftype == "fmin":
-            flabel = f"Relative Frequency ({units}) from {frame.fmin * 1e-6:.6f} MHz"
-        else:
-            # ftype == "f"
-            flabel = f"Frequency (MHz)"
-    else:
-        # ftype == "px" or "bins"
-        flabel = f"Frequency ({ftype})"
-    
-    if ttype == "same":
-        if ftype in ["fmid", "fmin", "f"]:
-            tlabel = "Time (s)"
-        else:
-            tlabel = f"Time ({ftype})"
-    elif ttype == "trel":
-        tlabel = "Time (s)"
-    else:
-        # ttype == "px" or "bins"
-        tlabel = f"Time ({ttype})"
+    flabel = _get_frequency_axis_label(frame, axis_spec)
+    tlabel = _get_time_axis_label(axis_spec)
 
     faxis.set_label_text(flabel)
     taxis.set_label_text(tlabel)

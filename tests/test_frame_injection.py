@@ -13,6 +13,20 @@ def test_noise():
     frame.add_noise(0, 1, noise_type="gaussian")
     assert frame.get_noise_stats() == (0, 1)
 
+    gaussian_frame = stg.Frame(shape=(16, 256), seed=0)
+    normal_frame = stg.Frame(shape=(16, 256), seed=0)
+    assert_allclose(
+        gaussian_frame.add_noise(0, 1, noise_type="gaussian"),
+        normal_frame.add_noise(0, 1, noise_type="normal"),
+    )
+
+    with pytest.raises(ValueError, match="not a valid noise type"):
+        frame.add_noise(0, 1, noise_type="invalid")
+
+    for noise_type in ["gaussian", "normal"]:
+        with pytest.raises(ValueError, match="x_std must be given"):
+            frame.add_noise(0, noise_type=noise_type)
+
     frame.add_noise(0, 1, -1, noise_type="gaussian")
     assert frame.get_total_stats() == pytest.approx((0.0856390392253974, 
                                                      1.3226016826044575))
@@ -56,6 +70,18 @@ def test_noise():
                              noise_type="gaussian")
     assert frame.get_noise_stats() == pytest.approx((9.075061618621975, 
                                                      2.732297391771127))
+
+    with pytest.raises(ValueError, match="not a valid noise type"):
+        frame.add_noise_from_obs(x_mean_array=[3, 4, 5],
+                                 x_std_array=[1, 2, 3],
+                                 noise_type="invalid")
+
+    with pytest.raises(IndexError, match="same length"):
+        frame.add_noise_from_obs(x_mean_array=[3, 4],
+                                 x_std_array=[1],
+                                 x_min_array=[0, 0],
+                                 share_index=True,
+                                 noise_type="gaussian")
 
 
 def test_injection_options():
@@ -113,11 +139,42 @@ def test_injection_options():
                               width=2*frame.df,
                               f_profile_type="box")
     assert np.max(stg.integrate(frame, mode='s')) == frame.tchans
+
+    with pytest.raises(ValueError, match="Unsupported f_profile"):
+        frame.add_constant_signal(frame.get_frequency(frame.fchans//2),
+                                  drift_rate=0,
+                                  level=1,
+                                  width=2*frame.df,
+                                  f_profile_type="invalid")
+
+    with pytest.raises(ValueError, match="Shape of path array"):
+        frame.add_signal(path=[1, 2],
+                         t_profile=1,
+                         f_profile=stg.box_f_profile(width=frame.df))
+
+    with pytest.raises(ValueError, match="must provide path array with 17 values"):
+        frame.add_signal(path=np.arange(frame.tchans),
+                         t_profile=1,
+                         f_profile=stg.box_f_profile(width=frame.df),
+                         doppler_smearing=True)
+
+    with pytest.raises(TypeError, match="path is not a function, array, or float"):
+        frame.add_signal(path={"bad": "path"},
+                         t_profile=1,
+                         f_profile=stg.box_f_profile(width=frame.df))
     
 
 def test_injection_tools(tmp_path):
     frame = stg.Frame(shape=(16, 256), seed=0)
     assert frame.check_waterfall() is None 
+    assert frame.get_params() == {
+        "fchans": 256,
+        "tchans": 16,
+        "df": frame.df,
+        "dt": frame.dt,
+        "fch1": frame.fch1,
+        "ascending": frame.ascending,
+    }
 
     with pytest.raises(ValueError) as exc_info:
         intensity = frame.get_intensity(snr=100)
@@ -143,6 +200,8 @@ def test_injection_tools(tmp_path):
 
     frame.update_metadata({"new_key": "new_val"})
     assert frame.get_metadata()["new_key"] == "new_val"
+    frame.add_metadata({"other_key": "other_val"})
+    assert frame.get_metadata()["other_key"] == "other_val"
 
     assert frame.get_slice(64, 192).shape == (16, 128)
 

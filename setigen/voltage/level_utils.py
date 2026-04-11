@@ -1,5 +1,7 @@
 import numpy as np
 
+from setigen.voltage._backend.recording import _RecordLengthSpec, _resolve_num_blocks
+
 
 def get_unit_drift_rate(raw_voltage_backend,
                         fftlength,
@@ -59,16 +61,12 @@ def get_level(snr,
     level : float
         Level, or amplitude, for a real voltage cosine signal
     """
-    if length_mode == 'obs_length':
-        if obs_length is None:
-            raise ValueError("Value not given for 'obs_length'.")
-        num_blocks = raw_voltage_backend.get_num_blocks(obs_length)
-    elif length_mode == 'num_blocks':
-        if num_blocks is None:
-            raise ValueError("Value not given for 'num_blocks'.")
-        pass
-    else:
-        raise ValueError("Invalid option given for 'length_mode'.")
+    num_blocks = _resolve_num_blocks(
+        _RecordLengthSpec.from_values(obs_length=obs_length,
+                                      num_blocks=num_blocks,
+                                      length_mode=length_mode),
+        get_num_blocks=raw_voltage_backend.get_num_blocks,
+    )
             
     # Get amplitude required for cosine signal to get required SNR
     int_factor = 1 # level has no dependence on integration factor
@@ -111,5 +109,3 @@ def get_leakage_factor(f_start,
     spectral_bin_frac = np.modf((f_start - raw_voltage_backend.fch1) / (raw_voltage_backend.chan_bw / fftlength))[0]
     spectral_bin_frac = np.min([spectral_bin_frac, 1 - spectral_bin_frac])
     return 1 / np.sinc(spectral_bin_frac)
-
-

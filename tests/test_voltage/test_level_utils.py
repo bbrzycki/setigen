@@ -56,6 +56,23 @@ def test_level(backend_setup):
                                  obs_length=300) == pytest.approx(0.00013489699168632314)
 
 
+def test_level_length_mode_errors(backend_setup):
+    rvb = copy.deepcopy(backend_setup)
+    fftlength = 2**14
+
+    with pytest.raises(ValueError, match="Value not given for 'obs_length'."):
+        stg.voltage.get_level(snr=25,
+                              raw_voltage_backend=rvb,
+                              fftlength=fftlength,
+                              length_mode='obs_length')
+
+    with pytest.raises(ValueError, match="Invalid option given for 'length_mode'."):
+        stg.voltage.get_level(snr=25,
+                              raw_voltage_backend=rvb,
+                              fftlength=fftlength,
+                              length_mode='not_a_mode')
+
+
 def test_leakage_factor(backend_setup):
     rvb = copy.deepcopy(backend_setup)
     fftlength = 2**14

@@ -80,6 +80,10 @@ def test_plot_frame_options(frame_setup):
     plt.show()
     frame.plot(ftype="px", ttype="trel", swap_axes=True)
     plt.show()
+    frame.plot(ftype="bins", ttype="bins")
+    assert plt.gca().get_xlabel() == "Frequency (bins)"
+    assert plt.gca().get_ylabel() == "Time (bins)"
+    plt.close("all")
 
 
 def test_plot_cadence_options(cadence_setup):
@@ -96,3 +100,45 @@ def test_plot_cadence_options(cadence_setup):
     plt.show()
     cad.plot(ftype="px", ttype="trel")
     plt.show()
+    axs, cax = cad.plot(ftype="bins", ttype="bins")
+    assert axs.shape[0] == 2 * len(cad) - 1
+    assert cax is not None
+    plt.close("all")
+
+
+def test_spectrum_plot_labels():
+    spectrum = stg.Spectrum(fchans=16,
+                            df=1e3,
+                            dt=1,
+                            fch1=6 * u.GHz,
+                            seed=0)
+    spectrum.add_noise(1)
+
+    spectrum.plot(ftype="bins")
+    assert plt.gca().get_xlabel() == "Frequency (bins)"
+    assert plt.gca().get_ylabel() == "Integrated Power (Arbitrary Units)"
+    plt.close("all")
+
+    spectrum.plot(ftype="fmid", db=True)
+    assert "Relative Frequency" in plt.gca().get_xlabel()
+    assert plt.gca().get_ylabel() == "Integrated Power (dB)"
+    plt.close("all")
+
+
+def test_timeseries_plot_labels():
+    timeseries = stg.TimeSeries(tchans=16,
+                                df=1,
+                                dt=2,
+                                fch1=6 * u.GHz,
+                                seed=0)
+    timeseries.add_noise(1)
+
+    timeseries.plot(ttype="bins")
+    assert plt.gca().get_xlabel() == "Time (bins)"
+    assert plt.gca().get_ylabel() == "Integrated Power (Arbitrary Units)"
+    plt.close("all")
+
+    timeseries.plot(ttype="trel", db=True)
+    assert plt.gca().get_xlabel() == "Time (s)"
+    assert plt.gca().get_ylabel() == "Integrated Power (dB)"
+    plt.close("all")

@@ -10,8 +10,6 @@ else:
     import numpy as xp
     
 import numpy as np
-import scipy.signal
-import time
 
 from . import data_stream
 
@@ -219,10 +217,11 @@ class ComplexQuantizer(object):
         q_voltages : array
             Array of complex quantized voltages
         """
-        try:
-            assert len(custom_stds) == 2
-        except TypeError:
+        if custom_stds is None or np.isscalar(custom_stds):
             custom_stds = [custom_stds] * 2
+        else:
+            if len(custom_stds) != 2:
+                raise ValueError("custom_stds must be a scalar or a length-2 sequence.")
             
         q_r = self.quantizer_r.quantize(xp.real(voltages), custom_std=custom_stds[0])
         q_i = self.quantizer_i.quantize(xp.imag(voltages), custom_std=custom_stds[1])
@@ -328,4 +327,3 @@ def quantize_complex(x,
     q_c = q_r + q_i * 1j
     
     return q_c
-

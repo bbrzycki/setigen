@@ -1,30 +1,43 @@
 import copy
-import time
-import pathlib
+import pickle
 
 import numpy as np
-import pickle
 
 from astropy import units as u
 from astropy.time import Time
 from astropy.stats import sigma_clip
 
-from blimpy import Waterfall
-from blimpy.io import sigproc
-
-from . import waterfall_utils
-from . import distributions
-from . import sample_from_obs
 from . import unit_utils
 from . import slice
 from . import plots
 from . import utils
-
-from .funcs import paths
-from .funcs import t_profiles
-from .funcs import f_profiles
-from .funcs import bp_profiles
-
+from ._frame.construction import (
+    _attach_loaded_waterfall,
+    _initialize_frame_from_spec,
+    _normalize_frame_init,
+)
+from ._frame.models import (
+    _ConstantSignalConfig,
+    _NoiseConfig,
+    _SampledNoiseConfig,
+    _build_constant_signal_kwargs,
+    _generate_noise,
+    _generate_sampled_noise,
+)
+from ._frame.io import (
+    _decode_bytestrings,
+    _encode_bytestrings,
+    _update_waterfall,
+)
+from ._frame.signal import (
+    _finalize_signal,
+    _get_restricted_fs,
+    _normalize_bp_profile,
+    _normalize_path,
+    _normalize_t_profile,
+    _render_signal,
+    _resolve_bounding_indices,
+)
 
 class Frame(object):
     """
@@ -93,79 +106,18 @@ class Frame(object):
             setting ``fchans`` and ``tchans``, so that ``shape=(tchans, fchans)``.
         """
         self.rng = np.random.default_rng(seed)
-        if None not in [fchans, tchans] or 'shape' in kwargs or data is not None:
-            self.waterfall = None
-
-            # Need to address this and come up with a meaningful header
-            self.header = None
-            
-            self.df = unit_utils.get_value(abs(df), u.Hz)
-            self.dt = unit_utils.get_value(dt, u.s)
-            self.fch1 = unit_utils.get_value(fch1, u.Hz)
-            self.ascending = ascending
-            
-            mjd = kwargs.get('mjd')
-            if mjd is not None:
-                self.t_start = Time(mjd, format='mjd').unix
-            else:
-                self.t_start = kwargs.get('t_start', time.time())
-            self.source_name = kwargs.get('source_name', 'Synthetic')
-            
-            if 'shape' in kwargs:
-                (self.tchans, self.fchans) = self.shape = kwargs['shape']
-            elif data is not None:
-                (self.tchans, self.fchans) = self.shape = data.shape
-            else:
-                self.fchans = int(unit_utils.get_value(fchans, u.pixel))
-                self.tchans = int(unit_utils.get_value(tchans, u.pixel))
-                self.shape = (self.tchans, self.fchans)
-            
-            if data is not None:
-                if data.shape != self.shape:
-                    raise ValueError(f"Data shape {data.shape} does not match frame shape {self.shape}.")
-                self.data = np.copy(data)
-            else:
-                self.data = np.zeros(self.shape)
-        elif waterfall is not None:
-            # Load waterfall via filename or Waterfall object
-            if isinstance(waterfall, pathlib.PurePath):
-                waterfall = str(waterfall)
-            if isinstance(waterfall, str):
-                f_start = kwargs.get('f_start')
-                f_stop = kwargs.get('f_stop')
-                self.waterfall = Waterfall(waterfall, f_start=f_start, f_stop=f_stop)
-            elif isinstance(waterfall, Waterfall):
-                self.waterfall = waterfall
-            else:
-                raise FileNotFoundError(f'Unsupported data type: {type(waterfall)}')
-            self.header = self.waterfall.header
-            self.tchans, _, self.fchans = self.waterfall.container.selection_shape
-            self.shape = (self.tchans, self.fchans)
-
-            # Frequency values are saved in MHz in waterfall files
-            self.df = unit_utils.cast_value(abs(self.waterfall.header['foff']),
-                                            u.MHz).to(u.Hz).value
-            self.dt = unit_utils.get_value(self.waterfall.header['tsamp'], u.s)
-            
-            self.ascending = (self.waterfall.header['foff'] > 0)
-            if self.ascending:
-                self.fch1 = self.waterfall.container.f_start
-            else:
-                self.fch1 = self.waterfall.container.f_stop
-            self.fch1 = unit_utils.cast_value(self.fch1,
-                                              u.MHz).to(u.Hz).value
-            
-            self.t_start = Time(self.waterfall.header['tstart'], format='mjd').unix
-            self.source_name = self.waterfall.header['source_name']
-
-            # When multiple Stokes parameters are supported, this will have to
-            # be expanded.
-            self.data = waterfall_utils.get_data(self.waterfall)
-            if not self.ascending:
-                self.data = self.data[:, ::-1]
-        else:
-            raise ValueError(f'Frame must be provided dimensions or an '
-                             f'existing filterbank file.')
+        _initialize_frame_from_spec(
+            self,
+            _normalize_frame_init(waterfall=waterfall,
+                                  fchans=fchans,
+                                  tchans=tchans,
+                                  df=df,
+                                  dt=dt,
+                                  fch1=fch1,
+                                  ascending=ascending,
+                                  data=data,
+                                  kwargs=kwargs),
+        )
             
         # Degrees of freedom for chi-squared radiometer noise
         # 2 polarizations, real and imaginary components -> 4
@@ -232,12 +184,7 @@ class Frame(object):
         if metadata is not None:
             frame.add_metadata(dict(metadata))
 
-        # Remove h5 object, which can't be pickled
-        try:
-            del waterfall.container.h5
-        except AttributeError:
-            pass
-        frame.waterfall = copy.deepcopy(waterfall)
+        _attach_loaded_waterfall(frame, waterfall)
         return frame
 
     @classmethod
@@ -309,8 +256,8 @@ class Frame(object):
         elif fchans is None:
             raise ValueError("Value not given for fchans")
             
-        param_dict = params_from_backend(obs_length=obs_length, 
-                                         sample_rate=sample_rate, 
+        param_dict = params_from_backend(obs_length=obs_length,
+                                         sample_rate=sample_rate,
                                          num_branches=num_branches,
                                          fftlength=fftlength,
                                          int_factor=int_factor)
@@ -426,7 +373,8 @@ class Frame(object):
                                   sigma=3,
                                   maxiters=5,
                                   masked=False)
-        self.noise_mean, self.noise_std = np.mean(clipped_data), np.std(clipped_data)
+        self.noise_mean = np.mean(clipped_data)
+        self.noise_std = np.std(clipped_data)
 
     def zero_data(self):
         """
@@ -468,31 +416,15 @@ class Frame(object):
         noise : ndarray
             Array of synthetic noise
         """
-        if noise_type == 'chi2':
-            noise = distributions.chi2(x_mean, 
-                                       self.chi2_df, 
-                                       self.shape, 
-                                       seed=self.rng)
-            
-            # Based on variance of ideal chi-squared distribution
-            x_std = np.sqrt(2 * self.chi2_df) * x_mean / self.chi2_df
-        elif noise_type in ['normal', 'gaussian']:
-            if x_std is not None:
-                if x_min is not None:
-                    noise = distributions.truncated_gaussian(x_mean,
-                                                             x_std,
-                                                             x_min,
-                                                             self.shape,
-                                                             seed=self.rng)
-                else:
-                    noise = distributions.gaussian(x_mean,
-                                                   x_std,
-                                                   self.shape,
-                                                   seed=self.rng)
-            else:
-                raise ValueError("x_std must be given")
-        else:
-            raise ValueError(f"'{noise_type}' is not a valid noise type")
+        noise, x_mean, x_std = _generate_noise(
+            _NoiseConfig.from_values(x_mean=x_mean,
+                                     x_std=x_std,
+                                     x_min=x_min,
+                                     noise_type=noise_type),
+            chi2_df=self.chi2_df,
+            shape=self.shape,
+            rng=self.rng,
+        )
                 
         self.data += noise
 
@@ -547,73 +479,17 @@ class Frame(object):
         noise : ndarray
             Array of synthetic noise
         """
-        if (x_mean_array is None
-            and x_std_array is None
-                and x_min_array is None):
-            path = pathlib.Path(__file__).parent.resolve() / "assets/sample_noise_params.npy"
-            sample_noise_params = np.load(path)
-
-            # Accounts for scaling from FFT length and time/freq resolutions
-            # Turns out that fft_length * df is constant,
-            # e.g. 1500 / 512 / fft_length = df
-            obs_dt = 1.4316557653333333
-            scale_factor = self.dt / obs_dt
-
-            x_mean_array = sample_noise_params[:, 0] * scale_factor
-            x_std_array = sample_noise_params[:, 1] * scale_factor
-            x_min_array = sample_noise_params[:, 2] * scale_factor
-            
-        if noise_type == 'chi2':
-            x_mean = self.rng.choice(x_mean_array)
-            noise = distributions.chi2(x_mean, 
-                                       self.chi2_df, 
-                                       self.shape,
-                                       seed=self.rng)
-            
-            # Based on variance of ideal chi-squared distribution
-            x_std = np.sqrt(2 * self.chi2_df) * x_mean / self.chi2_df
-            
-        elif noise_type in ['normal', 'gaussian']:
-            if x_min_array is not None:
-                if share_index:
-                    if (len(x_mean_array) != len(x_std_array)
-                            or len(x_mean_array) != len(x_min_array)):
-                        raise IndexError('To share a random index, all parameter \
-                                          arrays must be the same length!')
-                    i = self.rng.integers(len(x_mean_array))
-                    x_mean, x_std, x_min = (x_mean_array[i],
-                                            x_std_array[i],
-                                            x_min_array[i])
-                else:
-                    x_mean, x_std, x_min = sample_from_obs \
-                                           .sample_gaussian_params(x_mean_array,
-                                                                   x_std_array,
-                                                                   x_min_array,
-                                                                   seed=self.rng)
-                noise = distributions.truncated_gaussian(x_mean,
-                                                         x_std,
-                                                         x_min,
-                                                         self.shape,
-                                                         seed=self.rng)
-            else:
-                if share_index:
-                    if len(x_mean_array) != len(x_std_array):
-                        raise IndexError('To share a random index, all parameter \
-                                          arrays must be the same length!')
-                    i = self.rng.integers(len(x_mean_array))
-                    x_mean, x_std = x_mean_array[i], x_std_array[i]
-                else:
-                    x_mean, x_std = sample_from_obs \
-                                    .sample_gaussian_params(x_mean_array,
-                                                            x_std_array,
-                                                            seed=self.rng)
-
-                noise = distributions.gaussian(x_mean,
-                                               x_std,
-                                               self.shape,
-                                               seed=self.rng)
-        else:
-            raise ValueError(f"'{noise_type}' is not a valid noise type")
+        noise, x_mean, x_std = _generate_sampled_noise(
+            _SampledNoiseConfig.from_values(x_mean_array=x_mean_array,
+                                            x_std_array=x_std_array,
+                                            x_min_array=x_min_array,
+                                            share_index=share_index,
+                                            noise_type=noise_type),
+            dt=self.dt,
+            chi2_df=self.chi2_df,
+            shape=self.shape,
+            rng=self.rng,
+        )
 
         self.data += noise
 
@@ -741,134 +617,49 @@ class Frame(object):
         ``%matplotlib inline``.
 
         """
-        if bounding_f_range is None:
-            bounding_min, bounding_max = 0, self.fchans
-        else:
-            bounding_min = max(self.get_index(bounding_f_range[0]), 0)
-            bounding_max = min(self.get_index(bounding_f_range[1]), self.fchans)
-            
-        restricted_fs = self.fs[bounding_min:bounding_max]
-        if integrate_f_profile:
-            f0 = restricted_fs[0]
-            restricted_fchans = len(restricted_fs)
-            restricted_fs = np.linspace(f0,
-                                        f0 + restricted_fchans * self.df,
-                                        restricted_fchans * f_subsamples,
-                                        endpoint=False)
+        bounding_min, bounding_max = _resolve_bounding_indices(self, bounding_f_range)
+
+        restricted_fs, restricted_fchans = _get_restricted_fs(
+            self,
+            bounding_min=bounding_min,
+            bounding_max=bounding_max,
+            integrate_f_profile=integrate_f_profile,
+            f_subsamples=f_subsamples,
+        )
         ff, _ = np.meshgrid(restricted_fs, self.ts)
 
-        # Handle t_profile
-        if callable(t_profile):
-            # Integrate in time direction to capture temporal variations more
-            # accurately
-            if integrate_t_profile:
-                new_ts = np.linspace(0,
-                                     self.tchans * self.dt,
-                                     self.tchans * t_subsamples,
-                                     endpoint=False)
-                y = t_profile(new_ts)
-                if not isinstance(y, np.ndarray):
-                    y = np.repeat(y, self.tchans * t_subsamples)
-                integrated_y = np.mean(np.reshape(y, (self.tchans,
-                                                      t_subsamples)),
-                                       axis=1)
-                t_profile = integrated_y
-            else:
-                t_profile = t_profile(self.ts)
-        elif isinstance(t_profile, (list, np.ndarray)):
-            t_profile = np.array(t_profile)
-            if t_profile.shape != self.ts.shape:
-                raise ValueError('Shape of t_profile array is {0} != {1}.'
-                                 .format(t_profile.shape, self.ts.shape))
-        elif isinstance(t_profile, (int, float)):
-            t_profile = np.full(self.tchans, t_profile)
-        else:
-            raise TypeError('t_profile is not a function, array, or float.')
-        _, t_profile_tt = np.meshgrid(restricted_fs, t_profile)
+        t_profile_tt = _normalize_t_profile(self,
+                                            restricted_fs,
+                                            t_profile,
+                                            integrate_t_profile=integrate_t_profile,
+                                            t_subsamples=t_subsamples)
 
-        # Handle path. Generate one extra time sample for freq smearing
-        # calculations
-        tchans_eff = self.tchans
-        if doppler_smearing:
-            tchans_eff += 1
-        if callable(path):
-            # Average using integration to get a better position in frequency
-            # direction
-            if integrate_path:
-                new_ts = np.linspace(0,
-                                     tchans_eff * self.dt,
-                                     tchans_eff * t_subsamples,
-                                     endpoint=False)
-                f = path(new_ts)
-                if not isinstance(f, np.ndarray):
-                    f = np.repeat(f, tchans_eff * t_subsamples)
-                integrated_f = np.mean(np.reshape(f, (tchans_eff,
-                                                      t_subsamples)),
-                                       axis=1)
-                path = integrated_f
-            else:
-                ts = self.ts
-                if doppler_smearing:
-                    ts = self.ts_ext
-                path = path(ts)
-        elif isinstance(path, (list, np.ndarray)):
-            path = np.array(path)
-            if path.shape != self.ts.shape:
-                raise ValueError(f'Shape of path array is {path.shape} '
-                                 f'!= {self.ts.shape}.')
-            elif doppler_smearing and len(path) != self.tchans + 1:
-                raise ValueError(f'To Doppler smear power, must provide'
-                                 f'path array with {self.tchans + 1} values')
-        elif isinstance(path, (int, float)):
-            path = np.full(tchans_eff, path)
-        else:
-            raise TypeError('path is not a function, array, or float.')
-        # Ensure that path f_centers are the right length
-        _, path_tt = np.meshgrid(restricted_fs, path[:self.tchans])
-        
-        if doppler_smearing:
-            dpath = np.diff(path) / smearing_subsamples
-            _, dpath_tt = np.meshgrid(restricted_fs, dpath)
+        resolved_path = _normalize_path(self,
+                                        restricted_fs,
+                                        path,
+                                        integrate_path=integrate_path,
+                                        doppler_smearing=doppler_smearing,
+                                        t_subsamples=t_subsamples,
+                                        smearing_subsamples=smearing_subsamples)
 
-        # Handle bandpass profile
-        if bp_profile is None:
-            bp_profile = 1
-        if callable(bp_profile):
-            bp_profile = bp_profile(restricted_fs)
-        elif isinstance(bp_profile, (list, np.ndarray)):
-            bp_profile = np.array(bp_profile)
-            if bp_profile.shape != restricted_fs.shape:
-                raise ValueError('Shape of bp_profile array is {0} != {1}.'
-                                 .format(bp_profile.shape,
-                                         restricted_fs.shape))
-        elif isinstance(bp_profile, (int, float)):
-            bp_profile = np.full(restricted_fs.shape, bp_profile)
-        else:
-            raise TypeError('bp_profile is not a function, array, or float.')
-        bp_profile_ff, _ = np.meshgrid(bp_profile, self.ts)
+        bp_profile_ff = _normalize_bp_profile(self, restricted_fs, bp_profile)
 
-        # Create signal, adding multiple copies for Doppler smearing case
-        if doppler_smearing:
-            signal = np.zeros(ff.shape)
-            for _ in range(smearing_subsamples):
-                signal += (t_profile_tt * f_profile(ff, path_tt) 
-                           / smearing_subsamples * bp_profile_ff)
-                path_tt += dpath_tt
-        else:
-            signal = t_profile_tt * f_profile(ff, path_tt) * bp_profile_ff
+        signal = _render_signal(ff=ff,
+                                t_profile_tt=t_profile_tt,
+                                f_profile=f_profile,
+                                bp_profile_ff=bp_profile_ff,
+                                path_tt=resolved_path.path_tt,
+                                doppler_smearing=doppler_smearing,
+                                dpath_tt=resolved_path.dpath_tt,
+                                smearing_subsamples=smearing_subsamples)
 
-        if integrate_f_profile:
-            signal = np.mean(np.reshape(signal, (self.tchans,
-                                                 restricted_fchans,
-                                                 f_subsamples)),
-                             axis=2)
-
-        self.data[:, bounding_min:bounding_max] += signal
-
-        signal_frame = np.zeros(self.shape)
-        signal_frame[:, bounding_min:bounding_max] = signal
-
-        return signal_frame
+        return _finalize_signal(self,
+                                signal=signal,
+                                bounding_min=bounding_min,
+                                bounding_max=bounding_max,
+                                integrate_f_profile=integrate_f_profile,
+                                restricted_fchans=restricted_fchans,
+                                f_subsamples=f_subsamples)
 
     def add_constant_signal(self,
                             f_start,
@@ -909,44 +700,15 @@ class Frame(object):
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
         width = unit_utils.get_value(width, u.Hz)
 
-        start_index = self.get_index(f_start)
-
-        # Calculate the bounding box, to optimize signal insertion calculation
-        px_width_offset = 2 * width / self.df
-        if drift_rate < 0:
-            px_width_offset = -px_width_offset
-        px_drift_offset = self.dt * (self.tchans - 1) * drift_rate / self.df
-        if doppler_smearing:
-            px_drift_offset += drift_rate * self.dt / self.df
-
-        bounding_start_index = start_index + int(-px_width_offset)
-        bounding_stop_index = start_index + int(px_drift_offset + px_width_offset)
-
-        bounding_min_index = max(min(bounding_start_index, bounding_stop_index), 0)
-        bounding_max_index = min(max(bounding_start_index, bounding_stop_index), self.fchans)
-
-        # Select common frequency profile types
-        if f_profile_type == 'gaussian':
-            f_profile = f_profiles.gaussian_f_profile(width)
-        elif f_profile_type == 'lorentzian':
-            f_profile = f_profiles.lorentzian_f_profile(width)
-        elif f_profile_type == 'voigt':
-            f_profile = f_profiles.voigt_f_profile(width, width)
-        elif f_profile_type == 'sinc2':
-            f_profile = f_profiles.sinc2_f_profile(width)
-        elif f_profile_type == 'box':
-            f_profile = f_profiles.box_f_profile(width)
-        else:
-            raise ValueError('Unsupported f_profile for constant signal!')
-        
-        return self.add_signal(path=paths.constant_path(f_start, drift_rate),
-                               t_profile=t_profiles.constant_t_profile(level),
-                               f_profile=f_profile,
-                               bp_profile=bp_profiles.constant_bp_profile(level=1),
-                               bounding_f_range=(self.get_frequency(bounding_min_index),
-                                                 self.get_frequency(bounding_max_index)),
-                               doppler_smearing=doppler_smearing,
-                               smearing_subsamples=int(np.ceil(drift_rate / self.unit_drift_rate)))
+        return self.add_signal(**_build_constant_signal_kwargs(
+            self,
+            _ConstantSignalConfig.from_values(f_start=f_start,
+                                              drift_rate=drift_rate,
+                                              level=level,
+                                              width=width,
+                                              f_profile_type=f_profile_type,
+                                              doppler_smearing=doppler_smearing),
+        ))
 
     def get_index(self, frequency):
         """
@@ -993,9 +755,9 @@ class Frame(object):
         return {
             'fchans': self.fchans,
             'tchans': self.tchans,
-            'df': self.df, 
-            'dt': self.dt, 
-            'fch1': self.fch1, 
+            'df': self.df,
+            'dt': self.dt,
+            'fch1': self.fch1,
             'ascending': self.ascending
         }
 
@@ -1028,92 +790,13 @@ class Frame(object):
     # def integrate(self, *args, **kwargs):
     #     return frame_utils.integrate(self, *args, **kwargs)
         
-    def _update_waterfall(self, filename=None, max_load=1):
-        # If entirely synthetic, base filterbank structure on existing sample data
-        if self.waterfall is None:
-            path = pathlib.Path(__file__).parent.resolve() / "assets/sample.fil"
-            self.waterfall = Waterfall(str(path), max_load=max_load)
-            self.waterfall.header['source_name'] = self.source_name
-            self.waterfall.header['rawdatafile'] = 'Synthetic'
-
-            container_attr = {
-                't_begin': 0,
-                't_end': self.tchans,
-                'file_size_bytes': self.tchans * self.fchans * self.waterfall.header['nbits'] / 8,
-                'n_channels_in_file': self.fchans,
-                'n_ints_in_file': self.tchans,
-                'file_shape': (self.tchans, 1, self.fchans),
-                'f_end': self.fmax * 1e-6,
-                'f_begin': self.fmin * 1e-6,
-                'f_stop': self.fmax * 1e-6,
-                'f_start': self.fmin * 1e-6,
-                't_start': 0,
-                't_stop': self.tchans,
-                'selection_shape': (self.tchans, 1, self.fchans),
-                'chan_start_idx': 0,
-                'chan_stop_idx': self.fchans,
-            }
-            for key, value in container_attr.items():
-                setattr(self.waterfall.container,
-                        key,
-                        value)
-
-            wat_attr = {
-                'n_channels_in_file': self.fchans,
-                'n_ints_in_file': self.tchans,
-                'file_shape': (self.tchans, 1, self.fchans),
-                'file_size_bytes': self.tchans * self.fchans * self.waterfall.header['nbits'] / 8,
-                'selection_shape': (self.tchans, 1, self.fchans),
-            }
-            for key, value in wat_attr.items():
-                setattr(self.waterfall,
-                        key,
-                        value)
-
-        # Format data correctly for saving into filterbank format
-        self.waterfall.data = self.data[:, np.newaxis, :]
-        if not self.ascending:
-            # Have to manually flip in the frequency direction
-            self.waterfall.data = self.waterfall.data[:, :, ::-1]
-            
-        # Edit header info for Waterfall in case these have been changed from Frame manipulations
-        header_attr = {
-            'tsamp': self.dt,
-            'tstart': self.mjd,
-            'nchans': self.fchans,
-            'fch1': self.fch1 * 1e-6,
-        }
-        if self.ascending:
-            header_attr['foff'] = self.df * 1e-6
-        else:
-            header_attr['foff'] = self.df * -1e-6
-        self.waterfall.header.update(header_attr)
-        self.waterfall.file_header.update(header_attr)
-        
-        if filename is not None:
-            self.waterfall.container.filename = str(pathlib.Path(filename).resolve())
-        self.waterfall.container.idx_data = len(sigproc.generate_sigproc_header(self.waterfall))
-        
-    def _encode_bytestrings(self):
-        for key in ['source_name', 'rawdatafile']:
-            # Some data don't have these keys to begin with
-            if key in self.waterfall.header:
-                if not isinstance(self.waterfall.header[key], bytes):
-                    self.waterfall.header[key] = self.waterfall.header[key].encode()
-        
-    def _decode_bytestrings(self):
-        for key in ['source_name', 'rawdatafile']:
-            if key in self.waterfall.header:
-                if isinstance(self.waterfall.header[key], bytes):
-                    self.waterfall.header[key] = self.waterfall.header[key].decode()
-
     def get_waterfall(self):
         """
         Return current frame as a Waterfall object. Note: some filterbank
         metadata may not be accurate anymore, depending on prior frame
         manipulations.
         """
-        self._update_waterfall()
+        _update_waterfall(self)
         return self.waterfall
     
     def check_waterfall(self):
@@ -1124,26 +807,25 @@ class Frame(object):
         """
         if self.waterfall is None:
             return None
-        else:
-            return self.get_waterfall()
+        return self.get_waterfall()
 
     def save_fil(self, filename, max_load=1):
         """
         Save frame data as a filterbank file (.fil).
         """
-        self._update_waterfall(filename=filename, max_load=max_load)
-        self._encode_bytestrings()
+        _update_waterfall(self, filename=filename, max_load=max_load)
+        _encode_bytestrings(self)
         self.waterfall.write_to_fil(filename)
-        self._decode_bytestrings()
+        _decode_bytestrings(self)
 
     def save_hdf5(self, filename, max_load=1):
         """
         Save frame data as an HDF5 file.
         """
-        self._update_waterfall(filename=filename, max_load=max_load)
-        self._encode_bytestrings()
+        _update_waterfall(self, filename=filename, max_load=max_load)
+        _encode_bytestrings(self)
         self.waterfall.write_to_hdf5(filename)
-        self._decode_bytestrings()
+        _decode_bytestrings(self)
 
     def save_h5(self, filename, max_load=1):
         """
@@ -1167,7 +849,7 @@ class Frame(object):
         """
         Save entire frame as a pickled file (.pickle).
         """
-        with open(filename, 'wb') as f:
+        with open(filename, "wb") as f:
             pickle.dump(self, f)
 
     @classmethod
@@ -1176,9 +858,8 @@ class Frame(object):
         Load Frame object from a pickled file (.pickle), created with 
         :func:`~setigen.frame.Frame.save_pickle`.
         """
-        with open(filename, 'rb') as f:
-            frame = pickle.load(f)
-        return frame
+        with open(filename, "rb") as f:
+            return pickle.load(f)
 
     
 def params_from_backend(obs_length=300, 
@@ -1214,9 +895,8 @@ def params_from_backend(obs_length=300,
     dt = int_factor / df
     tchans = int(obs_length / dt)
 
-    param_dict = {
+    return {
         'tchans': tchans,
-        'df': df, 
+        'df': df,
         'dt': dt
     }
-    return param_dict

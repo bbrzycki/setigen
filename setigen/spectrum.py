@@ -5,7 +5,12 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
 from . import frame 
-from . import plots
+from ._plot.axes import (
+    _ResolvedAxisSpec,
+    _frequency_formatter,
+    _get_frequency_axis_label,
+    _get_spectrum_x_values,
+)
 
 
 class Spectrum(frame.Frame):
@@ -66,17 +71,9 @@ class Spectrum(frame.Frame):
             ip = new_spec.array(db=db)
         else:
             ip = self.array(db=db)
-            
-        # matplotlib extend order is (left, right, bottom, top)
-        if ftype == "fmid":
-            fs = self.fs - self.fmid
-        elif ftype == "fmin":
-            fs = self.fs - self.fmin
-        elif ftype == "f":
-            fs = self.fs
-        else:
-            # ftype == "px" or "bins"
-            fs = (self.fs - self.fs[0]) / self.df
+
+        axis_spec = _ResolvedAxisSpec.from_values(ftype=ftype)
+        fs = _get_spectrum_x_values(self, axis_spec)
 
         plt.plot(fs, ip, **kwargs)
 
@@ -86,19 +83,9 @@ class Spectrum(frame.Frame):
         if minor_ticks:
             faxis.set_minor_locator(ticker.AutoMinorLocator(n=5))
 
-        if ftype in ["fmid", "fmin", "f"]:
-            faxis.set_major_formatter(plt.FuncFormatter(plots._frequency_formatter(self, ftype)))
-            units = plots._get_extent_units(self)[1]
-            if ftype == "fmid":
-                flabel = f"Relative Frequency ({units}) from {self.fmid * 1e-6:.6f} MHz"
-            elif ftype == "fmin":
-                flabel = f"Relative Frequency ({units}) from {self.fmin * 1e-6:.6f} MHz"
-            else:
-                # ftype == "f"
-                flabel = f"Frequency (MHz)"
-        else:
-            # ftype == "px" or "bins"
-            flabel = f"Frequency ({ftype})"
+        if axis_spec.uses_frequency_units:
+            faxis.set_major_formatter(plt.FuncFormatter(_frequency_formatter(self, ftype)))
+        flabel = _get_frequency_axis_label(self, axis_spec)
 
         if db:
             y_units = "dB"
@@ -120,4 +107,3 @@ class Spectrum(frame.Frame):
         """
         c_data = sigma_clip(self.data)
         self.data = (self.data - np.mean(c_data)) / np.std(c_data)
-

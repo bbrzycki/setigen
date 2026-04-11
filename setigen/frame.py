@@ -3,10 +3,7 @@ import time
 import pathlib
 
 import numpy as np
-try:
-    import cPickle as pickle
-except:
-    import pickle
+import pickle
 
 from astropy import units as u
 from astropy.time import Time
@@ -124,11 +121,12 @@ class Frame(object):
                 self.shape = (self.tchans, self.fchans)
             
             if data is not None:
-                assert data.shape == self.shape
+                if data.shape != self.shape:
+                    raise ValueError(f"Data shape {data.shape} does not match frame shape {self.shape}.")
                 self.data = np.copy(data)
             else:
                 self.data = np.zeros(self.shape)
-        elif waterfall:
+        elif waterfall is not None:
             # Load waterfall via filename or Waterfall object
             if isinstance(waterfall, pathlib.PurePath):
                 waterfall = str(waterfall)
@@ -187,7 +185,7 @@ class Frame(object):
         self.metadata = self.get_params()
 
     @classmethod
-    def from_data(cls, df, dt, fch1, ascending, data, metadata={}, waterfall=None, seed=None):
+    def from_data(cls, df, dt, fch1, ascending, data, metadata=None, waterfall=None, seed=None):
         """
         Initialize Frame more directly from 2D numpy array of data.
         
@@ -231,7 +229,8 @@ class Frame(object):
                     ascending=ascending,
                     data=data,
                     seed=seed)
-        frame.add_metadata(metadata)
+        if metadata is not None:
+            frame.add_metadata(dict(metadata))
 
         # Remove h5 object, which can't be pickled
         try:
@@ -316,8 +315,10 @@ class Frame(object):
                                          fftlength=fftlength,
                                          int_factor=int_factor)
         if data is not None:
-            print(param_dict['tchans'], tchans)
-            assert param_dict['tchans'] == tchans
+            if param_dict['tchans'] != tchans:
+                raise ValueError(
+                    f"Data has {tchans} time samples, but backend parameters imply {param_dict['tchans']}."
+                )
         
         frame = cls(fchans=fchans,
                     **param_dict,

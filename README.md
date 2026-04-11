@@ -26,6 +26,8 @@ The `setigen.voltage` module enables the synthesis of GUPPI RAW files via synthe
 
 ## Installation <a name="installation"></a>
 
+`setigen` currently targets Python 3.10 through 3.14.
+
 You can use pip to install the package automatically:
 
 ```
@@ -36,8 +38,18 @@ Alternately, you can clone the repository and install it directly. At the comman
 
 ```
 git clone git@github.com:bbrzycki/setigen.git
-python setup.py install
+python -m pip install .
 ```
+
+For local development, install the package in editable mode with the project extras:
+
+```
+python -m pip install -e ".[dev]"
+```
+
+`setigen` includes a compatibility pin on `setuptools` because `blimpy`
+currently imports `pkg_resources` at runtime. Normal installs pick this up
+automatically.
 
 The `setigen.voltage` module specifically can be GPU accelerated, via CuPy (https://docs.cupy.dev/en/stable/install.html). CuPy is not strictly required to use the voltage module, but it reduces compute time significantly. If CuPy is installed, enable `setigen` GPU usage either by setting the `SETIGEN_ENABLE_GPU` environmental variable to 1 or doing so in Python:
 

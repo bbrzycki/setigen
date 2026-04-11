@@ -206,9 +206,9 @@ class RawVoltageBackend(object):
         backend : RawVoltageBackend
             Created backend object
         """
-        if digitizer == None:
+        if digitizer is None:
             digitizer = quantization.RealQuantizer()
-        if filterbank == None:
+        if filterbank is None:
             filterbank = polyphase_filterbank.PolyphaseFilterbank()
         requantizer = quantization.ComplexQuantizer()
         
@@ -252,7 +252,7 @@ class RawVoltageBackend(object):
         return backend
     
     
-    def _header_populate_configuration(self, header_dict={}):
+    def _header_populate_configuration(self, header_dict=None):
         """
         Populate the given dictionary with entries showing the configuration values.
         
@@ -261,6 +261,8 @@ class RawVoltageBackend(object):
         header_dict : dict, optional
             Dictionary of header values to set.
         """
+        header_dict = {} if header_dict is None else dict(header_dict)
+
         # Set header values determined by pipeline parameters
         if 'TELESCOP' not in header_dict:
             header_dict['TELESCOP'] = 'SETIGEN'
@@ -304,7 +306,7 @@ class RawVoltageBackend(object):
         return header_dict
     
     
-    def _header_add_from_template(self, header_dict={}):
+    def _header_add_from_template(self, header_dict=None):
         """
         Read all novel header lines into the given header dictionary.
         
@@ -313,6 +315,8 @@ class RawVoltageBackend(object):
         header_dict : dict, optional
             Dictionary of header values to set.
         """
+        header_dict = {} if header_dict is None else dict(header_dict)
+
         path = pathlib.Path(__file__).parent.resolve() / "assets/header_template.txt"
         with open(path, 'r') as t:
             for line in t.readlines():
@@ -322,7 +326,7 @@ class RawVoltageBackend(object):
         return header_dict
     
     
-    def _header_add_from_input_header(self, header_dict={}):
+    def _header_add_from_input_header(self, header_dict=None):
         """
         Update all novel input header entries into the given header dictionary.
         
@@ -331,6 +335,8 @@ class RawVoltageBackend(object):
         header_dict : dict, optional
             Dictionary of header values to set.
         """
+        header_dict = {} if header_dict is None else dict(header_dict)
+
         for key, value in self.input_header_dict.items():
             if key not in header_dict:
                 header_dict[key] = value.strip()
@@ -584,7 +590,7 @@ class RawVoltageBackend(object):
                obs_length=None, 
                num_blocks=None,
                length_mode='obs_length',
-               header_dict={},
+               header_dict=None,
                digitize=True,
                load_template=True,
                verbose=True):
@@ -639,6 +645,8 @@ class RawVoltageBackend(object):
         self.obs_length = self.num_blocks * self.time_per_block
         self.total_obs_num_samples = int(self.obs_length / self.tbin) * self.num_branches
         
+        header_dict = {} if header_dict is None else dict(header_dict)
+
         if load_template:
             header_dict = self._header_add_from_template(header_dict)
         if self.input_header_dict is not None:
@@ -790,4 +798,3 @@ def get_total_obs_num_samples(obs_length=None,
     else:
         raise ValueError("Invalid option given for 'length_mode'.")
     return num_blocks * int(block_size / (num_antennas * num_chans * bytes_per_sample)) * num_branches
-

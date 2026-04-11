@@ -1,9 +1,6 @@
 import collections
 import numpy as np
-try:
-    import cPickle as pickle
-except:
-    import pickle
+import pickle
 
 from . import frame as _frame
 from . import plots
@@ -276,4 +273,3 @@ class OrderedCadence(Cadence):
         """
         return Cadence(frame_list=[frame for frame in self 
                                    if frame.metadata["order_label"] == order_label])
-

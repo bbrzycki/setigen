@@ -1,4 +1,3 @@
-import sys
 from pathlib import PurePath
 import numpy as np
 from blimpy import Waterfall

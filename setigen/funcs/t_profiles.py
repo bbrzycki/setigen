@@ -4,7 +4,6 @@ Sample intensity profiles for signal injection.
 These functions calculate the signal intensity and variation in the time
 direction.
 """
-import sys
 import numpy as np
 from astropy import units as u
 
@@ -149,7 +148,7 @@ def periodic_gaussian_t_profile(pulse_width,
             elif pulse_direction == 'down' or pulse_direction == 'rand':
                 sign_list.append(-1)
             else:
-                sys.exit('Invalid pulse direction!')
+                raise ValueError(f"Invalid pulse direction: {pulse_direction!r}")
         sign_dict = dict(zip(unique_center_ks, sign_list))
         get_signs = np.vectorize(lambda x: sign_dict[x])
 

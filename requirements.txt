@@ -1,8 +1,7 @@
+setuptools<81
 numpy>=1.21.6
 scipy>=1.8.0
 astropy>=5.0.4
 blimpy>=2.1.4
 matplotlib>=3.8.0
 tqdm>=4.47.0
-sphinx-rtd-theme>=0.4.3
-pytest-cov>=4.1.0

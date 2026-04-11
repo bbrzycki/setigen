@@ -5,7 +5,6 @@ For any given starting frequency,
 these functions map out the path of a signal as a function of time in
 time-frequency space.
 """
-import sys
 import numpy as np
 from astropy import units as u
 

@@ -244,7 +244,7 @@ class BackgroundDataStream(DataStream):
                  ascending=True,
                  t_start=0,
                  seed=None,
-                 antenna_streams=[]):
+                 antenna_streams=None):
         """
         Initialize a BackgroundDataStream object with a sampling rate and frequency range.
         The main extension is that we also pass in a list of DataStreams, belonging to all
@@ -277,7 +277,7 @@ class BackgroundDataStream(DataStream):
                          ascending=ascending,
                          t_start=t_start,
                          seed=seed)
-        self.antenna_streams = antenna_streams
+        self.antenna_streams = [] if antenna_streams is None else list(antenna_streams)
         
     def _set_all_bg_noise(self):
         """

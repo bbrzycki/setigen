@@ -5,11 +5,26 @@ For any given time sample,
 these functions map out the intensity in the frequency direction (centered at
 a particular frequency).
 """
+from enum import Enum
+
 import numpy as np
 from astropy import units as u
 
 from setigen import unit_utils
 from setigen.funcs import func_utils
+
+
+class WidthMode(str, Enum):
+    CROSSING = "crossing"
+    FWHM = "fwhm"
+
+
+def _coerce_width_mode(width_mode):
+    if isinstance(width_mode, WidthMode):
+        return width_mode
+    if width_mode == WidthMode.FWHM.value:
+        return WidthMode.FWHM
+    return WidthMode.CROSSING
 
 
 def box_f_profile(width):
@@ -154,9 +169,10 @@ def sinc2_f_profile(width, width_mode="crossing", trunc=True):
     f_profile : func
     """
     width = unit_utils.get_value(width, u.Hz)
+    resolved_width_mode = _coerce_width_mode(width_mode)
     
     # Using the numerical solution for the FWHM
-    if width_mode == 'fwhm':
+    if resolved_width_mode is WidthMode.FWHM:
         zero_crossing = (width / 2) / 0.442946470689452
     else:
         zero_crossing = width / 2

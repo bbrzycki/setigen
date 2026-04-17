@@ -19,6 +19,18 @@ class _TimeAxisKind(str, Enum):
     PIXELS = "pixels"
 
 
+_PIXEL_AXIS_ALIASES = frozenset({"px", "bins", _FrequencyAxisKind.PIXELS.value})
+_FREQUENCY_KIND_BY_NAME = {
+    _FrequencyAxisKind.FMID.value: _FrequencyAxisKind.FMID,
+    _FrequencyAxisKind.FMIN.value: _FrequencyAxisKind.FMIN,
+    _FrequencyAxisKind.FABS.value: _FrequencyAxisKind.FABS,
+}
+_TIME_KIND_BY_NAME = {
+    _TimeAxisKind.SAME.value: _TimeAxisKind.SAME,
+    _TimeAxisKind.TREL.value: _TimeAxisKind.TREL,
+}
+
+
 @dataclass(frozen=True)
 class _ResolvedAxisSpec:
     raw_ftype: str = "fmid"
@@ -51,20 +63,22 @@ class _ResolvedAxisSpec:
 
 
 def _resolve_ftype(ftype):
-    if ftype == "fmid":
-        return _FrequencyAxisKind.FMID
-    if ftype == "fmin":
-        return _FrequencyAxisKind.FMIN
-    if ftype == "f":
-        return _FrequencyAxisKind.FABS
+    if isinstance(ftype, _FrequencyAxisKind):
+        return ftype
+    if ftype in _FREQUENCY_KIND_BY_NAME:
+        return _FREQUENCY_KIND_BY_NAME[ftype]
+    if ftype in _PIXEL_AXIS_ALIASES:
+        return _FrequencyAxisKind.PIXELS
     return _FrequencyAxisKind.PIXELS
 
 
 def _resolve_ttype(ttype):
-    if ttype == "same":
-        return _TimeAxisKind.SAME
-    if ttype == "trel":
-        return _TimeAxisKind.TREL
+    if isinstance(ttype, _TimeAxisKind):
+        return ttype
+    if ttype in _TIME_KIND_BY_NAME:
+        return _TIME_KIND_BY_NAME[ttype]
+    if ttype in _PIXEL_AXIS_ALIASES:
+        return _TimeAxisKind.PIXELS
     return _TimeAxisKind.PIXELS
 
 

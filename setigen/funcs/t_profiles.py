@@ -4,11 +4,28 @@ Sample intensity profiles for signal injection.
 These functions calculate the signal intensity and variation in the time
 direction.
 """
+from enum import Enum
+
 import numpy as np
 from astropy import units as u
 
 from setigen import unit_utils
 from setigen.funcs import func_utils
+
+
+class PulseDirection(str, Enum):
+    RANDOM = "rand"
+    UP = "up"
+    DOWN = "down"
+
+
+def _coerce_pulse_direction(pulse_direction):
+    if isinstance(pulse_direction, PulseDirection):
+        return pulse_direction
+    try:
+        return PulseDirection(pulse_direction)
+    except ValueError as exc:
+        raise ValueError(f"Invalid pulse direction: {pulse_direction!r}") from exc
 
 
 def constant_t_profile(level=1):
@@ -108,6 +125,7 @@ def periodic_gaussian_t_profile(pulse_width,
     factor = 2 * np.sqrt(2 * np.log(2))
     pulse_offset_sigma = unit_utils.get_value(pulse_offset_width, u.s) / factor
     pulse_sigma = unit_utils.get_value(pulse_width, u.s) / factor
+    resolved_pulse_direction = _coerce_pulse_direction(pulse_direction)
 
     def t_profile(t):
         # This gives an array of length len(t)
@@ -142,13 +160,12 @@ def periodic_gaussian_t_profile(pulse_width,
         sign_list = []
         for c in unique_center_ks:
             x = rng.uniform(0, 1)
-            if (pulse_direction == 'up'
-                    or pulse_direction == 'rand' and x < 0.5):
+            if (resolved_pulse_direction is PulseDirection.UP
+                    or resolved_pulse_direction is PulseDirection.RANDOM and x < 0.5):
                 sign_list.append(1)
-            elif pulse_direction == 'down' or pulse_direction == 'rand':
+            elif (resolved_pulse_direction is PulseDirection.DOWN
+                  or resolved_pulse_direction is PulseDirection.RANDOM):
                 sign_list.append(-1)
-            else:
-                raise ValueError(f"Invalid pulse direction: {pulse_direction!r}")
         sign_dict = dict(zip(unique_center_ks, sign_list))
         get_signs = np.vectorize(lambda x: sign_dict[x])
 

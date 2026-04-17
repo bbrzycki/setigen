@@ -207,7 +207,7 @@ def get_total_blocks(input_file_stem):
         return blocks_per_file * (len(filenames) - 1) + blocks_in_last_file
 
 
-def get_dists(filename):
+def get_dists(filename, show=True):
     header = read_header(filename)
     with open(filename, "rb") as f:
         i = 0
@@ -233,7 +233,8 @@ def get_dists(filename):
             for comp in range(2):
                 data = rawbuffer[:, comp+2*pol::2*num_pols]
                 plt.hist(data.flatten(), bins=2**8)
-                plt.show()
+                if show:
+                    plt.show()
                 fwhm_factor = 2 * np.sqrt(2 * np.log(2))
                 mean = np.mean(data)
                 std = np.std(data)

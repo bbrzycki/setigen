@@ -283,7 +283,7 @@ def test_raw_creation(antenna_setup,
                                                  num_chans=64) == 16384
 
     # Test dist plots 
-    stg.voltage.raw_utils.get_dists(raw_path)
+    stg.voltage.raw_utils.get_dists(raw_path, show=False)
     
     # Reduce data
     wf_data = stg.voltage.get_waterfall_from_raw(raw_path,

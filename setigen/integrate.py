@@ -1,9 +1,35 @@
+from enum import Enum
+
 import numpy as np
 from astropy.stats import sigma_clip
 from . import utils
 from .spectrum import Spectrum 
 from .timeseries import TimeSeries
-    
+
+
+class IntegrationAxis(str, Enum):
+    TIME = "t"
+    FREQUENCY = "f"
+
+
+class IntegrationMode(str, Enum):
+    MEAN = "mean"
+    SUM = "sum"
+
+
+def _resolve_integration_axis(axis):
+    if axis in [IntegrationAxis.FREQUENCY, IntegrationAxis.FREQUENCY.value, 1]:
+        return IntegrationAxis.FREQUENCY
+    return IntegrationAxis.TIME
+
+
+def _resolve_integration_mode(mode):
+    if isinstance(mode, IntegrationMode):
+        return mode
+    if isinstance(mode, str) and mode[:1].lower() == IntegrationMode.SUM.value[:1]:
+        return IntegrationMode.SUM
+    return IntegrationMode.MEAN
+
 
 def integrate(fr, axis='t', mode='mean', normalize=False, as_frame=False):
     """
@@ -30,14 +56,16 @@ def integrate(fr, axis='t', mode='mean', normalize=False, as_frame=False):
     """
     # If `data` is a Frame object, just grab its data
     data = utils.array(fr)
-    if axis in ['f', 1]:
+    resolved_axis = _resolve_integration_axis(axis)
+    resolved_mode = _resolve_integration_mode(mode)
+    if resolved_axis is IntegrationAxis.FREQUENCY:
         # Time series
         axis = 1
     else:
         # Spectrum
         axis = 0
         
-    if mode[0] == 's':
+    if resolved_mode is IntegrationMode.SUM:
         data = np.sum(data, axis=axis, keepdims=True)
     else:
         data = np.mean(data, axis=axis, keepdims=True)
@@ -47,7 +75,7 @@ def integrate(fr, axis='t', mode='mean', normalize=False, as_frame=False):
         data = (data - np.mean(c_data)) / np.std(c_data)
 
     if as_frame:
-        if axis in ['f', 1]:
+        if resolved_axis is IntegrationAxis.FREQUENCY:
             # Time series
             new_fr = TimeSeries(df=fr.df * fr.fchans,
                                 dt=fr.dt,

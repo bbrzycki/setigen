@@ -4,6 +4,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 import setigen as stg
+from setigen.cadence import ORDER_LABEL_METADATA_KEY
 from astropy.time import Time
 
 
@@ -156,3 +157,37 @@ def test_basic_cadence_injection(cadence_setup):
         assert np.max(stg.integrate(cad[i])) > 1.25
     for i in range(1, 6, 2):
         assert np.max(stg.integrate(cad[i])) < 1.11
+
+
+def test_consolidate_preserves_frame_order_and_time_offsets():
+    frame_a = stg.Frame(fchans=4,
+                        tchans=2,
+                        t_start=100,
+                        data=np.arange(8).reshape(2, 4))
+    frame_b = stg.Frame(fchans=4,
+                        tchans=3,
+                        t_start=110,
+                        data=np.arange(12).reshape(3, 4))
+
+    cadence = stg.Cadence([frame_a, frame_b])
+    combined = cadence.consolidate()
+
+    assert combined.shape == (5, 4)
+    assert_allclose(combined.data[:2], frame_a.data)
+    assert_allclose(combined.data[2:], frame_b.data)
+    assert_allclose(combined.ts[:2], frame_a.ts + frame_a.t_start)
+    assert_allclose(combined.ts[2:], frame_b.ts + frame_b.t_start)
+
+
+def test_ordered_cadence_metadata_tracks_order_updates():
+    frames = [
+        stg.Frame(fchans=16, tchans=4, source_name=f"Obs{i}")
+        for i in range(3)
+    ]
+
+    cadence = stg.OrderedCadence(frames, order="ABC")
+    assert [frame.metadata[ORDER_LABEL_METADATA_KEY] for frame in cadence] == ["A", "B", "C"]
+
+    cadence.set_order("CAA")
+    assert [frame.metadata[ORDER_LABEL_METADATA_KEY] for frame in cadence] == ["C", "A", "A"]
+    assert len(cadence.by_label("A")) == 2

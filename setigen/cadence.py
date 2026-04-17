@@ -2,9 +2,12 @@ import collections
 import numpy as np
 import pickle
 
+from ._constants import ORDER_LABEL_METADATA_KEY
 from . import frame as _frame
 from . import plots
 from . import utils
+
+_CADENCE_COMPATIBILITY_ATTRS = ("df", "dt", "fchans", "fmin")
 
 
 class Cadence(collections.abc.MutableSequence):
@@ -108,7 +111,7 @@ class Cadence(collections.abc.MutableSequence):
         if not isinstance(v, _frame.Frame):
             raise TypeError(f"{v} is not a Frame object.")
         if len(self.frames) > 0:
-            for attr in ['df', 'dt', 'fchans', 'fmin']:
+            for attr in _CADENCE_COMPATIBILITY_ATTRS:
                 if getattr(v, attr) != getattr(self.frames[0], attr):
                     raise AttributeError(f"{attr}={getattr(v, attr)} does not match cadence ({getattr(self.frames[0], attr)})")
                 
@@ -246,16 +249,16 @@ class OrderedCadence(Cadence):
         self._check(v)
         if i < 0:
             i = len(self) + i
-        if "order_label" not in v.metadata:
-            v.add_metadata({"order_label": self.order[i]})
+        if ORDER_LABEL_METADATA_KEY not in v.metadata:
+            v.add_metadata({ORDER_LABEL_METADATA_KEY: self.order[i]})
         self.frames[i] = v
 
     def insert(self, i, v):
         self._check(v)
         if i < 0:
             i = len(self) + i
-        if "order_label" not in v.metadata:
-            v.add_metadata({"order_label": self.order[i]})
+        if ORDER_LABEL_METADATA_KEY not in v.metadata:
+            v.add_metadata({ORDER_LABEL_METADATA_KEY: self.order[i]})
         self.frames.insert(i, v)
 
     def set_order(self, order):
@@ -264,7 +267,7 @@ class OrderedCadence(Cadence):
         """
         self.order = order 
         for i, fr in enumerate(self.frames):
-            fr.add_metadata({"order_label": self.order[i]})
+            fr.add_metadata({ORDER_LABEL_METADATA_KEY: self.order[i]})
 
     def by_label(self, order_label="A"):
         """
@@ -272,4 +275,4 @@ class OrderedCadence(Cadence):
         as a letter. Returns matching frames as a new Cadence.
         """
         return Cadence(frame_list=[frame for frame in self 
-                                   if frame.metadata["order_label"] == order_label])
+                                   if frame.metadata[ORDER_LABEL_METADATA_KEY] == order_label])

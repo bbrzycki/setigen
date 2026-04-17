@@ -5,10 +5,39 @@ For any given starting frequency,
 these functions map out the path of a signal as a function of time in
 time-frequency space.
 """
+from enum import Enum
+
 import numpy as np
 from astropy import units as u
 
 from setigen import unit_utils
+
+
+class SpreadType(str, Enum):
+    UNIFORM = "uniform"
+    NORMAL = "normal"
+
+
+class RfiType(str, Enum):
+    STATIONARY = "stationary"
+    RANDOM_WALK = "random_walk"
+
+
+def _coerce_spread_type(spread_type):
+    if isinstance(spread_type, SpreadType):
+        return spread_type
+    try:
+        return SpreadType(spread_type)
+    except ValueError as exc:
+        raise ValueError(f"'{spread_type}' is not a valid spread type!") from exc
+
+
+def _coerce_rfi_type(rfi_type):
+    if isinstance(rfi_type, RfiType):
+        return rfi_type
+    if rfi_type == RfiType.RANDOM_WALK.value:
+        return RfiType.RANDOM_WALK
+    return RfiType.STATIONARY
 
 
 def constant_path(f_start, drift_rate):
@@ -117,17 +146,17 @@ def simple_rfi_path(f_start, drift_rate, spread, spread_type='uniform',
     f_start = unit_utils.get_value(f_start, u.Hz)
     drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
     spread = unit_utils.get_value(spread, u.Hz)
+    resolved_spread_type = _coerce_spread_type(spread_type)
+    resolved_rfi_type = _coerce_rfi_type(rfi_type)
 
     def path(t):
-        if spread_type == 'uniform':
+        if resolved_spread_type is SpreadType.UNIFORM:
             f_offset = rng.uniform(-spread / 2., spread / 2., size=t.shape)
-        elif spread_type == 'normal':
+        else:
             factor = 2 * np.sqrt(2 * np.log(2))
             f_offset = rng.normal(0, spread / factor, size=t.shape)
-        else:
-            raise ValueError(f"'{spread_type}' is not a valid spread type!")
             
-        if rfi_type == 'random_walk':
+        if resolved_rfi_type is RfiType.RANDOM_WALK:
             f_offset = np.cumsum(f_offset)
         return f_start + drift_rate * t + f_offset
     return path

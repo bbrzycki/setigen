@@ -9,7 +9,9 @@ from setigen.timeseries import TimeSeries
     
 from setigen.utils import db, array
 from setigen.unit_utils import cast_value, get_value
-from setigen.integrate import integrate, spectrum, timeseries
+from setigen.integrate import (
+    IntegrationAxis, IntegrationMode, integrate, spectrum, timeseries
+)
 from setigen.slice import get_slice
 from setigen.normalize import (
     sigma_clip_norm, sliding_norm, blimpy_clip, max_norm
@@ -19,6 +21,7 @@ from setigen.plots import plot_frame, plot_cadence
 
 from setigen import funcs
 from setigen.funcs import (
+    PulseDirection, RfiType, SpreadType, WidthMode,
     constant_path, squared_path, sine_path, simple_rfi_path,
     constant_t_profile, sine_t_profile, periodic_gaussian_t_profile,
     box_f_profile, gaussian_f_profile, multiple_gaussian_f_profile,

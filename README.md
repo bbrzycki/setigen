@@ -47,6 +47,9 @@ For local development, install the package in editable mode with the project ext
 python -m pip install -e ".[dev]"
 ```
 
+Contributor-oriented repository notes are available in
+[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 `setigen` includes a compatibility pin on `setuptools` because `blimpy`
 currently imports `pkg_resources` at runtime. Normal installs pick this up
 automatically.

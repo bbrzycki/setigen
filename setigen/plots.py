@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.offsetbox import AnchoredText
 
+from ._constants import ORDER_LABEL_METADATA_KEY
 from . import utils
 from ._plot.axes import (
     _FrequencyAxisKind,
@@ -119,8 +120,8 @@ def plot_frame(frame,
         plt.grid(True)
         
     if label:
-        if "order_label" in frame.metadata:
-            source_label = f'{frame.metadata["order_label"]}: {frame.source_name}'
+        if ORDER_LABEL_METADATA_KEY in frame.metadata:
+            source_label = f'{frame.metadata[ORDER_LABEL_METADATA_KEY]}: {frame.source_name}'
         else:
             source_label = frame.source_name
                  

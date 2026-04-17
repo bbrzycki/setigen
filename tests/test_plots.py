@@ -66,44 +66,45 @@ def test_plot_extents():
     assert stg.plots._get_extent_units(frame) == (1e3, "kHz")
 
 
-def test_plot_frame_options(frame_setup):
+def test_plot_frame_options(frame_setup, recwarn):
     frame = copy.deepcopy(frame_setup)
-    frame.plot(ftype="fmid")
-    plt.show()
-    frame.plot(ftype="fmin", colorbar=False)
-    plt.show()
-    frame.plot(ftype="f", minor_ticks=True, label=True)
-    plt.show()
-    frame.plot(ftype="px", db=False, grid=True)
-    plt.show()
-    frame.plot(ftype="fmid", ttype="px", swap_axes=True)
-    plt.show()
-    frame.plot(ftype="px", ttype="trel", swap_axes=True)
-    plt.show()
-    frame.plot(ftype="bins", ttype="bins")
+    assert frame.plot(ftype="fmid") is not None
+    assert frame.plot(ftype="fmin", colorbar=False) is not None
+    assert frame.plot(ftype="f", minor_ticks=True, label=True) is not None
+    assert frame.plot(ftype="px", db=False, grid=True) is not None
+    assert frame.plot(ftype="fmid", ttype="px", swap_axes=True) is not None
+    assert frame.plot(ftype="px", ttype="trel", swap_axes=True) is not None
+    assert frame.plot(ftype="bins", ttype="bins") is not None
     assert plt.gca().get_xlabel() == "Frequency (bins)"
     assert plt.gca().get_ylabel() == "Time (bins)"
-    plt.close("all")
+    assert not any("FigureCanvasAgg is non-interactive" in str(w.message)
+                   for w in recwarn.list)
 
 
-def test_plot_cadence_options(cadence_setup):
+def test_plot_cadence_options(cadence_setup, recwarn):
     cad = copy.deepcopy(cadence_setup)
-    cad.plot(ftype="fmid", slew_times=True)
-    plt.show()
-    cad.plot(ftype="fmin", colorbar=False, title=True)
-    plt.show()
-    cad.plot(ftype="f", minor_ticks=True, labels=False)
-    plt.show()
-    cad.plot(ftype="px", db=False, grid=True)
-    plt.show()
-    cad.plot(ftype="fmid", ttype="px")
-    plt.show()
-    cad.plot(ftype="px", ttype="trel")
-    plt.show()
+    axs, cax = cad.plot(ftype="fmid", slew_times=True)
+    assert axs is not None
+    assert cax is not None
+    axs = cad.plot(ftype="fmin", colorbar=False, title=True)
+    assert axs is not None
+    axs, cax = cad.plot(ftype="f", minor_ticks=True, labels=False)
+    assert axs is not None
+    assert cax is not None
+    axs, cax = cad.plot(ftype="px", db=False, grid=True)
+    assert axs is not None
+    assert cax is not None
+    axs, cax = cad.plot(ftype="fmid", ttype="px")
+    assert axs is not None
+    assert cax is not None
+    axs, cax = cad.plot(ftype="px", ttype="trel")
+    assert axs is not None
+    assert cax is not None
     axs, cax = cad.plot(ftype="bins", ttype="bins")
     assert axs.shape[0] == 2 * len(cad) - 1
     assert cax is not None
-    plt.close("all")
+    assert not any("FigureCanvasAgg is non-interactive" in str(w.message)
+                   for w in recwarn.list)
 
 
 def test_spectrum_plot_labels():

@@ -16,6 +16,7 @@ dependencies = [
     # blimpy still imports pkg_resources at runtime, so keep setuptools below
     # the removal point until blimpy is updated.
     "setuptools<81",
+    "click>=8.1.8",
     "numpy>=1.21.6",
     "scipy>=1.8.0",
     "astropy>=5.0.4",
@@ -54,6 +55,9 @@ dev = [
 Documentation = "https://setigen.readthedocs.io/en/latest/"
 Source = "https://github.com/bbrzycki/setigen"
 Issues = "https://github.com/bbrzycki/setigen/issues"
+
+[project.scripts]
+setigen-raw-reduce = "setigen.voltage.cli:main"
 
 [tool.setuptools]
 include-package-data = true

@@ -20,6 +20,12 @@ Treat this repository as a maintained Python package.
 - avoid unrelated cleanup in the same change
 - preserve existing user-facing behavior unless a change is intentional and documented
 
+## Required Reading
+
+Before changing voltage synthesis, signal injection, SNR logic, de-drifting workflows, or frequency-placement examples, read [SCIENCE.md](./SCIENCE.md).
+
+Agents should not guess the radio SETI or signal-processing context from code alone when that file applies.
+
 ## Scientific Invariants
 
 Do not change these behaviors casually:
@@ -61,6 +67,7 @@ If a file becomes difficult to understand in one pass, consider splitting it bef
 ## Documentation
 
 - update README and Sphinx docs when changing user-visible behavior
+- update [`SCIENCE.md`](./SCIENCE.md) and related explanatory docs when changing scientific assumptions, core signal-processing behavior, or supported observing configurations
 - keep installation and workflow docs aligned with actual project metadata
 - do not regenerate or rewrite notebook outputs unless the task explicitly requires it
 

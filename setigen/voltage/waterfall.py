@@ -12,6 +12,10 @@ else:
 import numpy as np
 import time
 
+from ._reduction.channelize import _channelize_block
+from ._reduction.decoder import _decode_raw_block
+from ._reduction.input import _resolve_raw_input
+
 
 def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, fftlength=256, int_factor=1):
     """
@@ -82,21 +86,25 @@ def get_waterfall_from_raw(raw_filename, block_size, num_chans, int_factor=1, ff
     XX_psd : array
         Finely channelized voltages
     """
-    with open(raw_filename, "rb") as f:
-        i = 1
-        chunk = f.read(80)
-        while f"{'END':<80}".encode() not in chunk:
-            chunk = f.read(80)
-            i += 1
-        # Skip zero padding
-        chunk = f.read((512 - (80 * i % 512)))
-        # Read data
-        chunk = f.read(block_size)
-        
-    rawbuffer = np.frombuffer(chunk, dtype=xp.int8).reshape((num_chans, -1))
-    rawbuffer_x = rawbuffer[:, 0::4] + rawbuffer[:, 1::4] * 1j
-    rawbuffer_y = rawbuffer[:, 2::4] + rawbuffer[:, 3::4] * 1j    
-    return get_pfb_waterfall(rawbuffer_x.T,
-                             rawbuffer_y.T,
-                             fftlength=fftlength,
-                             int_factor=int_factor)
+    input_spec = _resolve_raw_input(raw_filename)
+    if input_spec.block_size != block_size:
+        raise ValueError(f"Provided block_size={block_size} does not match RAW header BLOCSIZE={input_spec.block_size}.")
+    if input_spec.num_chans != num_chans:
+        raise ValueError(f"Provided num_chans={num_chans} does not match RAW header OBSNCHAN={input_spec.num_chans}.")
+
+    with open(input_spec.files[0], "rb") as handle:
+        handle.read(input_spec.header_size)
+        chunk = handle.read(block_size)
+
+    voltages = _decode_raw_block(chunk,
+                                 num_bits=input_spec.num_bits,
+                                 num_pols=input_spec.num_pols,
+                                 num_chans=input_spec.num_chans,
+                                 start_chan=0,
+                                 num_selected_chans=input_spec.num_chans)
+    reduced = _channelize_block(voltages,
+                                fftlength=fftlength,
+                                integration_factor=int_factor,
+                                pol_mode=1,
+                                backend="auto")
+    return reduced[:, 0, :]

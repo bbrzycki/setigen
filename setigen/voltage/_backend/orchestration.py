@@ -49,7 +49,7 @@ def _record_files(backend,
                   header_dict,
                   xp):
     num_files = _get_num_output_files(backend, xp=xp)
-    with tqdm(total=backend.num_blocks) as pbar:
+    with tqdm(total=backend.num_blocks, disable=not record_config.verbose) as pbar:
         pbar.set_description("Blocks")
         for file_index in range(num_files):
             save_fn = f"{output_file_stem}.{file_index:04}.raw"

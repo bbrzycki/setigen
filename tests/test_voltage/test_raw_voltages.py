@@ -30,6 +30,7 @@ from setigen.voltage._backend.headers import (
     _HEADER_VALUE_ENCODED_RAW_MODE,
     _header_populate_configuration,
 )
+from setigen.voltage._backend.pipeline import _plan_subblocks
 from setigen.voltage._backend.orchestration import _build_record_header
 from setigen.voltage._backend.recording import _RecordConfig
 
@@ -449,6 +450,37 @@ def test_collect_data_block_direct(antenna_setup,
 
     assert voltages.shape == (num_chans, block_size // num_chans)
     assert np.isfinite(voltages).all()
+    assert voltages.dtype == np.float32
+
+
+def test_collect_data_block_memory_budget_increases_subblocks(antenna_setup,
+                                                              elements_setup):
+    antenna = copy.deepcopy(antenna_setup)
+    digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
+
+    block_size = stg.voltage.get_block_size(num_antennas=1,
+                                            tchans_per_block=8,
+                                            num_bits=8,
+                                            num_pols=antenna.num_pols,
+                                            num_branches=filterbank.num_branches,
+                                            num_chans=1,
+                                            fftlength=262144,
+                                            int_factor=1)
+    rvb = stg.voltage.RawVoltageBackend(antenna,
+                                        digitizer=digitizer,
+                                        filterbank=filterbank,
+                                        requantizer=requantizer,
+                                        start_chan=0,
+                                        num_chans=1,
+                                        block_size=block_size,
+                                        blocks_per_file=16,
+                                        num_subblocks=1,
+                                        max_working_set_bytes=512 * 1024**2)
+
+    plan = _plan_subblocks(rvb, obsnchan=rvb.num_chans * rvb.num_antennas)
+
+    assert plan.num_subblocks > 1
+    assert plan.num_subblocks >= rvb.num_subblocks
 
 
 def test_raw_injection_no_directio(antenna_setup, 

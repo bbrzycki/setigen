@@ -7,7 +7,10 @@ Voltage synthesis (setigen.voltage)
 The setigen.voltage_ module extends |setigen| to the voltage regime. Instead of 
 directly synthesizing spectrogram data, we can produce real voltages, pass them 
 through a software pipeline based on a polyphase filterbank, and record to file 
-in GUPPI RAW format. As this process models actual hardware used by 
+in GUPPI RAW format. ``setigen.voltage`` can also reduce those RAW files to 
+filterbank data products directly with :func:`~setigen.voltage.reduction.reduce_raw`, 
+writing either ``.fil`` or ``.h5`` output without requiring an external 
+``rawspec`` installation. As this process models actual hardware used by 
 Breakthrough Listen for recording raw voltages, this enables lower level 
 testing and experimentation.
 
@@ -92,6 +95,49 @@ A minimal working example of the pipeline is as follows:
 Note the ``load_template`` argument, which fills unspecified keys from
 |setigen|'s built-in default RAW header specification before backend-specific
 fields are overwritten.
+
+Reducing RAW data to filterbank products
+----------------------------------------
+
+For the common single-product reduction path, RAW data can be reduced directly
+in Python:
+
+.. code-block:: python
+
+    spec = stg.voltage.RawReductionSpec(fftlength=1024,
+                                        integration_factor=4,
+                                        pol_mode=stg.voltage.PolarizationMode.TOTAL_POWER,
+                                        output_format='fil')
+
+    stg.voltage.reduce_raw('example_1block',
+                           'example_1block.reduced.fil',
+                           spec,
+                           overwrite=True)
+
+The same reduction is also available on the command line:
+
+.. code-block:: bash
+
+    setigen-raw-reduce example_1block example_1block.reduced.fil \
+      --fftlength 1024 \
+      --integration-factor 4 \
+      --pol-mode 1 \
+      --format fil \
+      --overwrite
+
+For notebook/debug workflows, you can also obtain the reduced data directly as
+a :class:`~setigen.frame.Frame` object:
+
+.. code-block:: python
+
+    frame = stg.voltage.reduce_raw_to_frame('example_1block',
+                                            spec)
+
+The native reducer supports a single reduction product per call, optional CuPy
+acceleration, and rawspec-style polarization semantics for ``pol_mode=1``,
+``4``, and ``-4``. Multi-polarization output products are written to file
+directly and are not wrapped in :class:`~setigen.frame.Frame`, which remains a
+2D total-power interface.
 
 Using GPU acceleration
 ----------------------

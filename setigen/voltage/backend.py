@@ -60,7 +60,8 @@ class RawVoltageBackend(object):
                  num_chans=64,
                  block_size=134217728,
                  blocks_per_file=128,
-                 num_subblocks=32):
+                 num_subblocks=32,
+                 max_working_set_bytes=512 * 1024**2):
         """
         Initialize a RawVoltageBackend object, with an input antenna source (either Antenna or 
         MultiAntennaArray), and backend elements (digitizer, filterbank, requantizer). Also, details 
@@ -94,6 +95,11 @@ class RawVoltageBackend(object):
             ``num_subblocks=1``, one block's worth of data will be passed 
             through the pipeline and recorded at once. Use this parameter to 
             reduce memory load, especially when using GPU acceleration.
+        max_working_set_bytes : int, optional
+            Soft cap for transient per-subblock working-set size. If a block
+            would exceed this budget, the backend automatically increases the
+            effective number of subblocks to keep synthetic voltage generation
+            within a safer memory envelope.
         """
         self.antenna_source = antenna_source
         if isinstance(antenna_source, v_antenna.Antenna):
@@ -114,6 +120,7 @@ class RawVoltageBackend(object):
         self.block_size = block_size
         self.blocks_per_file = blocks_per_file
         self.num_subblocks = num_subblocks
+        self.max_working_set_bytes = max_working_set_bytes
         
         self.digitizer = digitizer
         if isinstance(self.digitizer, quantization.RealQuantizer) or isinstance(self.digitizer, quantization.ComplexQuantizer):
@@ -198,7 +205,8 @@ class RawVoltageBackend(object):
                   digitizer=None,
                   filterbank=None,
                   start_chan=0,
-                  num_subblocks=32):
+                  num_subblocks=32,
+                  max_working_set_bytes=512 * 1024**2):
         """
         Initialize a RawVoltageBackend object, using existing RAW data as a background for
         signal insertion and recording. Compared to normal initialization, some parameters are inferred 
@@ -224,6 +232,11 @@ class RawVoltageBackend(object):
             ``num_subblocks=1``, one block's worth of data will be passed 
             through the pipeline and recorded at once. Use this parameter to 
             reduce memory load, especially when using GPU acceleration.
+        max_working_set_bytes : int, optional
+            Soft cap for transient per-subblock working-set size. If a block
+            would exceed this budget, the backend automatically increases the
+            effective number of subblocks to keep synthetic voltage generation
+            within a safer memory envelope.
             
         Returns
         -------
@@ -262,7 +275,8 @@ class RawVoltageBackend(object):
                       num_chans=raw_params['num_chans'],
                       block_size=raw_params['block_size'],
                       blocks_per_file=blocks_per_file,
-                      num_subblocks=num_subblocks)
+                      num_subblocks=num_subblocks,
+                      max_working_set_bytes=max_working_set_bytes)
         
         backend.input_file_stem = input_file_stem   
         backend.input_num_blocks = raw_utils.get_total_blocks(input_file_stem)
@@ -299,7 +313,12 @@ class RawVoltageBackend(object):
             (num_chans * num_antennas, block_size / (num_chans * num_antennas))
         """
         obsnchan = self.num_chans * self.num_antennas
-        final_voltages = np.empty((obsnchan, int(self.block_size / obsnchan)))
+        if requantize:
+            output_dtype = np.int8 if self.num_bits == 8 else np.uint8
+        else:
+            output_dtype = np.float32
+        final_voltages = np.empty((obsnchan, int(self.block_size / obsnchan)),
+                                  dtype=output_dtype)
         
         if self.input_file_stem is not None:
             if not requantize:
@@ -311,7 +330,9 @@ class RawVoltageBackend(object):
         plan = _plan_subblocks(self, obsnchan=obsnchan)
         self.num_subblocks = plan.num_subblocks
         
-        with tqdm(total=self.num_antennas*self.num_pols*self.num_subblocks, leave=False) as pbar:
+        with tqdm(total=self.num_antennas*self.num_pols*self.num_subblocks,
+                  leave=False,
+                  disable=not verbose) as pbar:
             pbar.set_description('Subblocks')
 
             for subblock in range(self.num_subblocks):

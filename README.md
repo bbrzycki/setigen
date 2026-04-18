@@ -48,7 +48,8 @@ python -m pip install -e ".[dev]"
 ```
 
 Contributor-oriented repository notes are available in
-[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
+[`CONTRIBUTING.md`](CONTRIBUTING.md), [`ARCHITECTURE.md`](ARCHITECTURE.md),
+and [`SCIENCE.md`](SCIENCE.md).
 
 `setigen` includes a compatibility pin on `setuptools` because `blimpy`
 currently imports `pkg_resources` at runtime. Normal installs pick this up
@@ -201,7 +202,7 @@ c.plot(slew_times=True)
 
 ![setigen.voltage block diagram](https://raw.githubusercontent.com/bbrzycki/setigen/main/docs/source/images/setigen_voltage_diagram_h.png)
 
-The `setigen.voltage` module extends `setigen` to the voltage regime. Instead of directly synthesizing spectrogram data, we can produce real voltages, pass them through a software pipeline based on a polyphase filterbank, and record to file in GUPPI RAW format. In turn, this data can then be reduced as usual using [`rawspec`](https://github.com/UCBerkeleySETI/rawspec). As this process models actual hardware used by Breakthrough Listen for recording raw voltages, this enables lower level testing and experimentation. The basic layout of a `setigen.voltage` pipeline is shown above.
+The `setigen.voltage` module extends `setigen` to the voltage regime. Instead of directly synthesizing spectrogram data, we can produce real voltages, pass them through a software pipeline based on a polyphase filterbank, and record to file in GUPPI RAW format. `setigen.voltage` can also reduce those RAW files directly to `.fil` or `.h5` filterbank products with `stg.voltage.reduce_raw(...)`, so a Linux/CUDA-only `rawspec` installation is no longer required for the common single-product path. As this process models actual hardware used by Breakthrough Listen for recording raw voltages, this enables lower level testing and experimentation. The basic layout of a `setigen.voltage` pipeline is shown above.
 
 A simple example implementation may be written as follows. For more information, check out [the docs](https://setigen.readthedocs.io/en/main/voltages.html).
 
@@ -246,6 +247,20 @@ rvb.record(output_file_stem='example_1block',
            header_dict={'HELLO': 'test_value',
                         'TELESCOP': 'GBT'},
            verbose=True)
+
+spec = stg.voltage.RawReductionSpec(fftlength=1024,
+                                    integration_factor=4,
+                                    pol_mode=stg.voltage.PolarizationMode.TOTAL_POWER,
+                                    output_format='fil')
+
+stg.voltage.reduce_raw('example_1block',
+                       'example_1block.reduced.fil',
+                       spec,
+                       overwrite=True)
+
+# or from the shell:
+# setigen-raw-reduce example_1block example_1block.reduced.fil \
+#   --fftlength 1024 --integration-factor 4 --pol-mode 1 --format fil --overwrite
 ```
 
 A set of tutorial walkthroughs can be found at: https://github.com/bbrzycki/setigen/tree/main/jupyter-notebooks/voltage.

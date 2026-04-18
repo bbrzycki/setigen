@@ -6,6 +6,9 @@ import time
 import numpy as np
 
 
+_DEFAULT_MAX_WORKING_SET_BYTES = 512 * 1024**2
+
+
 @dataclass(frozen=True)
 class _SubblockPlan:
     total_time_samples: int
@@ -15,12 +18,60 @@ class _SubblockPlan:
     initial_windows: int
 
 
+def _estimate_working_set_bytes(backend, *, coarse_time_samples):
+    """
+    Estimate transient working-set size for one subblock.
+
+    The dominant allocations during synthetic RAW generation are:
+    - raw real-voltage buffers for all antenna / polarization streams
+    - the PFB frontend accumulation array
+    - the channelized FFT output for one antenna / polarization path
+
+    This intentionally overestimates slightly so that planning errs on the side
+    of more subblocks rather than a runaway allocation.
+    """
+    raw_time_samples = (coarse_time_samples + backend.num_taps) * backend.num_branches
+    raw_bytes = (backend.num_antennas
+                 * backend.num_pols
+                 * raw_time_samples
+                 * np.dtype(np.float64).itemsize)
+    pfb_frontend_bytes = (coarse_time_samples
+                          * backend.num_branches
+                          * np.dtype(np.float64).itemsize)
+    fft_bytes = (coarse_time_samples
+                 * backend.num_branches
+                 * np.dtype(np.complex128).itemsize // 2)
+    return raw_bytes + pfb_frontend_bytes + fft_bytes
+
+
+def _resolve_subblock_budget(backend, *, total_time_samples):
+    max_working_set_bytes = getattr(backend,
+                                    "max_working_set_bytes",
+                                    _DEFAULT_MAX_WORKING_SET_BYTES)
+    if max_working_set_bytes is None or max_working_set_bytes <= 0:
+        return max(1, int(backend.num_subblocks))
+
+    max_coarse_samples = backend.num_taps
+    while _estimate_working_set_bytes(backend,
+                                      coarse_time_samples=max_coarse_samples) <= max_working_set_bytes:
+        candidate = max_coarse_samples + backend.num_taps
+        if candidate > total_time_samples:
+            max_coarse_samples = total_time_samples
+            break
+        max_coarse_samples = candidate
+
+    budgeted_subblocks = int(np.ceil(total_time_samples / max_coarse_samples))
+    return max(1, int(backend.num_subblocks), budgeted_subblocks)
+
+
 def _plan_subblocks(backend, *, obsnchan):
     if backend.block_size % int(obsnchan * backend.num_taps * backend.bytes_per_sample) != 0:
         raise ValueError("block_size must be divisible by the backend subblock stride.")
 
     total_time_samples = int(backend.block_size / (obsnchan * backend.bytes_per_sample))
-    initial_windows = int(np.ceil(total_time_samples / backend.num_taps / backend.num_subblocks)) + 1
+    requested_subblocks = _resolve_subblock_budget(backend,
+                                                   total_time_samples=total_time_samples)
+    initial_windows = int(np.ceil(total_time_samples / backend.num_taps / requested_subblocks)) + 1
     samples_per_subblock = backend.num_taps * (initial_windows - 1)
     num_subblocks = int(np.ceil(total_time_samples / samples_per_subblock))
     bytes_per_subblock = int(samples_per_subblock * backend.bytes_per_sample)

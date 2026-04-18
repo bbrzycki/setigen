@@ -1,51 +1,178 @@
 from __future__ import annotations
 
-import pathlib
-
 import numpy as np
 from tqdm import tqdm
 
 from .. import raw_utils
 
 
+_HEADER_KEY_BACKEND = "BACKEND"
+_HEADER_KEY_TELESCOP = "TELESCOP"
+_HEADER_KEY_OBSERVER = "OBSERVER"
+_HEADER_KEY_SRC_NAME = "SRC_NAME"
+_HEADER_KEY_OBS_MODE = "OBS_MODE"
+_HEADER_KEY_PKTFMT = "PKTFMT"
+_HEADER_KEY_NBITS = "NBITS"
+_HEADER_KEY_CHAN_BW = "CHAN_BW"
+_HEADER_KEY_NPOL = "NPOL"
+_HEADER_KEY_BLOCSIZE = "BLOCSIZE"
+_HEADER_KEY_SCANLEN = "SCANLEN"
+_HEADER_KEY_TBIN = "TBIN"
+_HEADER_KEY_NANTS = "NANTS"
+_HEADER_KEY_OBSNCHAN = "OBSNCHAN"
+_HEADER_KEY_OBSBW = "OBSBW"
+_HEADER_KEY_OBSFREQ = "OBSFREQ"
+_HEADER_KEY_PKTIDX = "PKTIDX"
+_HEADER_KEY_PKTSTART = "PKTSTART"
+_HEADER_KEY_PKTSTOP = "PKTSTOP"
+_HEADER_KEY_DIRECTIO = "DIRECTIO"
+
+_HEADER_VALUE_SETIGEN = "SETIGEN"
+_HEADER_VALUE_SYNTHETIC = "SYNTHETIC"
+_HEADER_VALUE_SETIGEN_SUFFIX = "_SETIGEN"
+_HEADER_VALUE_ENCODED_GUPPI_BACKEND = "'GUPPI   '"
+_HEADER_VALUE_ENCODED_GBT_TELESCOPE = "'GBT     '"
+_HEADER_VALUE_ENCODED_DEFAULT_OBSERVER = "'Dave MacMahon'"
+_HEADER_VALUE_ENCODED_DEFAULT_SOURCE = "'TMC1    '"
+_HEADER_VALUE_ENCODED_RAW_MODE = "'RAW     '"
+_HEADER_VALUE_ENCODED_1SFA_FORMAT = "'1SFA    '"
+_HEADER_VALUE_ENCODED_PREFIX = "'"
+_HEADER_VALUE_DEFAULT_PACKET_INDEX = 0
+
+
+_DEFAULT_HEADER_ENTRIES = (
+    (_HEADER_KEY_BACKEND, _HEADER_VALUE_ENCODED_GUPPI_BACKEND),
+    (_HEADER_KEY_TELESCOP, _HEADER_VALUE_ENCODED_GBT_TELESCOPE),
+    (_HEADER_KEY_OBSERVER, _HEADER_VALUE_ENCODED_DEFAULT_OBSERVER),
+    ("PROJID", "'AGBT20B_999_22'"),
+    ("FRONTEND", "'RcvrArray18_26'"),
+    ("NRCVR", "2"),
+    ("FD_POLN", "'CIRC    '"),
+    ("BMAJ", "0.009263915095687008"),
+    ("BMIN", "0.009263915095687008"),
+    (_HEADER_KEY_SRC_NAME, _HEADER_VALUE_ENCODED_DEFAULT_SOURCE),
+    ("TRK_MODE", "'TRACK   '"),
+    ("RA_STR", "'04:41:45.7920'"),
+    ("RA", "70.4408"),
+    ("DEC_STR", "'+25:41:27.9600'"),
+    ("DEC", "25.6911"),
+    ("LST", "83464"),
+    ("AZ", "433.0963"),
+    ("ZA", "69.1473"),
+    ("DAQCTRL", "'start   '"),
+    ("DAQPULSE", "'Tue Sep 22 00:24:27 2020'"),
+    ("DAQSTATE", "'record  '"),
+    (_HEADER_KEY_NBITS, "8"),
+    ("OFFSET0", "0.0"),
+    ("OFFSET1", "0.0"),
+    ("OFFSET2", "0.0"),
+    ("OFFSET3", "0.0"),
+    ("BANKNAM", "'BLP00   '"),
+    ("TFOLD", "0"),
+    ("DS_FREQ", "1"),
+    ("DS_TIME", "1"),
+    ("FFTLEN", "512"),
+    (_HEADER_KEY_CHAN_BW, "-2.9296875"),
+    ("BANDNUM", "0"),
+    ("NBIN", "0"),
+    (_HEADER_KEY_OBSNCHAN, "64"),
+    ("SCALE0", "1.0"),
+    ("SCALE1", "1.0"),
+    ("DATAHOST", "'blr2-1-10-0.gb.nrao.edu'"),
+    ("SCALE3", "1.0"),
+    (_HEADER_KEY_NPOL, "4"),
+    ("POL_TYPE", "'AABBCRCI'"),
+    ("BANKNUM", "0"),
+    ("DATAPORT", "60000"),
+    ("ONLY_I", "0"),
+    ("CAL_DCYC", "0.5"),
+    (_HEADER_KEY_DIRECTIO, "1"),
+    (_HEADER_KEY_BLOCSIZE, "134217728"),
+    ("ACC_LEN", "1"),
+    ("CAL_MODE", "'OFF     '"),
+    ("OVERLAP", "0"),
+    ("OBS_MODE", _HEADER_VALUE_ENCODED_RAW_MODE),
+    ("CAL_FREQ", "0.0"),
+    ("DATADIR", "'/datax/dibas'"),
+    (_HEADER_KEY_OBSFREQ, "25720.21484375"),
+    ("PFB_OVER", "12"),
+    (_HEADER_KEY_SCANLEN, "300.0"),
+    ("PARFILE", "'/opt/dibas/etc/config/example.par'"),
+    (_HEADER_KEY_OBSBW, "-187.5"),
+    ("SCALE2", "1.0"),
+    ("BINDHOST", "'eth4    '"),
+    ("PKTFMT", _HEADER_VALUE_ENCODED_1SFA_FORMAT),
+    (_HEADER_KEY_TBIN, "3.41333333333333E-07"),
+    ("BASE_BW", "1450.0"),
+    ("CHAN_DM", "0.0"),
+    ("SCAN", "10"),
+    ("STT_SMJD", "15868"),
+    ("STT_IMJD", "59114"),
+    ("STTVALID", "1"),
+    ("NETSTAT", "'receiving'"),
+    ("DISKSTAT", "'waiting '"),
+    (_HEADER_KEY_PKTIDX, "0"),
+    ("DROPAVG", "1.37455e-05"),
+    ("DROPTOT", "0.6331"),
+    ("DROPBLK", "0"),
+    (_HEADER_KEY_PKTSTOP, "27459584"),
+    ("NETBUFST", "'1/24    '"),
+    ("STT_OFFS", "0"),
+    ("SCANREM", "0.0"),
+    ("PKTSIZE", "8192"),
+    ("NPKT", "16384"),
+    ("NDROP", "0"),
+)
+
+
+def _set_identity_header_value(header_dict, *, key, fallback_value, input_header_dict, guard_value):
+    if key not in header_dict:
+        header_dict[key] = fallback_value
+    elif input_header_dict is not None and guard_value not in input_header_dict[key]:
+        header_dict[key] = f"{input_header_dict[key].strip()}{_HEADER_VALUE_SETIGEN_SUFFIX}"
+
+
 def _header_populate_configuration(backend, header_dict=None):
     header_dict = {} if header_dict is None else dict(header_dict)
 
-    if "TELESCOP" not in header_dict:
-        header_dict["TELESCOP"] = "SETIGEN"
-    elif backend.input_header_dict is not None and "SETIGEN" not in backend.input_header_dict["TELESCOP"]:
-        header_dict["TELESCOP"] = f"{backend.input_header_dict['TELESCOP'].strip()}_SETIGEN"
-    if "OBSERVER" not in header_dict:
-        header_dict["OBSERVER"] = "SETIGEN"
-    elif backend.input_header_dict is not None and "SETIGEN" not in backend.input_header_dict["OBSERVER"]:
-        header_dict["OBSERVER"] = f"{backend.input_header_dict['OBSERVER'].strip()}_SETIGEN"
-    if "SRC_NAME" not in header_dict:
-        header_dict["SRC_NAME"] = "SYNTHETIC"
-    elif backend.input_header_dict is not None and "SYNTHETIC" not in backend.input_header_dict["SRC_NAME"]:
-        header_dict["SRC_NAME"] = f"{backend.input_header_dict['SRC_NAME'].strip()}_SETIGEN"
+    _set_identity_header_value(header_dict,
+                               key=_HEADER_KEY_TELESCOP,
+                               fallback_value=_HEADER_VALUE_SETIGEN,
+                               input_header_dict=backend.input_header_dict,
+                               guard_value=_HEADER_VALUE_SETIGEN)
+    _set_identity_header_value(header_dict,
+                               key=_HEADER_KEY_OBSERVER,
+                               fallback_value=_HEADER_VALUE_SETIGEN,
+                               input_header_dict=backend.input_header_dict,
+                               guard_value=_HEADER_VALUE_SETIGEN)
+    _set_identity_header_value(header_dict,
+                               key=_HEADER_KEY_SRC_NAME,
+                               fallback_value=_HEADER_VALUE_SYNTHETIC,
+                               input_header_dict=backend.input_header_dict,
+                               guard_value=_HEADER_VALUE_SYNTHETIC)
 
-    header_dict["NBITS"] = backend.num_bits
-    header_dict["CHAN_BW"] = backend.chan_bw * 1e-6
-    header_dict["NPOL"] = backend.num_pols
+    header_dict[_HEADER_KEY_NBITS] = backend.num_bits
+    header_dict[_HEADER_KEY_CHAN_BW] = backend.chan_bw * 1e-6
+    header_dict[_HEADER_KEY_NPOL] = backend.num_pols
 
-    header_dict["BLOCSIZE"] = backend.block_size
-    header_dict["SCANLEN"] = backend.obs_length
-    header_dict["TBIN"] = backend.tbin
+    header_dict[_HEADER_KEY_BLOCSIZE] = backend.block_size
+    header_dict[_HEADER_KEY_SCANLEN] = backend.obs_length
+    header_dict[_HEADER_KEY_TBIN] = backend.tbin
     if backend.is_antenna_array:
-        header_dict["NANTS"] = backend.num_antennas
-    header_dict["OBSNCHAN"] = backend.num_chans * backend.num_antennas
-    header_dict["OBSBW"] = backend.chan_bw * backend.num_chans * 1e-6
+        header_dict[_HEADER_KEY_NANTS] = backend.num_antennas
+    header_dict[_HEADER_KEY_OBSNCHAN] = backend.num_chans * backend.num_antennas
+    header_dict[_HEADER_KEY_OBSBW] = backend.chan_bw * backend.num_chans * 1e-6
 
     center_freq = (backend.start_chan + (backend.num_chans - 1) / 2) * backend.chan_bw
     center_freq += backend.fch1
-    header_dict["OBSFREQ"] = center_freq * 1e-6
+    header_dict[_HEADER_KEY_OBSFREQ] = center_freq * 1e-6
 
-    if "PKTIDX" not in header_dict:
-        header_dict["PKTIDX"] = 0
-    header_dict["PKTIDX"] = int(header_dict["PKTIDX"])
-    if "PKTSTART" not in header_dict:
-        header_dict["PKTSTART"] = header_dict["PKTIDX"]
-    header_dict["PKTSTOP"] = int(header_dict["PKTSTART"]) + backend.num_blocks * backend.samples_per_block
+    if _HEADER_KEY_PKTIDX not in header_dict:
+        header_dict[_HEADER_KEY_PKTIDX] = _HEADER_VALUE_DEFAULT_PACKET_INDEX
+    header_dict[_HEADER_KEY_PKTIDX] = int(header_dict[_HEADER_KEY_PKTIDX])
+    if _HEADER_KEY_PKTSTART not in header_dict:
+        header_dict[_HEADER_KEY_PKTSTART] = header_dict[_HEADER_KEY_PKTIDX]
+    header_dict[_HEADER_KEY_PKTSTOP] = int(header_dict[_HEADER_KEY_PKTSTART]) + backend.num_blocks * backend.samples_per_block
 
     return header_dict
 
@@ -53,12 +180,9 @@ def _header_populate_configuration(backend, header_dict=None):
 def _header_add_from_template(header_dict=None):
     header_dict = {} if header_dict is None else dict(header_dict)
 
-    path = pathlib.Path(__file__).resolve().parents[1] / "assets" / "header_template.txt"
-    with open(path, "r") as t:
-        for line in t.readlines():
-            key = line[:8].strip()
-            if key != "END" and key not in header_dict:
-                header_dict[key] = line[9:].strip()
+    for key, value in _DEFAULT_HEADER_ENTRIES:
+        if key not in header_dict:
+            header_dict[key] = value
     return header_dict
 
 
@@ -74,19 +198,19 @@ def _header_add_from_input_header(input_header_dict, header_dict=None):
 def _make_header(backend, f, header_dict):
     directio = False
 
-    if "DIRECTIO" in header_dict:
-        directio = header_dict["DIRECTIO"]
+    if _HEADER_KEY_DIRECTIO in header_dict:
+        directio = header_dict[_HEADER_KEY_DIRECTIO]
         try:
             if isinstance(directio, str):
-                directio = int(directio.replace("'", ""))
+                directio = int(directio.replace(_HEADER_VALUE_ENCODED_PREFIX, ""))
             directio = directio != 0
         except BaseException as err:
-            tqdm(f'Could not parse DIRECTIO value `{header_dict["DIRECTIO"]}` ({repr(err)}). Replacing with `0`.')
-            header_dict["DIRECTIO"] = 0
+            tqdm(f'Could not parse DIRECTIO value `{header_dict[_HEADER_KEY_DIRECTIO]}` ({repr(err)}). Replacing with `0`.')
+            header_dict[_HEADER_KEY_DIRECTIO] = 0
 
     header_lines = 0
     for key, value in header_dict.items():
-        value_is_encoded = isinstance(value, str) and value[0] == "'"
+        value_is_encoded = isinstance(value, str) and value[0] == _HEADER_VALUE_ENCODED_PREFIX
         line = raw_utils.format_header_line(key, value, as_strings=value_is_encoded)
         f.write(f"{line:<80}".encode())
         header_lines += 1
@@ -96,7 +220,7 @@ def _make_header(backend, f, header_dict):
     if directio:
         f.write(bytearray(512 - (80 * header_lines % 512)))
 
-    header_dict["PKTIDX"] += backend.samples_per_block
+    header_dict[_HEADER_KEY_PKTIDX] += backend.samples_per_block
 
 
 def _read_next_block(backend):

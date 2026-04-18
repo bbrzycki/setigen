@@ -89,8 +89,9 @@ A minimal working example of the pipeline is as follows:
                load_template=True,
                verbose=True)
                
-Note the ``load_template`` argument, which loads keys from the internal 
-`header_template.txt <https://github.com/bbrzycki/setigen/blob/main/setigen/voltage/header_template.txt>`_.
+Note the ``load_template`` argument, which fills unspecified keys from
+|setigen|'s built-in default RAW header specification before backend-specific
+fields are overwritten.
 
 Using GPU acceleration
 ----------------------

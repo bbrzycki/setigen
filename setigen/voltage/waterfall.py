@@ -96,4 +96,7 @@ def get_waterfall_from_raw(raw_filename, block_size, num_chans, int_factor=1, ff
     rawbuffer = np.frombuffer(chunk, dtype=xp.int8).reshape((num_chans, -1))
     rawbuffer_x = rawbuffer[:, 0::4] + rawbuffer[:, 1::4] * 1j
     rawbuffer_y = rawbuffer[:, 2::4] + rawbuffer[:, 3::4] * 1j    
-    return get_pfb_waterfall(rawbuffer_x.T, rawbuffer_y.T, int_factor, fftlength)
+    return get_pfb_waterfall(rawbuffer_x.T,
+                             rawbuffer_y.T,
+                             fftlength=fftlength,
+                             int_factor=int_factor)

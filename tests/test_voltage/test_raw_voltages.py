@@ -1,9 +1,37 @@
 import pytest
 import copy
 import numpy as np
+import builtins
 
 from astropy import units as u
 import setigen as stg
+from setigen.voltage._backend.headers import (
+    _HEADER_KEY_BACKEND,
+    _HEADER_KEY_BLOCSIZE,
+    _HEADER_KEY_DIRECTIO,
+    _HEADER_KEY_NBITS,
+    _HEADER_KEY_NPOL,
+    _HEADER_KEY_OBSBW,
+    _HEADER_KEY_OBSFREQ,
+    _HEADER_KEY_OBSERVER,
+    _HEADER_KEY_OBSNCHAN,
+    _HEADER_KEY_OBS_MODE,
+    _HEADER_KEY_PKTIDX,
+    _HEADER_KEY_PKTFMT,
+    _HEADER_KEY_PKTSTART,
+    _HEADER_KEY_PKTSTOP,
+    _HEADER_KEY_SCANLEN,
+    _HEADER_KEY_SRC_NAME,
+    _HEADER_KEY_TBIN,
+    _HEADER_KEY_TELESCOP,
+    _HEADER_VALUE_ENCODED_1SFA_FORMAT,
+    _HEADER_VALUE_ENCODED_GBT_TELESCOPE,
+    _HEADER_VALUE_ENCODED_GUPPI_BACKEND,
+    _HEADER_VALUE_ENCODED_RAW_MODE,
+    _header_populate_configuration,
+)
+from setigen.voltage._backend.orchestration import _build_record_header
+from setigen.voltage._backend.recording import _RecordConfig
 
 
 @pytest.fixture()
@@ -45,6 +73,104 @@ def elements_setup():
                                                num_bits=8)
     
     return digitizer, filterbank, requantizer
+
+
+@pytest.fixture()
+def backend_setup(antenna_setup, elements_setup):
+    antenna = copy.deepcopy(antenna_setup)
+    digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
+
+    num_taps = filterbank.num_taps
+    num_pols = antenna.num_pols
+    num_chans = 64
+    block_size = num_taps * num_chans * 2 * num_pols
+    return stg.voltage.RawVoltageBackend(antenna,
+                                         digitizer=digitizer,
+                                         filterbank=filterbank,
+                                         requantizer=requantizer,
+                                         start_chan=0,
+                                         num_chans=num_chans,
+                                         block_size=block_size,
+                                         blocks_per_file=128,
+                                         num_subblocks=32)
+
+
+def test_build_record_header_contains_expected_core_fields(backend_setup):
+    backend = copy.deepcopy(backend_setup)
+    backend.num_blocks = 2
+    backend.obs_length = backend.num_blocks * backend.time_per_block
+
+    record_config = _RecordConfig.from_values(num_blocks=backend.num_blocks,
+                                              length_mode="num_blocks",
+                                              header_dict={"HELLO": "test_value"},
+                                              verbose=False)
+    header_dict = _build_record_header(backend, record_config)
+
+    required_keys = {
+        _HEADER_KEY_BACKEND,
+        _HEADER_KEY_TELESCOP,
+        _HEADER_KEY_OBSERVER,
+        _HEADER_KEY_SRC_NAME,
+        _HEADER_KEY_DIRECTIO,
+        _HEADER_KEY_OBS_MODE,
+        _HEADER_KEY_PKTFMT,
+        _HEADER_KEY_NBITS,
+        _HEADER_KEY_NPOL,
+        _HEADER_KEY_BLOCSIZE,
+        _HEADER_KEY_SCANLEN,
+        _HEADER_KEY_TBIN,
+        _HEADER_KEY_OBSNCHAN,
+        _HEADER_KEY_OBSBW,
+        _HEADER_KEY_OBSFREQ,
+        _HEADER_KEY_PKTIDX,
+        _HEADER_KEY_PKTSTART,
+        _HEADER_KEY_PKTSTOP,
+        "HELLO",
+    }
+    assert required_keys.issubset(header_dict)
+    assert header_dict[_HEADER_KEY_BACKEND] == _HEADER_VALUE_ENCODED_GUPPI_BACKEND
+    assert header_dict[_HEADER_KEY_OBS_MODE] == _HEADER_VALUE_ENCODED_RAW_MODE
+    assert header_dict[_HEADER_KEY_PKTFMT] == _HEADER_VALUE_ENCODED_1SFA_FORMAT
+    assert header_dict["HELLO"] == "test_value"
+
+
+def test_build_record_header_does_not_require_template_file(monkeypatch, backend_setup):
+    backend = copy.deepcopy(backend_setup)
+    backend.num_blocks = 2
+    backend.obs_length = backend.num_blocks * backend.time_per_block
+
+    original_open = builtins.open
+
+    def fail_template_open(*args, **kwargs):
+        if args and str(args[0]).endswith("header_template.txt"):
+            raise AssertionError("header construction should not require opening header_template.txt")
+        return original_open(*args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", fail_template_open)
+
+    record_config = _RecordConfig.from_values(num_blocks=backend.num_blocks,
+                                              length_mode="num_blocks",
+                                              verbose=False)
+    header_dict = _build_record_header(backend, record_config)
+    assert header_dict[_HEADER_KEY_BACKEND] == _HEADER_VALUE_ENCODED_GUPPI_BACKEND
+    assert header_dict[_HEADER_KEY_TELESCOP] == _HEADER_VALUE_ENCODED_GBT_TELESCOPE
+
+
+def test_header_populate_configuration_preserves_core_backend_values(backend_setup):
+    backend = copy.deepcopy(backend_setup)
+    backend.num_blocks = 3
+    backend.obs_length = backend.num_blocks * backend.time_per_block
+
+    header_dict = _header_populate_configuration(backend, {_HEADER_KEY_PKTIDX: "16"})
+
+    assert header_dict[_HEADER_KEY_NBITS] == backend.num_bits
+    assert header_dict[_HEADER_KEY_NPOL] == backend.num_pols
+    assert header_dict[_HEADER_KEY_BLOCSIZE] == backend.block_size
+    assert header_dict[_HEADER_KEY_SCANLEN] == backend.obs_length
+    assert header_dict[_HEADER_KEY_OBSNCHAN] == backend.num_chans * backend.num_antennas
+    assert header_dict[_HEADER_KEY_PKTIDX] == 16
+    assert header_dict[_HEADER_KEY_PKTSTART] == 16
+    assert header_dict[_HEADER_KEY_PKTSTOP] == 16 + backend.num_blocks * backend.samples_per_block
 
 
 def test_raw_record_obs_length(antenna_setup,
@@ -414,6 +540,45 @@ def test_raw_injection_no_directio(antenna_setup,
                                                  fftlength=1)
     
     assert wf_data.shape == (8, 64)
+
+
+def test_get_waterfall_from_raw_respects_fftlength_argument(antenna_setup,
+                                                            elements_setup,
+                                                            tmp_path):
+    antenna = copy.deepcopy(antenna_setup)
+    digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
+
+    num_taps = filterbank.num_taps
+    num_pols = antenna.num_pols
+    num_chans = 64
+    block_size = num_taps * num_chans * 2 * num_pols
+    rvb = stg.voltage.RawVoltageBackend(antenna,
+                                        digitizer=digitizer,
+                                        filterbank=filterbank,
+                                        requantizer=requantizer,
+                                        start_chan=0,
+                                        num_chans=num_chans,
+                                        block_size=block_size,
+                                        blocks_per_file=128,
+                                        num_subblocks=32)
+
+    antenna.x.add_noise(v_mean=0, v_std=1)
+    antenna.y.add_noise(v_mean=0, v_std=1)
+
+    raw_stem = tmp_path / 'example_fftlength_waterfall'
+    raw_path = f"{raw_stem}.0000.raw"
+    rvb.record(output_file_stem=raw_stem,
+               num_blocks=1,
+               length_mode='num_blocks',
+               verbose=False)
+
+    wf_data = stg.voltage.get_waterfall_from_raw(raw_path,
+                                                 block_size=block_size,
+                                                 num_chans=num_chans,
+                                                 int_factor=1,
+                                                 fftlength=4)
+
+    assert wf_data.shape == (2, 256)
 
 
 def test_collect_data_block_requires_requantize_for_input_raw(antenna_setup,

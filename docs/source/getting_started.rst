@@ -32,7 +32,7 @@ specified either in terms of SI units (Hz, s) or ``astropy.units``, as in the ex
                               stg.constant_bp_profile(level=1))
 
     fig = plt.figure(figsize=(10, 6))
-    frame.plot(xtype="px", db=False)
+    frame.plot(ftype="px", db=False)
     plt.savefig("frame.png", bbox_inches='tight')
     plt.show()
 

@@ -1,26 +1,44 @@
+from __future__ import annotations
+
 import numpy as np
 from astropy.stats import sigma_clip
 from astropy import units as u
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+from typing import Any
 
 from . import frame 
-from . import plots
+from ._plot.axes import (
+    _ResolvedAxisSpec,
+    _frequency_formatter,
+    _get_frequency_axis_label,
+    _get_spectrum_x_values,
+)
 
 
 class Spectrum(frame.Frame):
-    """
-    A class to store a frequency spectrum as Frame object.
-    """
+    """Store a one-dimensional frequency spectrum as a `Frame` subclass."""
     def __init__(self,
-                 fchans=None,
-                 df=2.7939677238464355*u.Hz,
-                 dt=18.253611008*u.s,
-                 fch1=6*u.GHz,
-                 ascending=False,
-                 data=None,
-                 seed=None,
-                 **kwargs):
+                 fchans: int | None = None,
+                 df: Any = 2.7939677238464355*u.Hz,
+                 dt: Any = 18.253611008*u.s,
+                 fch1: Any = 6*u.GHz,
+                 ascending: bool = False,
+                 data: np.ndarray | None = None,
+                 seed: Any = None,
+                 **kwargs: Any) -> None:
+        """Initialize a one-row spectral frame.
+
+        Args:
+            fchans: Number of frequency channels.
+            df: Frequency resolution.
+            dt: Time resolution.
+            fch1: Frequency of the first channel.
+            ascending: Whether the frequency axis is ascending.
+            data: Optional preloaded spectrum.
+            seed: Random seed or generator.
+            **kwargs: Additional frame-construction keyword arguments.
+        """
         if "tchans" in kwargs:
             assert kwargs.pop("tchans") == 1
         frame.Frame.__init__(self,
@@ -34,31 +52,32 @@ class Spectrum(frame.Frame):
                              seed=seed,
                              **kwargs)
 
-    def array(self, db=False):
+    def array(self, db: bool = False) -> np.ndarray:
+        """Return the spectrum as a one-dimensional array.
+
+        Args:
+            db: Whether to convert intensities to dB.
+
+        Returns:
+            One-dimensional spectral array.
+        """
         return self.get_data(db=db)[0]
 
     def plot(self, 
-             ftype="fmid",
-             snr=False,
-             db=False,
-             minor_ticks=False,
-             **kwargs):
-        """
-        Plot spectrum.
+             ftype: str = "fmid",
+             snr: bool = False,
+             db: bool = False,
+             minor_ticks: bool = False,
+             **kwargs: Any) -> None:
+        """Plot the spectrum.
 
-        Parameters
-        ----------
-        ftype : {"fmid", "fmin", "f", "px", "bins"}, default: "fmid"
-            Type of frequency axis labels. "px" and "bins" put the axis in units of 
-            pixels (bins). The others are all in frequency: "fmid" shows frequencies 
-            relative to the central frequency, "fmin" is relative to the minimum 
-            frequency, and "f" is absolute frequency.
-        snr : bool, default: False 
-            Option to plot integrated power as signal-to-noise
-        db : bool, default: False
-            Option to convert intensities to dB
-        minor_ticks : bool, default: False
-            Option to include minor ticks on both axes
+        Args:
+            ftype: Frequency-axis display mode.
+            snr: Whether to plot normalized signal-to-noise instead of raw
+                power.
+            db: Whether to convert intensities to dB.
+            minor_ticks: Whether to enable minor ticks.
+            **kwargs: Additional `matplotlib.pyplot.plot()` keyword arguments.
         """
         if snr:
             new_spec = self.copy()
@@ -66,17 +85,9 @@ class Spectrum(frame.Frame):
             ip = new_spec.array(db=db)
         else:
             ip = self.array(db=db)
-            
-        # matplotlib extend order is (left, right, bottom, top)
-        if ftype == "fmid":
-            fs = self.fs - self.fmid
-        elif ftype == "fmin":
-            fs = self.fs - self.fmin
-        elif ftype == "f":
-            fs = self.fs
-        else:
-            # ftype == "px" or "bins"
-            fs = (self.fs - self.fs[0]) / self.df
+
+        axis_spec = _ResolvedAxisSpec.from_values(ftype=ftype)
+        fs = _get_spectrum_x_values(self, axis_spec)
 
         plt.plot(fs, ip, **kwargs)
 
@@ -86,19 +97,9 @@ class Spectrum(frame.Frame):
         if minor_ticks:
             faxis.set_minor_locator(ticker.AutoMinorLocator(n=5))
 
-        if ftype in ["fmid", "fmin", "f"]:
-            faxis.set_major_formatter(plt.FuncFormatter(plots._frequency_formatter(self, ftype)))
-            units = plots._get_extent_units(self)[1]
-            if ftype == "fmid":
-                flabel = f"Relative Frequency ({units}) from {self.fmid * 1e-6:.6f} MHz"
-            elif ftype == "fmin":
-                flabel = f"Relative Frequency ({units}) from {self.fmin * 1e-6:.6f} MHz"
-            else:
-                # ftype == "f"
-                flabel = f"Frequency (MHz)"
-        else:
-            # ftype == "px" or "bins"
-            flabel = f"Frequency ({ftype})"
+        if axis_spec.uses_frequency_units:
+            faxis.set_major_formatter(plt.FuncFormatter(_frequency_formatter(self, ftype)))
+        flabel = _get_frequency_axis_label(self, axis_spec)
 
         if db:
             y_units = "dB"
@@ -114,10 +115,7 @@ class Spectrum(frame.Frame):
         faxis.set_label_text(flabel)
         ax.yaxis.set_label_text(ylabel)
 
-    def normalize(self):
-        """
-        Normalize background to zero mean, unit variance.
-        """
+    def normalize(self) -> None:
+        """Normalize the spectrum background to zero mean and unit variance."""
         c_data = sigma_clip(self.data)
         self.data = (self.data - np.mean(c_data)) / np.std(c_data)
-

@@ -1,123 +1,59 @@
+from __future__ import annotations
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.offsetbox import AnchoredText
+from typing import Any
 
+from ._constants import ORDER_LABEL_METADATA_KEY
 from . import utils
+from ._plot.axes import (
+    _ResolvedAxisSpec,
+    _frequency_formatter,
+    _get_frame_frequency_edges,
+    _get_frame_time_edges,
+    _get_frequency_axis_label,
+    _get_time_axis_label,
+)
 
 
-def _get_extent_units(frame):
-    """
-    Simple function to get best frequency units for plots.
-    """
-    f_range = np.abs(frame.fmax - frame.fmin)
-    if f_range > 2e9:
-        return 1e9, "GHz"
-    elif f_range > 2e6:
-        return 1e6, "MHz" 
-    elif f_range > 2e3:
-        return 1e3, "kHz" 
-    else:
-        return 1, "Hz"
-    
+def plot_frame(frame: Any, 
+               ftype: str="fmid", 
+               ttype: str="same",
+               db: bool=True, 
+               colorbar: bool=True, 
+               label: bool=False,
+               minor_ticks: bool=False,
+               grid: bool=False,
+               swap_axes: bool=False,
+               **kwargs: Any) -> Any:
+    """Plot frame spectrogram data.
 
-def _frequency_formatter(frame, ftype):
-    if ftype == "fmid":
-        def formatter(x, pos):
-            return x / _get_extent_units(frame)[0]
-            x = x / _get_extent_units(frame)[0]
-            return f"{int(x):d}"
-    elif ftype == "fmin": 
-        def formatter(x, pos):
-            return x / _get_extent_units(frame)[0]
-            x = x / _get_extent_units(frame)[0]
-            return f"{int(x):d}"
-    else:
-        def formatter(x, pos):
-            return x / 1e6
-            x = x / 1e6
-            return f"{int(x):d}"
-    return formatter
+    Args:
+        frame: Frame to plot.
+        ftype: Frequency-axis display mode.
+        ttype: Time-axis display mode.
+        db: Whether to convert intensities to dB.
+        colorbar: Whether to display the colorbar.
+        label: Whether to place the source name as an anchored label.
+        minor_ticks: Whether to enable minor ticks.
+        grid: Whether to draw the major-tick grid.
+        swap_axes: Whether to swap frequency and time axes.
+        **kwargs: Additional `matplotlib.pyplot.imshow()` keyword arguments.
 
-
-def plot_frame(frame, 
-               ftype="fmid", 
-               ttype="same",
-               db=True, 
-               colorbar=True, 
-               label=False,
-               minor_ticks=False,
-               grid=False,
-               swap_axes=False,
-               **kwargs):
-    """
-    Plot frame spectrogram data.
-    
-    Parameters
-    ----------
-    frame : Frame
-        Frame to plot
-    ftype : {"fmid", "fmin", "f", "px", "bins"}, default: "fmid"
-        Type of frequency axis labels. "px" and "bins" put the axis in units of 
-        pixels (bins). The others are all in frequency: "fmid" shows frequencies 
-        relative to the central frequency, "fmin" is relative to the minimum 
-        frequency, and "f" is absolute frequency.
-    ttype : {"same", "trel", "px", "bins"}, default: "same"
-        Type of time axis labels. "same" matches time axis style with the 
-        frequency axis. "px" and "bins" put the axis in units of pixels (bins), 
-        and "trel" sets the axis in time units relative to the start.
-    db : bool, default: True
-        Option to convert intensities to dB
-    colorbar : bool, default: True
-        Whether to display colorbar
-    label : bool, default: False
-        Option to place target name as a label in plot
-    minor_ticks : bool, default: False
-        Option to include minor ticks on both axes
-    grid : bool, default: False
-        Option to overplot grid from major ticks
-    swap_axes : bool, default: False
-        Option to swap frequency and time axes
-
-    Return 
-    ------
-    p : matplotlib.image.AxesImage
-        Spectrogram axes object
+    Returns:
+        Spectrogram image artist.
     """
     # Scale intensity if necessary (log vs. linear)
     data = frame.data
     if db:
         data = utils.db(data)
 
-    # matplotlib extend order is (left, right, bottom, top)
-    if ftype == "fmid":
-        f_edge_min = frame.fmin - frame.fmid - frame.df / 2
-        f_edge_max = frame.fmax - frame.fmid + frame.df / 2
-    elif ftype == "fmin":
-        f_edge_min = -frame.df / 2
-        f_edge_max = frame.fmax - frame.fmin + frame.df / 2
-    elif ftype == "f":
-        f_edge_min = frame.fmin - frame.df / 2
-        f_edge_max = frame.fmax + frame.df / 2
-    else: 
-        # ftype == "px" or "bins"
-        f_edge_min = -1 / 2
-        f_edge_max = frame.fchans - 1 / 2
+    axis_spec = _ResolvedAxisSpec.from_values(ftype=ftype, ttype=ttype)
 
-    if ttype == "same":
-        if ftype in ["fmid", "fmin", "f"]:
-            t_edge_min = 0
-            t_edge_max = frame.tchans * frame.dt
-        else:
-            t_edge_min = -1 / 2
-            t_edge_max = frame.tchans - 1 / 2
-    elif ttype == "trel":
-        t_edge_min = 0
-        t_edge_max = frame.tchans * frame.dt
-    else:
-        # ttype == "px" or "bins"
-        t_edge_min = -1 / 2
-        t_edge_max = frame.tchans - 1 / 2
+    f_edge_min, f_edge_max = _get_frame_frequency_edges(frame, axis_spec)
+    t_edge_min, t_edge_max = _get_frame_time_edges(frame, axis_spec)
 
     # Arrange spectrogram plot and data as necessary
     if not swap_axes:
@@ -155,30 +91,10 @@ def plot_frame(frame,
         faxis.set_minor_locator(ticker.AutoMinorLocator(n=5))
         taxis.set_minor_locator(ticker.AutoMinorLocator())
 
-    if ftype in ["fmid", "fmin", "f"]:
+    if axis_spec.uses_frequency_units:
         faxis.set_major_formatter(plt.FuncFormatter(_frequency_formatter(frame, ftype)))
-        units = _get_extent_units(frame)[1]
-        if ftype == "fmid":
-            flabel = f"Relative Frequency ({units}) from {frame.fmid * 1e-6:.6f} MHz"
-        elif ftype == "fmin":
-            flabel = f"Relative Frequency ({units}) from {frame.fmin * 1e-6:.6f} MHz"
-        else:
-            # ftype == "f"
-            flabel = f"Frequency (MHz)"
-    else:
-        # ftype == "px" or "bins"
-        flabel = f"Frequency ({ftype})"
-    
-    if ttype == "same":
-        if ftype in ["fmid", "fmin", "f"]:
-            tlabel = "Time (s)"
-        else:
-            tlabel = f"Time ({ftype})"
-    elif ttype == "trel":
-        tlabel = "Time (s)"
-    else:
-        # ttype == "px" or "bins"
-        tlabel = f"Time ({ttype})"
+    flabel = _get_frequency_axis_label(frame, axis_spec)
+    tlabel = _get_time_axis_label(axis_spec)
 
     faxis.set_label_text(flabel)
     taxis.set_label_text(tlabel)
@@ -187,8 +103,8 @@ def plot_frame(frame,
         plt.grid(True)
         
     if label:
-        if "order_label" in frame.metadata:
-            source_label = f'{frame.metadata["order_label"]}: {frame.source_name}'
+        if ORDER_LABEL_METADATA_KEY in frame.metadata:
+            source_label = f'{frame.metadata[ORDER_LABEL_METADATA_KEY]}: {frame.source_name}'
         else:
             source_label = frame.source_name
                  
@@ -203,54 +119,38 @@ def plot_frame(frame,
     return p
 
                  
-def plot_cadence(cadence, 
-                 ftype="fmid", 
-                 ttype="same",
-                 db=True, 
-                 slew_times=False,
-                 colorbar=True, 
-                 labels=True,
-                 title=False,
-                 minor_ticks=False,
-                 grid=False,
-                 **kwargs):
-    """
-    Plot cadence as a multi-panel figure.
+def plot_cadence(cadence: Any, 
+                 ftype: str="fmid", 
+                 ttype: str="same",
+                 db: bool=True, 
+                 slew_times: bool=False,
+                 colorbar: bool=True, 
+                 labels: bool=True,
+                 title: bool=False,
+                 minor_ticks: bool=False,
+                 grid: bool=False,
+                 **kwargs: Any) -> tuple[Any, Any | None]:
+    """Plot a cadence as a vertically stacked figure.
 
-    Parameters
-    ----------
-    cadence : Cadence
-        Cadence to plot
-    ftype : {"fmid", "fmin", "f", "px", "bins"}, default: "fmid"
-        Type of frequency axis labels. "px" and "bins" put the axis in units of 
-        pixels (bins). The others are all in frequency: "fmid" shows frequencies 
-        relative to the central frequency, "fmin" is relative to the minimum 
-        frequency, and "f" is absolute frequency.
-    ttype : {"same", "trel", "px", "bins"}, default: "same"
-        Type of time axis labels. "same" matches time axis style with the 
-        frequency axis. "px" and "bins" put the axis in units of pixels (bins), 
-        and "trel" sets the axis in time units relative to the start.
-    db : bool, default: True
-        Option to convert intensities to dB
-    slew_times : bool, default: False
-        Option to space subplots vertically proportional to slew times
-    colorbar : bool, default: True
-        Whether to display colorbar
-    labels : bool, default: True
-        Option to place target name as a label in each subplot
-    title : bool, default: False
-        Option to place first source name as the figure title
-    minor_ticks : bool, default: False
-        Option to include minor ticks on both axes
-    grid : bool, default: False
-        Option to overplot grid from major ticks
+    Args:
+        cadence: Cadence to plot.
+        ftype: Frequency-axis display mode.
+        ttype: Time-axis display mode.
+        db: Whether to convert intensities to dB.
+        slew_times: Whether to space panels proportionally to slew time.
+        colorbar: Whether to display a shared colorbar.
+        labels: Whether to place source labels on each subplot.
+        title: Whether to add the first source name as the figure title.
+        minor_ticks: Whether to enable minor ticks.
+        grid: Whether to draw the major-tick grid.
+        **kwargs: Additional `matplotlib.figure.Figure.subplots()` keyword
+            arguments.
 
-    Return 
-    ------
-    axs : matplotlib.axes.Axes
-        Axes subplots
-    cax : matplotlib.axes.Axes
-        Colorbar axes, if created
+    Returns:
+        Tuple of subplot axes and optional colorbar axis.
+
+    Raises:
+        ValueError: If negative slew-time spacing is requested.
     """
     height_ratios = np.zeros(2 * len(cadence) - 1)
     for i, frame in enumerate(cadence):

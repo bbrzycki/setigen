@@ -1,20 +1,21 @@
-def get_slice(fr, l, r):
-    """
-    Slice frame data with left and right index bounds.
-    
-    Parameters
-    ----------
-    fr : Frame
-        Input frame
-    l : int
-        Left bound
-    r : int
-        Right bound
-        
-    Returns
-    -------
-    s_fr : Frame
-        Sliced frame
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .frame import Frame
+
+
+def get_slice(fr: Frame, l: int, r: int) -> Frame:
+    """Return a frequency slice of a frame.
+
+    Args:
+        fr: Input frame.
+        l: Left frequency index.
+        r: Right frequency index.
+
+    Returns:
+        Sliced frame.
     """
     s_data = fr.data[:, l:r]
 

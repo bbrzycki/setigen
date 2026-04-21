@@ -1,12 +1,11 @@
 import pytest
 import copy
 import matplotlib.pyplot as plt
-import numpy as np
-from numpy.testing import assert_allclose
 
 from astropy import units as u
 import setigen as stg
 from astropy.time import Time
+from setigen._plot.axes import _get_extent_units
 
 
 @pytest.fixture()
@@ -53,46 +52,93 @@ def test_plot_extents():
                       tchans=16,
                       df=1e6,
                       dt=18.253611008)
-    assert stg.plots._get_extent_units(frame) == (1e9, "GHz")
+    assert _get_extent_units(frame) == (1e9, "GHz")
     frame = stg.Frame(fchans=3e3,
                       tchans=16,
                       df=1e3,
                       dt=18.253611008)
-    assert stg.plots._get_extent_units(frame) == (1e6, "MHz")
+    assert _get_extent_units(frame) == (1e6, "MHz")
     frame = stg.Frame(fchans=1024,
                       tchans=16,
                       df=3,
                       dt=18.253611008)
-    assert stg.plots._get_extent_units(frame) == (1e3, "kHz")
+    assert _get_extent_units(frame) == (1e3, "kHz")
 
 
-def test_plot_frame_options(frame_setup):
+def test_plot_frame_options(frame_setup, recwarn):
     frame = copy.deepcopy(frame_setup)
-    frame.plot(ftype="fmid")
-    plt.show()
-    frame.plot(ftype="fmin", colorbar=False)
-    plt.show()
-    frame.plot(ftype="f", minor_ticks=True, label=True)
-    plt.show()
-    frame.plot(ftype="px", db=False, grid=True)
-    plt.show()
-    frame.plot(ftype="fmid", ttype="px", swap_axes=True)
-    plt.show()
-    frame.plot(ftype="px", ttype="trel", swap_axes=True)
-    plt.show()
+    assert frame.plot(ftype="fmid") is not None
+    assert frame.plot(ftype="fmin", colorbar=False) is not None
+    assert frame.plot(ftype="f", minor_ticks=True, label=True) is not None
+    assert frame.plot(ftype="px", db=False, grid=True) is not None
+    assert frame.plot(ftype="fmid", ttype="px", swap_axes=True) is not None
+    assert frame.plot(ftype="px", ttype="trel", swap_axes=True) is not None
+    assert frame.plot(ftype="bins", ttype="bins") is not None
+    assert plt.gca().get_xlabel() == "Frequency (bins)"
+    assert plt.gca().get_ylabel() == "Time (bins)"
+    assert not any("FigureCanvasAgg is non-interactive" in str(w.message)
+                   for w in recwarn.list)
 
 
-def test_plot_cadence_options(cadence_setup):
+def test_plot_cadence_options(cadence_setup, recwarn):
     cad = copy.deepcopy(cadence_setup)
-    cad.plot(ftype="fmid", slew_times=True)
-    plt.show()
-    cad.plot(ftype="fmin", colorbar=False, title=True)
-    plt.show()
-    cad.plot(ftype="f", minor_ticks=True, labels=False)
-    plt.show()
-    cad.plot(ftype="px", db=False, grid=True)
-    plt.show()
-    cad.plot(ftype="fmid", ttype="px")
-    plt.show()
-    cad.plot(ftype="px", ttype="trel")
-    plt.show()
+    axs, cax = cad.plot(ftype="fmid", slew_times=True)
+    assert axs is not None
+    assert cax is not None
+    axs = cad.plot(ftype="fmin", colorbar=False, title=True)
+    assert axs is not None
+    axs, cax = cad.plot(ftype="f", minor_ticks=True, labels=False)
+    assert axs is not None
+    assert cax is not None
+    axs, cax = cad.plot(ftype="px", db=False, grid=True)
+    assert axs is not None
+    assert cax is not None
+    axs, cax = cad.plot(ftype="fmid", ttype="px")
+    assert axs is not None
+    assert cax is not None
+    axs, cax = cad.plot(ftype="px", ttype="trel")
+    assert axs is not None
+    assert cax is not None
+    axs, cax = cad.plot(ftype="bins", ttype="bins")
+    assert axs.shape[0] == 2 * len(cad) - 1
+    assert cax is not None
+    assert not any("FigureCanvasAgg is non-interactive" in str(w.message)
+                   for w in recwarn.list)
+
+
+def test_spectrum_plot_labels():
+    spectrum = stg.Spectrum(fchans=16,
+                            df=1e3,
+                            dt=1,
+                            fch1=6 * u.GHz,
+                            seed=0)
+    spectrum.add_noise(1)
+
+    spectrum.plot(ftype="bins")
+    assert plt.gca().get_xlabel() == "Frequency (bins)"
+    assert plt.gca().get_ylabel() == "Integrated Power (Arbitrary Units)"
+    plt.close("all")
+
+    spectrum.plot(ftype="fmid", db=True)
+    assert "Relative Frequency" in plt.gca().get_xlabel()
+    assert plt.gca().get_ylabel() == "Integrated Power (dB)"
+    plt.close("all")
+
+
+def test_timeseries_plot_labels():
+    timeseries = stg.TimeSeries(tchans=16,
+                                df=1,
+                                dt=2,
+                                fch1=6 * u.GHz,
+                                seed=0)
+    timeseries.add_noise(1)
+
+    timeseries.plot(ttype="bins")
+    assert plt.gca().get_xlabel() == "Time (bins)"
+    assert plt.gca().get_ylabel() == "Integrated Power (Arbitrary Units)"
+    plt.close("all")
+
+    timeseries.plot(ttype="trel", db=True)
+    assert plt.gca().get_xlabel() == "Time (s)"
+    assert plt.gca().get_ylabel() == "Integrated Power (dB)"
+    plt.close("all")

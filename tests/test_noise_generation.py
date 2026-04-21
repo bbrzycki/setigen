@@ -4,7 +4,6 @@ import numpy as np
 
 from astropy import units as u
 import setigen as stg
-import blimpy as bl
 
 
 @pytest.fixture()

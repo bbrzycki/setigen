@@ -1,39 +1,30 @@
+from __future__ import annotations
+
 import numpy as np
 from astropy.stats import sigma_clip
 
 from . import waterfall_utils
 from . import split_utils
+from ._typing import PathLike, SeedLike
 
 
-def sample_gaussian_params(x_mean_array, 
-                           x_std_array, 
-                           x_min_array=None, 
-                           seed=None):
-    """
-    Sample Gaussian parameters (mean, std, min) from provided arrays.
+def sample_gaussian_params(
+    x_mean_array: np.ndarray,
+    x_std_array: np.ndarray,
+    x_min_array: np.ndarray | None = None,
+    seed: SeedLike = None,
+) -> tuple[float, float] | tuple[float, float, float]:
+    """Sample Gaussian parameters from empirical distributions.
 
-    Typical usage would be for select Gaussian noise properties for injection
-    into data frames.
+    Args:
+        x_mean_array: Candidate distribution means.
+        x_std_array: Candidate distribution standard deviations.
+        x_min_array: Optional candidate lower bounds.
+        seed: Random seed or generator.
 
-    Parameters
-    ----------
-    x_mean_array : ndarray
-        Array of potential means
-    x_std_array : ndarray
-        Array of potential standard deviations
-    x_min_array : ndarray, optional
-        Array of potential minimum values
-    seed : None, int, Generator, optional
-        Random seed or seed generator
-
-    Returns
-    -------
-    x_mean
-        Selected mean of distribution
-    x_std
-        Selected standard deviation of distribution
-    x_min
-        If x_min_array provided, selected minimum of distribution
+    Returns:
+        Tuple containing sampled mean and standard deviation, plus minimum when
+        `x_min_array` is provided.
     """
     rng = np.random.default_rng(seed)
     x_mean = rng.choice(x_mean_array)
@@ -50,33 +41,22 @@ def sample_gaussian_params(x_mean_array,
     return x_mean, x_std
 
 
-def get_parameter_distributions(waterfall_fn, fchans, tchans=None, f_shift=None):
-    """
-    Calculate parameter distributions for the mean, standard deviation,
-    and minimum of split filterbank data from real observations.
+def get_parameter_distributions(
+    waterfall_fn: PathLike,
+    fchans: int,
+    tchans: int | None = None,
+    f_shift: int | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Estimate empirical noise-parameter distributions from observations.
 
-    Parameters
-    ----------
-    waterfall_fn : str
-        Filterbank filename with .fil extension
-    fchans : int
-        Number of frequency samples per new filterbank file
-    tchans : int, optional
-        Number of time samples to select - will default from start of observation.
-        If None, just uses the entire integration time
-    f_shift : int, optional
-        Number of samples to shift when splitting filterbank. If
-        None, defaults to ``f_shift=f_window`` so that there is no
-        overlap between new filterbank files
+    Args:
+        waterfall_fn: Input filterbank filename.
+        fchans: Number of frequency samples per split frame.
+        tchans: Optional number of time samples to include.
+        f_shift: Optional shift in frequency bins between splits.
 
-    Returns
-    -------
-    x_mean_array
-        Distribution of means calculated from observations
-    x_std_array
-        Distribution of standard deviations calculated from observations
-    x_min_array
-        Distribution of minimums calculated from observations
+    Returns:
+        Arrays of empirical means, standard deviations, and minima.
     """
     split_generator = split_utils.split_waterfall_generator(waterfall_fn,
                                                             fchans,
@@ -102,29 +82,22 @@ def get_parameter_distributions(waterfall_fn, fchans, tchans=None, f_shift=None)
     return (x_mean_array, x_std_array, x_min_array)
 
 
-def get_mean_distribution(waterfall_fn, fchans, tchans=None, f_shift=None):
-    """
-    Calculate parameter distributions for the mean of split filterbank frames 
-    from real observations.
+def get_mean_distribution(
+    waterfall_fn: PathLike,
+    fchans: int,
+    tchans: int | None = None,
+    f_shift: int | None = None,
+) -> np.ndarray:
+    """Estimate an empirical distribution of mean intensities.
 
-    Parameters
-    ----------
-    waterfall_fn : str
-        Filterbank filename with .fil extension
-    fchans : int
-        Number of frequency samples per new filterbank file
-    tchans : int, optional
-        Number of time samples to select - will default from start of observation.
-        If None, just uses the entire integration time
-    f_shift : int, optional
-        Number of samples to shift when splitting filterbank. If
-        None, defaults to ``f_shift=f_window`` so that there is no
-        overlap between new filterbank files
+    Args:
+        waterfall_fn: Input filterbank filename.
+        fchans: Number of frequency samples per split frame.
+        tchans: Optional number of time samples to include.
+        f_shift: Optional shift in frequency bins between splits.
 
-    Returns
-    -------
-    x_mean_array
-        Distribution of means calculated from observations
+    Returns:
+        Array of empirical mean intensities.
     """
     split_generator = split_utils.split_waterfall_generator(waterfall_fn,
                                                             fchans,

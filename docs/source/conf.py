@@ -24,7 +24,7 @@ with open(setigen_path / "setigen/_version.py") as fp:
 # -- Project information -----------------------------------------------------
 
 project = u'setigen'
-copyright = u'2018-2023, Bryan Brzycki'
+copyright = u'2018-2026, Bryan Brzycki'
 author = u'Bryan Brzycki'
 
 # # The short X.Y version
@@ -84,8 +84,8 @@ exclude_patterns = ['modules.rst']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
-intersphinx_mapping = {'NumPy': ('http://docs.scipy.org/doc/numpy/', None),
-                       'matplotlib': ('http://matplotlib.org', None)}
+intersphinx_mapping = {'NumPy': ('https://numpy.org/doc/stable/', None),
+                       'matplotlib': ('https://matplotlib.org/stable/', None)}
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -186,4 +186,4 @@ texinfo_documents = [
 # -- Options for todo extension ----------------------------------------------
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = True
+todo_include_todos = False

@@ -1,59 +1,48 @@
-import sys
+from __future__ import annotations
+
 from pathlib import PurePath
 import numpy as np
 from blimpy import Waterfall
 
+from ._typing import PathLike
 
-def max_freq(waterfall):
-    """
-    Return central frequency of the highest-frequency bin in a .fil file.
 
-    Parameters
-    ----------
-    waterfall : str or Waterfall
-        Name of filterbank file or Waterfall object
+def max_freq(waterfall: PathLike | Waterfall) -> float:
+    """Return the highest channel-center frequency in a waterfall.
 
-    Returns
-    -------
-    fmax : float
-        Maximum frequency in data
+    Args:
+        waterfall: Filterbank filename or waterfall object.
+
+    Returns:
+        Maximum frequency in the data.
     """
     return np.sort(get_fs(waterfall))[-1]
 
 
-def min_freq(waterfall):
-    """
-    Return central frequency of the lowest-frequency bin in a .fil file.
+def min_freq(waterfall: PathLike | Waterfall) -> float:
+    """Return the lowest channel-center frequency in a waterfall.
 
-    Parameters
-    ----------
-    waterfall : str or Waterfall
-        Name of filterbank file or Waterfall object
+    Args:
+        waterfall: Filterbank filename or waterfall object.
 
-    Returns
-    -------
-    fmin : float
-        Minimum frequency in data
+    Returns:
+        Minimum frequency in the data.
     """
     return np.sort(get_fs(waterfall))[0]
 
 
-def get_data(waterfall, db=False):
-    """
-    Get time-frequency data from filterbank file as a 2d NumPy array.
+def get_data(waterfall: PathLike | Waterfall, db: bool = False) -> np.ndarray:
+    """Return waterfall data as a two-dimensional array.
 
-    Note: when multiple Stokes parameters are supported, this will have to
-    be expanded.
+    Args:
+        waterfall: Filterbank filename or waterfall object.
+        db: Whether to convert intensities to dB.
 
-    Parameters
-    ----------
-    waterfall : str or Waterfall
-        Name of filterbank file or Waterfall object
+    Returns:
+        Time-frequency data array.
 
-    Returns
-    -------
-    data : ndarray
-        Time-frequency data
+    Raises:
+        ValueError: If the waterfall input type is unsupported.
     """
     if isinstance(waterfall, (str, PurePath)):
         waterfall = Waterfall(waterfall)
@@ -66,19 +55,17 @@ def get_data(waterfall, db=False):
     return waterfall.data[:, 0, :]
 
 
-def get_fs(waterfall):
-    """
-    Get frequency values from filterbank file.
+def get_fs(waterfall: PathLike | Waterfall) -> np.ndarray:
+    """Return waterfall frequency values.
 
-    Parameters
-    ----------
-    waterfall : str or Waterfall
-        Name of filterbank file or Waterfall object
+    Args:
+        waterfall: Filterbank filename or waterfall object.
 
-    Returns
-    -------
-    fs : ndarray
-        Frequency values
+    Returns:
+        Frequency axis in MHz.
+
+    Raises:
+        ValueError: If the waterfall input type is unsupported.
     """
     if isinstance(waterfall, (str, PurePath)):
         waterfall = Waterfall(waterfall, load_data=False)
@@ -92,19 +79,17 @@ def get_fs(waterfall):
     return np.arange(fch1, fch1 + fchans * df, df)
 
 
-def get_ts(waterfall):
-    """
-    Get time values from filterbank file.
+def get_ts(waterfall: PathLike | Waterfall) -> np.ndarray:
+    """Return waterfall time values.
 
-    Parameters
-    ----------
-    waterfall : str or Waterfall
-        Name of filterbank file or Waterfall object
+    Args:
+        waterfall: Filterbank filename or waterfall object.
 
-    Returns
-    -------
-    ts : ndarray
-        Time values
+    Returns:
+        Time axis in seconds relative to the start.
+
+    Raises:
+        ValueError: If the waterfall input type is unsupported.
     """
     if isinstance(waterfall, (str, PurePath)):
         waterfall = Waterfall(waterfall, load_data=False)

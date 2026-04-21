@@ -11,6 +11,8 @@
 Installation
 ============
 
+|setigen| currently targets Python 3.10 through 3.14.
+
 You can use ``pip`` to install the package automatically:
 
 .. code-block:: bash
@@ -23,7 +25,18 @@ command line, execute:
 .. code-block:: bash
 
     git clone git@github.com:bbrzycki/setigen.git
-    python setup.py install
+    python -m pip install .
+
+For local development, install the package in editable mode with the project
+extras:
+
+.. code-block:: bash
+
+    python -m pip install -e ".[dev]"
+
+|setigen| includes a compatibility pin on ``setuptools`` because |blimpy|
+currently imports ``pkg_resources`` at runtime. Normal installs pick this up
+automatically.
 
 One of the dependencies for |setigen| is |blimpy|, which is used for working 
 with BL filterbank data products. Note that you can still generate synthetic 

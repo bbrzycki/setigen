@@ -10,16 +10,41 @@ else:
     import numpy as xp
 import numpy as np
 
-import pathlib
 from tqdm import tqdm
 import time
 import copy
-import glob
-from setigen import unit_utils
+from typing import Any
 from setigen.voltage import raw_utils
 from setigen.voltage import polyphase_filterbank
 from setigen.voltage import quantization
 from setigen.voltage import antenna as v_antenna
+from setigen.voltage._backend.headers import (
+    _read_next_block,
+)
+from setigen.voltage._backend.math import (
+    _get_block_size,
+    _get_total_obs_num_samples,
+)
+from setigen.voltage._backend.orchestration import (
+    _build_record_header,
+    _record_files,
+    _reset_recording_state,
+)
+from setigen.voltage._backend.pipeline import (
+    _channelize_voltage,
+    _get_num_samples_for_subblock,
+    _get_subblock_time_range,
+    _get_time_indices,
+    _get_windows_for_subblock,
+    _plan_subblocks,
+    _requantize_voltage,
+    _split_complex_components,
+    _store_complex_components,
+)
+from setigen.voltage._backend.recording import (
+    _RecordConfig,
+    _resolve_num_blocks,
+)
 
 
 class RawVoltageBackend(object):
@@ -28,48 +53,40 @@ class RawVoltageBackend(object):
     creation of GUPPI RAW voltage files from synthetic real voltages.
     """
     def __init__(self,
-                 antenna_source,
-                 digitizer,
-                 filterbank,
-                 requantizer,
-                 start_chan=0,
-                 num_chans=64,
-                 block_size=134217728,
-                 blocks_per_file=128,
-                 num_subblocks=32):
-        """
-        Initialize a RawVoltageBackend object, with an input antenna source (either Antenna or 
-        MultiAntennaArray), and backend elements (digitizer, filterbank, requantizer). Also, details 
-        behind the RAW file format and recording are specified on initialization, such as which
-        coarse channels are saved and the size of recording blocks.
+                 antenna_source: Any,
+                 digitizer: Any,
+                 filterbank: Any,
+                 requantizer: Any,
+                 start_chan: int = 0,
+                 num_chans: int = 64,
+                 block_size: int = 134217728,
+                 blocks_per_file: int = 128,
+                 num_subblocks: int = 32,
+                 max_working_set_bytes: int = 512 * 1024**2) -> None:
+        """Initialize a raw-voltage recording backend.
 
-        Parameters
-        ----------
-        antenna_source : Antenna or MultiAntennaArray
-            Antenna or MultiAntennaArray, from which real voltage data is created
-        digitizer : RealQuantizer or ComplexQuantizer, or list
-            Quantizer used to digitize input voltages. Either a single object to be used as a template
-            for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
-        filterbank : PolyphaseFilterbank, or list
-            Polyphase filterbank object used to channelize voltages. Either a single object to be used as a 
-            template for each antenna and polarization, or a 2D list of filterbank objects of shape 
-            (num_antennas, num_pols).
-        requantizer : ComplexQuantizer, or list
-            Quantizer used on complex channelized voltages. Either a single object to be used as a template
-            for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
-        start_chan : int, optional
-            Index of first coarse channel to be recorded
-        num_chans : int, optional
-            Number of coarse channels to be recorded
-        block_size : int, optional
-            Recording block size, in bytes
-        blocks_per_file : int, optional
-            Number of blocks to be saved per RAW file
-        num_subblocks : int, optional
-            Number of partitions per block, used for computation. If 
-            ``num_subblocks=1``, one block's worth of data will be passed 
-            through the pipeline and recorded at once. Use this parameter to 
-            reduce memory load, especially when using GPU acceleration.
+        Args:
+            antenna_source: `Antenna` or `MultiAntennaArray` providing voltage
+                samples.
+            digitizer: Digitizer template or per-antenna/per-polarization
+                digitizer matrix.
+            filterbank: PFB template or per-antenna/per-polarization filterbank
+                matrix.
+            requantizer: Requantizer template or per-antenna/per-polarization
+                requantizer matrix.
+            start_chan: Index of the first coarse channel to record.
+            num_chans: Number of coarse channels to record.
+            block_size: Output RAW block size in bytes.
+            blocks_per_file: Number of RAW blocks to place in each file.
+            num_subblocks: Requested number of computational subblocks per RAW
+                block.
+            max_working_set_bytes: Soft cap for transient per-subblock working
+                set. The backend may increase the effective subblock count to
+                stay within this budget.
+
+        Raises:
+            ValueError: If the antenna source is invalid.
+            TypeError: If a backend element has an unsupported type.
         """
         self.antenna_source = antenna_source
         if isinstance(antenna_source, v_antenna.Antenna):
@@ -90,6 +107,7 @@ class RawVoltageBackend(object):
         self.block_size = block_size
         self.blocks_per_file = blocks_per_file
         self.num_subblocks = num_subblocks
+        self.max_working_set_bytes = max_working_set_bytes
         
         self.digitizer = digitizer
         if isinstance(self.digitizer, quantization.RealQuantizer) or isinstance(self.digitizer, quantization.ComplexQuantizer):
@@ -169,46 +187,33 @@ class RawVoltageBackend(object):
     
     @classmethod
     def from_data(cls, 
-                  input_file_stem,
-                  antenna_source,
-                  digitizer=None,
-                  filterbank=None,
-                  start_chan=0,
-                  num_subblocks=32):
-        """
-        Initialize a RawVoltageBackend object, using existing RAW data as a background for
-        signal insertion and recording. Compared to normal initialization, some parameters are inferred 
-        from the input data.
+                  input_file_stem: str,
+                  antenna_source: Any,
+                  digitizer: Any = None,
+                  filterbank: Any = None,
+                  start_chan: int = 0,
+                  num_subblocks: int = 32,
+                  max_working_set_bytes: int = 512 * 1024**2) -> "RawVoltageBackend":
+        """Initialize a backend that injects signals into existing RAW input.
 
-        Parameters
-        ----------
-        input_file_stem : str
-            Filename or path stem to input RAW data
-        antenna_source : Antenna or MultiAntennaArray
-            Antenna or MultiAntennaArray, from which real voltage data is created
-        digitizer : RealQuantizer or ComplexQuantizer, or list, optional
-            Quantizer used to digitize input voltages. Either a single object to be used as a template
-            for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
-        filterbank : PolyphaseFilterbank, or list, optional
-            Polyphase filterbank object used to channelize voltages. Either a single object to be used as a 
-            template for each antenna and polarization, or a 2D list of filterbank objects of shape 
-            (num_antennas, num_pols).
-        start_chan : int, optional
-            Index of first coarse channel to be recorded
-        num_subblocks : int, optional
-            Number of partitions per block, used for computation. If 
-            ``num_subblocks=1``, one block's worth of data will be passed 
-            through the pipeline and recorded at once. Use this parameter to 
-            reduce memory load, especially when using GPU acceleration.
-            
-        Returns
-        -------
-        backend : RawVoltageBackend
-            Created backend object
+        Args:
+            input_file_stem: Path stem to the input RAW data.
+            antenna_source: `Antenna` or `MultiAntennaArray` providing injected
+                voltage samples.
+            digitizer: Optional digitizer template or per-stream matrix.
+            filterbank: Optional PFB template or per-stream matrix.
+            start_chan: Index of the first coarse channel to record.
+            num_subblocks: Requested number of computational subblocks per RAW
+                block.
+            max_working_set_bytes: Soft cap for transient per-subblock working
+                set.
+
+        Returns:
+                Initialized backend configured from the input RAW metadata.
         """
-        if digitizer == None:
+        if digitizer is None:
             digitizer = quantization.RealQuantizer()
-        if filterbank == None:
+        if filterbank is None:
             filterbank = polyphase_filterbank.PolyphaseFilterbank()
         requantizer = quantization.ComplexQuantizer()
         
@@ -238,7 +243,8 @@ class RawVoltageBackend(object):
                       num_chans=raw_params['num_chans'],
                       block_size=raw_params['block_size'],
                       blocks_per_file=blocks_per_file,
-                      num_subblocks=num_subblocks)
+                      num_subblocks=num_subblocks,
+                      max_working_set_bytes=max_working_set_bytes)
         
         backend.input_file_stem = input_file_stem   
         backend.input_num_blocks = raw_utils.get_total_blocks(input_file_stem)
@@ -251,235 +257,53 @@ class RawVoltageBackend(object):
         
         return backend
     
-    
-    def _header_populate_configuration(self, header_dict={}):
-        """
-        Populate the given dictionary with entries showing the configuration values.
-        
-        Parameters
-        ----------
-        header_dict : dict, optional
-            Dictionary of header values to set.
-        """
-        # Set header values determined by pipeline parameters
-        if 'TELESCOP' not in header_dict:
-            header_dict['TELESCOP'] = 'SETIGEN'
-        elif self.input_header_dict is not None and 'SETIGEN' not in self.input_header_dict['TELESCOP']:
-            header_dict['TELESCOP'] = f"{self.input_header_dict['TELESCOP'].strip()}_SETIGEN"
-        if 'OBSERVER' not in header_dict:
-            header_dict['OBSERVER'] = 'SETIGEN'
-        elif self.input_header_dict is not None and 'SETIGEN' not in self.input_header_dict['OBSERVER']:
-            header_dict['OBSERVER'] = f"{self.input_header_dict['OBSERVER'].strip()}_SETIGEN"
-        if 'SRC_NAME' not in header_dict:
-            header_dict['SRC_NAME'] = 'SYNTHETIC'
-        elif self.input_header_dict is not None and 'SYNTHETIC' not in self.input_header_dict['SRC_NAME']:
-            header_dict['SRC_NAME'] = f"{self.input_header_dict['SRC_NAME'].strip()}_SETIGEN"
-        
-        # Should not be able to manually change these header values
-        header_dict['NBITS'] = self.num_bits
-        header_dict['CHAN_BW'] = self.chan_bw * 1e-6
-        header_dict['NPOL'] = self.num_pols
-            
-        header_dict['BLOCSIZE'] = self.block_size
-        header_dict['SCANLEN'] = self.obs_length
-        header_dict['TBIN'] = self.tbin
-        if self.is_antenna_array:
-            header_dict['NANTS'] = self.num_antennas
-        header_dict['OBSNCHAN'] = self.num_chans * self.num_antennas
-        header_dict['OBSBW'] = self.chan_bw * self.num_chans * 1e-6
-
-        # Compute center frequency of recorded data
-        # self.chan_bw was already adjusted for ascending or descending frequencies 
-        center_freq = (self.start_chan + (self.num_chans - 1) / 2) * self.chan_bw
-        center_freq += self.fch1
-        header_dict['OBSFREQ'] = center_freq * 1e-6
-
-        if 'PKTIDX' not in header_dict:
-            header_dict['PKTIDX'] = 0
-        header_dict['PKTIDX'] = int(header_dict['PKTIDX'])
-        if 'PKTSTART' not in header_dict:
-            header_dict['PKTSTART'] = header_dict['PKTIDX']
-        header_dict['PKTSTOP'] = int(header_dict['PKTSTART']) + self.num_blocks*self.samples_per_block
-
-        return header_dict
-    
-    
-    def _header_add_from_template(self, header_dict={}):
-        """
-        Read all novel header lines into the given header dictionary.
-        
-        Parameters
-        ----------
-        header_dict : dict, optional
-            Dictionary of header values to set.
-        """
-        path = pathlib.Path(__file__).parent.resolve() / "assets/header_template.txt"
-        with open(path, 'r') as t:
-            for line in t.readlines():
-                key = line[:8].strip()
-                if key != 'END' and key not in header_dict:
-                    header_dict[key] = line[9:].strip()
-        return header_dict
-    
-    
-    def _header_add_from_input_header(self, header_dict={}):
-        """
-        Update all novel input header entries into the given header dictionary.
-        
-        Parameters
-        ----------
-        header_dict : dict, optional
-            Dictionary of header values to set.
-        """
-        for key, value in self.input_header_dict.items():
-            if key not in header_dict:
-                header_dict[key] = value.strip()
-        return header_dict
-
-    
-    def _make_header(self, f, header_dict):
-        """
-        Write all header lines out to file as bytes.
-        Also increments the 'PKTIDX' key-value.
-        
-        Parameters
-        ----------
-        f : file handle
-            File handle of open RAW file
-        header_dict : dict
-            Dictionary of header values to set.
-        """
-        directio = False
-
-        # preprocess DIRECTIO
-        if 'DIRECTIO' in header_dict:
-            directio = header_dict['DIRECTIO']
-            try:
-                if isinstance(directio, str):
-                    directio = int(directio.replace("'", ""))
-                directio = directio != 0
-            except BaseException as err:
-                tqdm(f'Could not parse DIRECTIO value `{header_dict["DIRECTIO"]}` ({repr(err)}). Replacing with `0`.')
-                header_dict['DIRECTIO'] = 0
-
-        # Write each line with space and zero padding
-        header_lines = 0
-        for key, value in header_dict.items():
-            value_is_encoded = (isinstance(value, str)
-                                and value[0] == "'")
-            line = raw_utils.format_header_line(key, 
-                                                value,
-                                                as_strings=value_is_encoded)
-            f.write(f"{line:<80}".encode())
-            header_lines += 1
-        f.write(f"{'END':<80}".encode())
-        header_lines += 1
-
-        # Pad header if directio
-        if directio:
-            f.write(bytearray(512 - (80 * header_lines % 512))) 
-
-        header_dict['PKTIDX'] += self.samples_per_block
-
-    
-    def _read_next_block(self):
-        """
-        Reads next block of data if input RAW files are provided, upon which synthetic data will 
-        be added. Also sets requantizer target statistics appropriately.
-        """
-        _ = self.input_file_handler.read(self.header_size)
-        data_chunk = self.input_file_handler.read(self.block_size)
-        
-        obsnchan = self.num_chans * self.num_antennas
-        rawbuffer = np.frombuffer(data_chunk, dtype=np.int8).reshape((obsnchan, int(self.block_size / obsnchan)))
-        input_voltages = np.zeros((obsnchan, int(rawbuffer.shape[1] / self.bytes_per_sample * self.num_pols)), 
-                                  dtype=complex)
-        
-        for antenna in range(self.num_antennas):
-            for pol in range(self.num_pols):
-                requantizer = self.requantizer[antenna][pol]
-                
-                c_idx = antenna * self.num_chans + np.arange(0, self.num_chans)
-                if self.num_bits == 8:
-                    t_idx = 2 * pol + np.arange(0, rawbuffer.shape[1], 2 * self.num_pols)
-                    
-                    R = rawbuffer[c_idx[:, np.newaxis], t_idx[np.newaxis, :]]
-                    I = rawbuffer[c_idx[:, np.newaxis], (t_idx+1)[np.newaxis, :]]
-                elif self.num_bits == 4:
-                    t_idx = pol + np.arange(0, rawbuffer.shape[1], self.num_pols)
-                    
-                    Q = rawbuffer[c_idx[:, np.newaxis], t_idx[np.newaxis, :]]
-                    R = Q // 16
-                    I = Q - 16 * R
-                    I[I >= 8] -= 16
-                else:
-                    raise ValueError(f'{self.num_bits} bits not supported...')
-                
-                requantizer.quantizer_r._set_target_stats(np.mean(R), np.std(R))
-                requantizer.quantizer_i._set_target_stats(np.mean(I), np.std(I))
-                
-                t_idx = pol + np.arange(0, input_voltages.shape[1], self.num_pols)
-                input_voltages[c_idx[:, np.newaxis], t_idx[np.newaxis, :]] = R + I * 1j
-        return input_voltages
-        
-    
     def collect_data_block(self,
-                           digitize=True,
-                           requantize=True,
-                           verbose=True):
-        """
-        General function to actually collect data from the antenna source and return coarsely channelized 
-        complex voltages. Collects one block of data.
-        
-        Parameters
-        ----------
-        digitize : bool, optional
-            Whether to quantize input voltages before the PFB
-        requantize : bool, optional
-            Whether to quantize output complex voltages after the PFB
-        verbose : bool, optional
-            Control whether tqdm prints progress messages 
-            
-        Returns
-        -------
-        final_voltages : array
-            Complex voltages formatted according to GUPPI RAW specifications; array of shape 
-            (num_chans * num_antennas, block_size / (num_chans * num_antennas))
+                           digitize: bool = True,
+                           requantize: bool = True,
+                           verbose: bool = True) -> np.ndarray:
+        """Collect one packed RAW data block from the antenna source.
+
+        Args:
+            digitize: Whether to quantize input voltages before the PFB.
+            requantize: Whether to quantize complex post-PFB voltages.
+            verbose: Whether to emit progress output.
+
+        Returns:
+                Packed RAW buffer with shape `(num_chans * num_antennas,
+                block_size / (num_chans * num_antennas))`.
+
+        Raises:
+            ValueError: If input RAW mixing is requested without requantization.
         """
         obsnchan = self.num_chans * self.num_antennas
-        final_voltages = np.empty((obsnchan, int(self.block_size / obsnchan)))
+        if requantize:
+            output_dtype = np.int8 if self.num_bits == 8 else np.uint8
+        else:
+            output_dtype = np.float32
+        final_voltages = np.empty((obsnchan, int(self.block_size / obsnchan)),
+                                  dtype=output_dtype)
         
         if self.input_file_stem is not None:
             if not requantize:
                 raise ValueError("Must set 'requantize=True' when using input RAW data!")
-            input_voltages = self._read_next_block()
-    
-        # Make sure that block_size is appropriate
-        assert self.block_size % int(obsnchan * self.num_taps * self.bytes_per_sample) == 0
-        T = int(self.block_size / (obsnchan * self.bytes_per_sample))
+            input_voltages = _read_next_block(self)
+        else:
+            input_voltages = None
 
-        W = int(xp.ceil(T / self.num_taps / self.num_subblocks)) + 1
-        subblock_T = self.num_taps * (W - 1)
-
-        # Change self.num_subblocks if necessary
-        self.num_subblocks = int(xp.ceil(T / subblock_T))
-        subblock_t_len = int(subblock_T * self.bytes_per_sample)
+        plan = _plan_subblocks(self, obsnchan=obsnchan)
+        self.num_subblocks = plan.num_subblocks
         
-        with tqdm(total=self.num_antennas*self.num_pols*self.num_subblocks, leave=False) as pbar:
+        with tqdm(total=self.num_antennas*self.num_pols*self.num_subblocks,
+                  leave=False,
+                  disable=not verbose) as pbar:
             pbar.set_description('Subblocks')
 
             for subblock in range(self.num_subblocks):
                 if verbose:
                     tqdm.write(f'Creating subblock {subblock}...')
 
-                # Change num windows at the end if self.num_subblocks doesn't go in evenly
-                if T % subblock_T != 0 and subblock == self.num_subblocks - 1:
-                    W = int((T % subblock_T) / self.num_taps) + 1
-
-                if self.antenna_source.start_obs:
-                    num_samples = self.num_branches * self.num_taps * W
-                else:
-                    num_samples = self.num_branches * self.num_taps * (W - 1)
+                windows = _get_windows_for_subblock(plan, self, subblock)
+                num_samples = _get_num_samples_for_subblock(self, windows=windows)
                     
                 # Calculate the real voltage samples from each antenna
                 t = time.time()
@@ -492,145 +316,95 @@ class RawVoltageBackend(object):
                         
                     c_idx = antenna * self.num_chans + np.arange(0, self.num_chans)
                     for pol in range(self.num_pols):
-                        # Store indices used for numpy data i/o per polarization
-                        if T % subblock_T != 0 and subblock == self.num_subblocks - 1:
-                            # Uses smaller num windows W
-                            subblock_t_range = self.num_taps * (W - 1) * self.bytes_per_sample
-                        else:
-                            subblock_t_range = subblock_t_len
-                        t_idx = subblock * subblock_t_len + self.num_bits // 4 * pol + np.arange(0,
-                                                                                                 subblock_t_range,
-                                                                                                 self.num_bits // 4 * self.num_pols)
+                        subblock_t_range = _get_subblock_time_range(plan,
+                                                                    self,
+                                                                    subblock=subblock,
+                                                                    windows=windows)
+                        t_idx = _get_time_indices(self,
+                                                  subblock=subblock,
+                                                  bytes_per_subblock=plan.bytes_per_subblock,
+                                                  subblock_time_range=subblock_t_range,
+                                                  pol=pol)
                         
                         # Send voltage data through the backend
                         v = antennas_v[antenna][pol]
-
-                        if digitize:
-                            t = time.time()
-                            v = self.digitizer[antenna][pol].quantize(v)
-                            self.digitizer_stage_t += time.time() - t
-
-                        t = time.time()
-                        v = self.filterbank[antenna][pol].channelize(v, cache=True)
-                        v = v[:, self.start_chan:self.start_chan+self.num_chans]
-                        self.filterbank_stage_t += time.time() - t
+                        v = _channelize_voltage(self,
+                                                v,
+                                                antenna=antenna,
+                                                pol=pol,
+                                                digitize=digitize)
 
                         if requantize:
-                            t = time.time()
-                            
-                            if self.input_file_stem is not None:
-                                temp_mean_r = self.requantizer[antenna][pol].quantizer_r.target_mean
-                                self.requantizer[antenna][pol].quantizer_r.target_mean = 0
-                                temp_mean_i = self.requantizer[antenna][pol].quantizer_i.target_mean
-                                self.requantizer[antenna][pol].quantizer_i.target_mean = 0
-    
-                                # Start off assuming signals are embedded in Gaussian noise with std 1
-                                if self.filterbank[antenna][pol].channelized_stds is None:
-                                    self.filterbank[antenna][pol].estimate_channelized_stds()
-                                custom_stds = self.filterbank[antenna][pol].channelized_stds
-                                
-                                # If digitizing real voltages, scale up by the appropriate factor
-                                if digitize:
-                                    custom_stds *= self.digitizer[antenna][pol].target_std
-                                v = self.requantizer[antenna][pol].quantize(v, custom_stds=custom_stds)
-                                
-                                self.requantizer[antenna][pol].quantizer_r.target_mean = temp_mean_r
-                                self.requantizer[antenna][pol].quantizer_i.target_mean = temp_mean_i
-                                
-                                if self.num_bits == 8:
-                                    input_v = input_voltages[c_idx[:, np.newaxis], (t_idx//2)[np.newaxis, :]]
-                                elif self.num_bits == 4:
-                                    input_v = input_voltages[c_idx[:, np.newaxis], t_idx[np.newaxis, :]]
-                                input_v = xp.array(input_v)
-                                v += input_v.T
-                                
-                            v = self.requantizer[antenna][pol].quantize(v)
-                            self.requantizer_stage_t += time.time() - t
+                            v = _requantize_voltage(self,
+                                                    v,
+                                                    antenna=antenna,
+                                                    pol=pol,
+                                                    c_idx=c_idx,
+                                                    t_idx=t_idx,
+                                                    input_voltages=input_voltages,
+                                                    digitize=digitize,
+                                                    xp=xp)
 
-                        # Convert to numpy array if using cupy, per GPU memory constraints
-                        try:
-                            R = xp.asnumpy(xp.real(v).T)  
-                            I = xp.asnumpy(xp.imag(v).T)  
-                        except AttributeError:
-                            R = xp.real(v).T
-                            I = xp.imag(v).T
-                            
-                        if self.num_bits == 8 or not requantize:
-                            final_voltages[c_idx[:, np.newaxis], t_idx[np.newaxis, :]] = R
-                            final_voltages[c_idx[:, np.newaxis], (t_idx+1)[np.newaxis, :]] = I
-                        elif self.num_bits == 4:
-                            # Translate 4 bit complex voltages to an 8 bit equivalent representation
-                            I[I < 0] += 16
-                            final_voltages[c_idx[:, np.newaxis], t_idx[np.newaxis, :]] = R * 16 + I
-                        else:
-                            raise ValueError(f'{self.num_bits} bits not supported...')
+                        R, I = _split_complex_components(v, xp=xp)
+                        _store_complex_components(self,
+                                                  final_voltages,
+                                                  c_idx=c_idx,
+                                                  t_idx=t_idx,
+                                                  real=R,
+                                                  imag=I,
+                                                  requantize=requantize)
 
                         pbar.update(1)
             
         return final_voltages    
     
     
-    def get_num_blocks(self, obs_length):
-        """
-        Calculate the number of blocks required as a function of observation length, in seconds. Note that only 
-        an integer number of blocks will be recorded, so the actual observation length may be shorter than the 
-        ``obs_length`` provided.
+    def get_num_blocks(self, obs_length: float) -> int:
+        """Calculate the number of RAW blocks implied by an observation length.
+
+        Args:
+            obs_length: Observation length in seconds.
+
+        Returns:
+                Number of full RAW blocks required.
         """
         return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         
     
     def record(self, 
-               output_file_stem,
-               obs_length=None, 
-               num_blocks=None,
-               length_mode='obs_length',
-               header_dict={},
-               digitize=True,
-               load_template=True,
-               verbose=True):
+               output_file_stem: str,
+               obs_length: float | None = None, 
+               num_blocks: int | None = None,
+               length_mode: str = 'obs_length',
+               header_dict: dict[str, Any] | None = None,
+               digitize: bool = True,
+               load_template: bool = True,
+               verbose: bool = True) -> None:
+        """Record one observation as one or more GUPPI RAW files.
+
+        Args:
+            output_file_stem: Path stem for the output RAW files.
+            obs_length: Observation length in seconds when using
+                `length_mode="obs_length"`.
+            num_blocks: Number of RAW blocks when using
+                `length_mode="num_blocks"`.
+            length_mode: Strategy for interpreting the supplied observation
+                length.
+            header_dict: Optional RAW header overrides and additions.
+            digitize: Whether to quantize input voltages before the PFB.
+            load_template: Whether to merge the built-in RAW header template.
+            verbose: Whether to emit progress output.
         """
-        General function to actually collect data from the antenna source and return coarsely channelized complex
-        voltages. If input data is provided, only as much data as is in the input will be generated.
-        
-        Parameters
-        ----------
-        output_file_stem : str
-            Filename or path stem; the suffix will be automatically appended
-        obs_length : float, optional
-            Length of observation in seconds, if in 'obs_length' mode
-        num_blocks : int, optional
-            Number of data blocks to record, if in 'num_blocks' mode
-        length_mode : str, optional
-            Mode for specifying length of observation, either 'obs_length' 
-            in seconds or 'num_blocks' in data blocks
-        header_dict : dict, optional
-            Dictionary of header values to set. Use to overwrite non-essential 
-            header values or add custom ones.
-        digitize : bool, optional
-            Whether to quantize input voltages before the PFB
-        verbose : bool, optional
-            Control whether tqdm prints progress messages 
-        load_template : bool, optional
-            Control whether the internal header template's keys are used.
-        """
-        if length_mode == 'obs_length':
-            if obs_length is None:
-                if self.input_num_blocks is not None:
-                    self.num_blocks = self.input_num_blocks
-                else:
-                    raise ValueError("Value not given for 'obs_length'.")
-            else:
-                self.num_blocks = self.get_num_blocks(obs_length)
-        elif length_mode == 'num_blocks':
-            if num_blocks is None:
-                if self.input_num_blocks is not None:
-                    self.num_blocks = self.input_num_blocks
-                else:
-                    raise ValueError("Value not given for 'num_blocks'.")
-            else:
-                self.num_blocks = num_blocks
-        else:
-            raise ValueError("Invalid option given for 'length_mode'.")
+        record_config = _RecordConfig.from_values(obs_length=obs_length,
+                                                  num_blocks=num_blocks,
+                                                  length_mode=length_mode,
+                                                  header_dict=header_dict,
+                                                  digitize=digitize,
+                                                  load_template=load_template,
+                                                  verbose=verbose)
+        self.num_blocks = _resolve_num_blocks(record_config.length,
+                                              get_num_blocks=self.get_num_blocks,
+                                              fallback_num_blocks=self.input_num_blocks)
         
         # Ensure that we don't request more blocks than possible
         if self.input_num_blocks is not None:
@@ -639,155 +413,85 @@ class RawVoltageBackend(object):
         self.obs_length = self.num_blocks * self.time_per_block
         self.total_obs_num_samples = int(self.obs_length / self.tbin) * self.num_branches
         
-        if load_template:
-            header_dict = self._header_add_from_template(header_dict)
-        if self.input_header_dict is not None:
-            header_dict = self._header_add_from_input_header(header_dict)
-        # Update header with config last to honor prior entries
-        header_dict = self._header_populate_configuration(header_dict)
-        
-        # Mark each antenna and data stream as the start of the observation
-        self.antenna_source.reset_start()
-        
-        # Reset filterbank cache as well
-        for antenna in range(self.num_antennas):
-            for pol in range(self.num_pols):
-                self.digitizer[antenna][pol]._reset_cache()
-                self.filterbank[antenna][pol]._reset_cache()
-                self.requantizer[antenna][pol]._reset_cache()
-            
-        # Collect data and record to disk
-        num_files = int(xp.ceil(self.num_blocks / self.blocks_per_file))
-        with tqdm(total=self.num_blocks) as pbar:
-            pbar.set_description('Blocks')
-            for i in range(num_files):
-                save_fn = f'{output_file_stem}.{i:04}.raw'
-                # Create input raw file handler for use in collecting data
-                if self.input_file_stem is not None:
-                    input_fn = f'{self.input_file_stem}.{i:04}.raw'
-                    self.input_file_handler = open(input_fn, 'rb')
-                with open(save_fn, 'wb') as f:
-                    # If blocks won't fill a whole file, adjust number of blocks to write at the end
-                    if i == num_files - 1 and self.num_blocks % self.blocks_per_file != 0:
-                        blocks_to_write = self.num_blocks % self.blocks_per_file
-                    else:
-                        blocks_to_write = self.blocks_per_file
-                    for j in range(blocks_to_write):
-                        if verbose:
-                            tqdm.write(f'Creating block {j}...')
-                        self._make_header(f, header_dict)
-                        v = self.collect_data_block(digitize=digitize, 
-                                                    requantize=True,
-                                                    verbose=verbose)
-
-                        f.write(xp.array(v, dtype=xp.int8).tobytes())
-                        if verbose:
-                            tqdm.write(f'File {i}, block {j} recorded!')
-                        pbar.update(1)
-                if self.input_file_stem is not None:
-                    self.input_file_handler.close()
+        header_dict = _build_record_header(self, record_config)
+        _reset_recording_state(self)
+        _record_files(self,
+                      output_file_stem=output_file_stem,
+                      record_config=record_config,
+                      header_dict=header_dict,
+                      xp=xp)
                     
              
-def get_block_size(num_antennas=1,
-                   tchans_per_block=128,
-                   num_bits=8,
-                   num_pols=2,
-                   num_branches=1024,
-                   num_chans=64,
-                   fftlength=1024,
-                   int_factor=4):
+def get_block_size(num_antennas: int = 1,
+                   tchans_per_block: int = 128,
+                   num_bits: int = 8,
+                   num_pols: int = 2,
+                   num_branches: int = 1024,
+                   num_chans: int = 64,
+                   fftlength: int = 1024,
+                   int_factor: int = 4) -> int:
+    """Calculate a RAW block size from the desired reduced-product dimensions.
+
+    Args:
+        num_antennas: Number of antennas.
+        tchans_per_block: Number of output time bins per RAW block after fine
+            channelization.
+        num_bits: Requantized bit depth, usually 8 or 4.
+        num_pols: Number of recorded polarizations.
+        num_branches: Number of PFB branches.
+        num_chans: Number of recorded coarse channels.
+        fftlength: Fine-channel FFT length.
+        int_factor: Fine-channel time integration factor.
+
+    Returns:
+            RAW block size in bytes.
     """
-    Calculate block size, given a desired number of time bins per RAW data block 
-    ``tchans_per_block``. Takes in backend parameters, including fine channelization
-    factors. Can be used to calculate reasonable block sizes for raw voltage recording.
-    
-    Parameters
-    ----------
-    num_antennas : int
-        Number of antennas
-    tchans_per_block : int
-        Final number of time bins in fine resolution product, per data block
-    num_bits : int
-        Number of bits in requantized data (for saving into file). Can be 8 or 4.
-    num_pols : int
-        Number of polarizations recorded
-    num_branches : int
-        Number of branches in polyphase filterbank 
-    num_chans : int
-        Number of coarse channels written to file
-    fftlength : int
-        FFT length to be used in fine channelization
-    int_factor : int, optional
-        Integration factor to be used in fine channelization
-    
-    Returns
-    -------
-    block_size : int
-        Block size, in bytes
-    """
-    obsnchan = num_chans * num_antennas
-    bytes_per_sample = 2 * num_pols * num_bits // 8
-    T = tchans_per_block * fftlength * int_factor
-    block_size = T * obsnchan * bytes_per_sample
-    return block_size
+    return _get_block_size(num_antennas=num_antennas,
+                           tchans_per_block=tchans_per_block,
+                           num_bits=num_bits,
+                           num_pols=num_pols,
+                           num_branches=num_branches,
+                           num_chans=num_chans,
+                           fftlength=fftlength,
+                           int_factor=int_factor)
 
 
-def get_total_obs_num_samples(obs_length=None, 
-                              num_blocks=None, 
-                              length_mode='obs_length',
-                              num_antennas=1,
-                              sample_rate=3e9,
-                              block_size=134217728,
-                              num_bits=8,
-                              num_pols=2,
-                              num_branches=1024,
-                              num_chans=64):
-    """
-    Calculate number of required real voltage time samples for as given 
-    ``obs_length`` or ``num_blocks``, without directly using a 
-    ``RawVoltageBackend`` object. 
-    
-    Parameters
-    ----------
-    obs_length : float, optional
-        Length of observation in seconds, if in 'obs_length' mode
-    num_blocks : int, optional
-        Number of data blocks to record, if in 'num_blocks' mode
-    length_mode : str, optional
-        Mode for specifying length of observation, either 'obs_length' in 
-        seconds or 'num_blocks' in data blocks
-    num_antennas : int
-        Number of antennas
-    sample_rate : float
-        Sample rate in Hz
-    block_size : int
-        Block size used in recording GUPPI RAW files
-    num_bits : int
-        Number of bits in requantized data (for saving into file). Can be 8 or 4.
-    num_pols : int
-        Number of polarizations recorded
-    num_branches : int
-        Number of branches in polyphase filterbank 
-    num_chans : int
-        Number of coarse channels written to file
-    
-    Returns
-    -------
-    num_samples : int
-        Number of samples
-    """
-    tbin = num_branches / sample_rate
-    chan_bw = 1 / tbin
-    bytes_per_sample = 2 * num_pols * num_bits / 8
-    if length_mode == 'obs_length':
-        if obs_length is None:
-            raise ValueError("Value not given for 'obs_length'.")
-        num_blocks = int(obs_length * chan_bw * num_antennas * num_chans * bytes_per_sample / block_size)
-    elif length_mode == 'num_blocks':
-        if num_blocks is None:
-            raise ValueError("Value not given for 'num_blocks'.")
-        pass
-    else:
-        raise ValueError("Invalid option given for 'length_mode'.")
-    return num_blocks * int(block_size / (num_antennas * num_chans * bytes_per_sample)) * num_branches
+def get_total_obs_num_samples(obs_length: float | None = None, 
+                              num_blocks: int | None = None, 
+                              length_mode: str = 'obs_length',
+                              num_antennas: int = 1,
+                              sample_rate: float = 3e9,
+                              block_size: int = 134217728,
+                              num_bits: int = 8,
+                              num_pols: int = 2,
+                              num_branches: int = 1024,
+                              num_chans: int = 64) -> int:
+    """Estimate the required real-voltage sample count without constructing a backend.
 
+    Args:
+        obs_length: Observation length in seconds when using
+            `length_mode="obs_length"`.
+        num_blocks: Number of RAW blocks when using
+            `length_mode="num_blocks"`.
+        length_mode: Strategy for interpreting the supplied observation length.
+        num_antennas: Number of antennas.
+        sample_rate: Time-domain sample rate in Hz.
+        block_size: RAW block size in bytes.
+        num_bits: Requantized bit depth.
+        num_pols: Number of recorded polarizations.
+        num_branches: Number of PFB branches.
+        num_chans: Number of recorded coarse channels.
+
+    Returns:
+            Estimated count of real voltage samples required.
+    """
+    return _get_total_obs_num_samples(obs_length=obs_length,
+                                      num_blocks=num_blocks,
+                                      length_mode=length_mode,
+                                      num_antennas=num_antennas,
+                                      sample_rate=sample_rate,
+                                      block_size=block_size,
+                                      num_bits=num_bits,
+                                      num_pols=num_pols,
+                                      num_branches=num_branches,
+                                      num_chans=num_chans)

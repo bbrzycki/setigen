@@ -1,9 +1,3 @@
-import pytest
-import copy
-import numpy as np
-from numpy.testing import assert_allclose
-
-from astropy import units as u
 import setigen as stg
 
 
@@ -19,4 +13,3 @@ def test_get_distributions(tmp_path):
 
     x_mean_array = stg.get_mean_distribution(dummy_fn, fchans=256)
     assert len(x_mean_array) == 10
-

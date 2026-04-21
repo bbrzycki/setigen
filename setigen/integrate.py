@@ -1,43 +1,90 @@
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any
+
 import numpy as np
 from astropy.stats import sigma_clip
 from . import utils
 from .spectrum import Spectrum 
 from .timeseries import TimeSeries
-    
 
-def integrate(fr, axis='t', mode='mean', normalize=False, as_frame=False):
+
+class IntegrationAxis(str, Enum):
+    """Supported axes for frame integration."""
+
+    TIME = "t"
+    FREQUENCY = "f"
+
+
+class IntegrationMode(str, Enum):
+    """Supported frame-integration modes."""
+
+    MEAN = "mean"
+    SUM = "sum"
+
+
+def _resolve_integration_axis(axis: IntegrationAxis | str | int) -> IntegrationAxis:
+    """Normalize a user-supplied integration axis.
+
+    Args:
+        axis: Raw axis selector.
+
+    Returns:
+        Normalized integration-axis enum value.
     """
-    Integrate along either time ('t', 0) or frequency ('f', 1) axes, to create 
-    spectra or time series data. Mode is either 'mean' or 'sum'.
-    
-    Parameters
-    ----------
-    fr : Frame, or 2D ndarray
-        Input frame or Numpy array
-    axis : int or str
-        Axis over which to integrate; time ('t', 0) or frequency ('f', 1)
-    mode : {"mean", "sum"}, default: "mean"
-        Integration mode
-    normalize : bool
-        Option to normalize integrated array to mean 0, std 1
-    as_frame : bool
-        Option to format result as a frame
-    
-    Returns
-    -------
-    output : ndarray or Frame
-        Integrated intensities
+    if axis in [IntegrationAxis.FREQUENCY, IntegrationAxis.FREQUENCY.value, 1]:
+        return IntegrationAxis.FREQUENCY
+    return IntegrationAxis.TIME
+
+
+def _resolve_integration_mode(mode: IntegrationMode | str) -> IntegrationMode:
+    """Normalize a user-supplied integration mode.
+
+    Args:
+        mode: Raw integration-mode selector.
+
+    Returns:
+        Normalized integration-mode enum value.
+    """
+    if isinstance(mode, IntegrationMode):
+        return mode
+    if isinstance(mode, str) and mode[:1].lower() == IntegrationMode.SUM.value[:1]:
+        return IntegrationMode.SUM
+    return IntegrationMode.MEAN
+
+
+def integrate(
+    fr: Any,
+    axis: IntegrationAxis | str | int = 't',
+    mode: IntegrationMode | str = 'mean',
+    normalize: bool = False,
+    as_frame: bool = False,
+) -> np.ndarray | Spectrum | TimeSeries:
+    """Integrate frame data over time or frequency.
+
+    Args:
+        fr: Input frame or two-dimensional array.
+        axis: Axis over which to integrate.
+        mode: Integration mode.
+        normalize: Whether to sigma-normalize the integrated result.
+        as_frame: Whether to return a `Spectrum` or `TimeSeries` object.
+
+    Returns:
+        Integrated one-dimensional data or frame-like object.
     """
     # If `data` is a Frame object, just grab its data
     data = utils.array(fr)
-    if axis in ['f', 1]:
+    resolved_axis = _resolve_integration_axis(axis)
+    resolved_mode = _resolve_integration_mode(mode)
+    if resolved_axis is IntegrationAxis.FREQUENCY:
         # Time series
         axis = 1
     else:
         # Spectrum
         axis = 0
         
-    if mode[0] == 's':
+    if resolved_mode is IntegrationMode.SUM:
         data = np.sum(data, axis=axis, keepdims=True)
     else:
         data = np.mean(data, axis=axis, keepdims=True)
@@ -47,7 +94,7 @@ def integrate(fr, axis='t', mode='mean', normalize=False, as_frame=False):
         data = (data - np.mean(c_data)) / np.std(c_data)
 
     if as_frame:
-        if axis in ['f', 1]:
+        if resolved_axis is IntegrationAxis.FREQUENCY:
             # Time series
             new_fr = TimeSeries(df=fr.df * fr.fchans,
                                 dt=fr.dt,
@@ -68,15 +115,29 @@ def integrate(fr, axis='t', mode='mean', normalize=False, as_frame=False):
         return data.flatten()
 
 
-def spectrum(fr, mode="mean", normalize=False):
-    """
-    Produce default Spectrum object from spectrogram Frame.
+def spectrum(fr: Any, mode: IntegrationMode | str = "mean", normalize: bool = False) -> Spectrum:
+    """Produce a `Spectrum` from a spectrogram frame.
+
+    Args:
+        fr: Input frame or array-like object.
+        mode: Integration mode.
+        normalize: Whether to sigma-normalize the result.
+
+    Returns:
+        Integrated spectrum.
     """
     return integrate(fr, axis=0, mode=mode, normalize=normalize, as_frame=True) 
 
 
-def timeseries(fr, mode="mean", normalize=False):
-    """
-    Produce default TimeSeries object from spectrogram Frame.
+def timeseries(fr: Any, mode: IntegrationMode | str = "mean", normalize: bool = False) -> TimeSeries:
+    """Produce a `TimeSeries` from a spectrogram frame.
+
+    Args:
+        fr: Input frame or array-like object.
+        mode: Integration mode.
+        normalize: Whether to sigma-normalize the result.
+
+    Returns:
+        Integrated time series.
     """
     return integrate(fr, axis=1, mode=mode, normalize=normalize, as_frame=True)

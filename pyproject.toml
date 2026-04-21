@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "setigen"
+description = "SETI radio signal generator"
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+license = { text = "MIT" }
+authors = [
+    { name = "Bryan Brzycki", email = "bryan@bryanbrzycki.com" },
+]
+dynamic = ["version"]
+dependencies = [
+    # blimpy still imports pkg_resources at runtime, so keep setuptools below
+    # the removal point until blimpy is updated.
+    "setuptools<81",
+    "click>=8.1.8",
+    "numpy>=1.21.6",
+    "scipy>=1.8.0",
+    "astropy>=5.0.4",
+    "blimpy>=2.1.4",
+    "matplotlib>=3.8.0",
+    "tqdm>=4.47.0",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8",
+    "pytest-cov>=4.1.0",
+]
+docs = [
+    "sphinx>=7",
+    "sphinx-rtd-theme>=3",
+]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=4.1.0",
+    "sphinx>=7",
+    "sphinx-rtd-theme>=3",
+]
+
+[project.urls]
+Documentation = "https://setigen.readthedocs.io/en/latest/"
+Source = "https://github.com/bbrzycki/setigen"
+Issues = "https://github.com/bbrzycki/setigen/issues"
+
+[project.scripts]
+setigen-raw-reduce = "setigen.voltage.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = "setigen._version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["setigen*"]
+
+[tool.setuptools.package-data]
+setigen = ["assets/*"]
+"setigen.voltage" = ["assets/*"]

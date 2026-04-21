@@ -191,9 +191,6 @@ class Frame(object):
             ValueError: If neither `fchans` nor `data` is supplied, or if the
                 supplied data shape is inconsistent with the backend parameters.
         """
-        chan_bw = sample_rate / num_branches
-        df = chan_bw / fftlength
-        
         if data is not None:
             tchans, fchans = data.shape
         elif fchans is None:

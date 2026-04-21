@@ -11,9 +11,7 @@ if GPU_FLAG == '1':
 else:
     import numpy as xp
     
-import numpy as np
 import scipy.signal
-from typing import Any
 
 from setigen._typing import SeedLike
 

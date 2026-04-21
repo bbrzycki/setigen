@@ -9,11 +9,8 @@ from typing import Any
 from ._constants import ORDER_LABEL_METADATA_KEY
 from . import utils
 from ._plot.axes import (
-    _FrequencyAxisKind,
     _ResolvedAxisSpec,
-    _TimeAxisKind,
     _frequency_formatter,
-    _get_extent_units,
     _get_frame_frequency_edges,
     _get_frame_time_edges,
     _get_frequency_axis_label,

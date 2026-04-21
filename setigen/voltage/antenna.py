@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import numpy as np
 
 GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
 if GPU_FLAG == '1':

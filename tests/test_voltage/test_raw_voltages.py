@@ -337,7 +337,6 @@ def test_raw_creation(antenna_setup,
     digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
     
     num_taps = filterbank.num_taps
-    num_branches = filterbank.num_branches
     num_pols = antenna.num_pols
     num_chans = 64
     block_size = num_taps * num_chans * 2 * num_pols
@@ -490,7 +489,6 @@ def test_raw_injection_no_directio(antenna_setup,
     digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
     
     num_taps = filterbank.num_taps
-    num_branches = filterbank.num_branches
     num_pols = antenna.num_pols
     num_chans = 64
     block_size = num_taps * num_chans * 2 * num_pols
@@ -688,7 +686,6 @@ def test_raw_injection_directio(antenna_setup,
     digitizer, filterbank, requantizer = copy.deepcopy(elements_setup)
     
     num_taps = filterbank.num_taps
-    num_branches = filterbank.num_branches
     num_pols = antenna.num_pols
     num_chans = 64
     block_size = num_taps * num_chans * 2 * num_pols
@@ -715,7 +712,6 @@ def test_raw_injection_directio(antenna_setup,
     
     # Test not using default obs template with zero-padding / directio
     raw_stem = tmp_path / 'example_1block'
-    raw_path = f"{raw_stem}.0000.raw"
     rvb.record(output_file_stem=raw_stem,
                num_blocks=2, 
                length_mode='num_blocks',
@@ -822,7 +818,6 @@ def test_4bit_multiantenna(antenna_array_setup,
     assert read_rvb.num_bits == 4
 
     read_raw_stem = tmp_path / 'example_multiantenna4bit_read'
-    read_raw_path = f"{read_raw_stem}.0000.raw"
     read_rvb.record(output_file_stem=read_raw_stem,
                     header_dict={'HELLO': 'test_value'},
                     verbose=False)

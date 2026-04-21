@@ -14,7 +14,6 @@ else:
 import numpy as np
 
 from . import data_stream
-from setigen._typing import SeedLike
 
 
 class RealQuantizer(object):

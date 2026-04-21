@@ -9,7 +9,6 @@ from setigen import unit_utils
 from setigen.voltage import data_stream
 
 if TYPE_CHECKING:
-    import numpy as np
     from numpy.random import Generator
 
 

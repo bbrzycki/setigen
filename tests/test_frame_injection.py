@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 import copy
 import numpy as np
 from numpy.testing import assert_allclose
@@ -177,11 +176,11 @@ def test_injection_tools(tmp_path):
     }
 
     with pytest.raises(ValueError) as exc_info:
-        intensity = frame.get_intensity(snr=100)
+        frame.get_intensity(snr=100)
     assert exc_info.type is ValueError
 
     with pytest.raises(ValueError) as exc_info:
-        snr = frame.get_snr(intensity=100)
+        frame.get_snr(intensity=100)
     assert exc_info.type is ValueError
 
     frame.add_noise(1)

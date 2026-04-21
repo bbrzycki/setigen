@@ -186,7 +186,6 @@ def get_dists(filename: PathLike, show: bool = True) -> None:
     """
     header = read_header(filename)
     with open(filename, "rb") as f:
-        i = 0
         header_size = int(512 * np.ceil((80 * (len(header) + 1)) / 512))
         f.read(header_size)
         

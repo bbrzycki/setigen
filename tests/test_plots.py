@@ -1,12 +1,11 @@
 import pytest
 import copy
 import matplotlib.pyplot as plt
-import numpy as np
-from numpy.testing import assert_allclose
 
 from astropy import units as u
 import setigen as stg
 from astropy.time import Time
+from setigen._plot.axes import _get_extent_units
 
 
 @pytest.fixture()
@@ -53,17 +52,17 @@ def test_plot_extents():
                       tchans=16,
                       df=1e6,
                       dt=18.253611008)
-    assert stg.plots._get_extent_units(frame) == (1e9, "GHz")
+    assert _get_extent_units(frame) == (1e9, "GHz")
     frame = stg.Frame(fchans=3e3,
                       tchans=16,
                       df=1e3,
                       dt=18.253611008)
-    assert stg.plots._get_extent_units(frame) == (1e6, "MHz")
+    assert _get_extent_units(frame) == (1e6, "MHz")
     frame = stg.Frame(fchans=1024,
                       tchans=16,
                       df=3,
                       dt=18.253611008)
-    assert stg.plots._get_extent_units(frame) == (1e3, "kHz")
+    assert _get_extent_units(frame) == (1e3, "kHz")
 
 
 def test_plot_frame_options(frame_setup, recwarn):

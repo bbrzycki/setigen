@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import copy
 import pickle
+from typing import Any
 
 import numpy as np
 
@@ -11,6 +14,7 @@ from . import unit_utils
 from . import slice
 from . import plots
 from . import utils
+from ._typing import BandpassProfileInput, FrequencyPathInput, FrequencyProfile, PathLike, SeedLike, TimeProfileInput
 from ._frame.construction import (
     _attach_loaded_waterfall,
     _initialize_frame_from_spec,
@@ -40,70 +44,32 @@ from ._frame.signal import (
 )
 
 class Frame(object):
-    """
-    A class to facilitate the creation of entirely synthetic radio data 
-    (narrowband signals + background noise) as well as signal injection into 
-    existing observations.
-    """
+    """Represent synthetic or waterfall-backed SETI spectrogram data."""
     def __init__(self,
-                 waterfall=None,
-                 fchans=None,
-                 tchans=None,
-                 df=2.7939677238464355*u.Hz,
-                 dt=18.253611008*u.s,
-                 fch1=6*u.GHz,
-                 ascending=False,
-                 data=None,
-                 seed=None,
-                 **kwargs):
-        """
-        Initialize a Frame object either from an existing .fil/.h5 file or
-        from frame resolution / size.
+                 waterfall: Any = None,
+                 fchans: int | None = None,
+                 tchans: int | None = None,
+                 df: Any = 2.7939677238464355*u.Hz,
+                 dt: Any = 18.253611008*u.s,
+                 fch1: Any = 6*u.GHz,
+                 ascending: bool = False,
+                 data: np.ndarray | None = None,
+                 seed: SeedLike = None,
+                 **kwargs: Any) -> None:
+        """Initialize a frame from synthetic dimensions or existing data.
 
-        If you are initializing based on a .fil or .h5, pass in either the
-        filename or the Waterfall object into the waterfall keyword.
-
-        Otherwise, you can initialize a frame by specifying the parameters
-        ``fchans``, ``tchans``, ``df``, ``dt``, and even ``fch1``, if it's important to
-        specify frequencies (8 GHz is an arbitrary but reasonable choice
-        otherwise). Note that the frame resolutions ``df`` and ``dt`` are given 
-        defaults based on the Breakthrough Listen high frequency resolution
-        data product -- be sure to change these if you are working with 
-        different kinds of data.
-        
-        The `data` keyword is only necessary if you are also
-        preloading data that matches your specified frame dimensions and
-        resolutions.
-
-        Parameters
-        ----------
-        waterfall : str or Waterfall, optional
-            Name of filterbank file or Waterfall object for preloading data
-        fchans : int, optional
-            Number of frequency samples
-        tchans: int, optional
-            Number of time samples
-        df : astropy.Quantity, optional
-            Frequency resolution (e.g. in u.Hz)
-        dt : astropy.Quantity, optional
-            Time resolution (e.g. in u.s)
-        fch1 : astropy.Quantity, optional
-            Central frequency of first channel. If ``ascending=True``, 
-            ``fch1`` is the minimum frequency; if ``ascending=False`` 
-            (default), ``fch1`` is the maximum frequency.
-        ascending : bool, optional
-            Specify whether frequencies should be in ascending order, so that 
-            ``fch1`` is the minimum frequency. Default is False, for which ``fch1``
-            is the maximum frequency. This is overwritten if a waterfall
-            object is provided, where ``ascending`` will be automatically 
-            determined by observational parameters.
-        data : ndarray, optional
-            2D array of intensities to preload into frame
-        seed : None, int, Generator, optional
-            Random seed or seed generator
-        **kwargs
-            For convenience, the ``shape`` keyword can be used in place of individually
-            setting ``fchans`` and ``tchans``, so that ``shape=(tchans, fchans)``.
+        Args:
+            waterfall: Waterfall object or path to a `.fil` or `.h5` file.
+            fchans: Number of frequency channels for synthetic initialization.
+            tchans: Number of time channels for synthetic initialization.
+            df: Frequency resolution.
+            dt: Time resolution.
+            fch1: Frequency of the first channel.
+            ascending: Whether the frequency axis should be ascending.
+            data: Optional preloaded frame data.
+            seed: Random seed or generator.
+            **kwargs: Additional construction keywords such as `shape`, `mjd`,
+                `t_start`, `source_name`, `f_start`, or `f_stop`.
         """
         self.rng = np.random.default_rng(seed)
         _initialize_frame_from_spec(
@@ -137,40 +103,31 @@ class Frame(object):
         self.metadata = self.get_params()
 
     @classmethod
-    def from_data(cls, df, dt, fch1, ascending, data, metadata=None, waterfall=None, seed=None):
-        """
-        Initialize Frame more directly from 2D numpy array of data.
-        
-        Parameters
-        ----------
-        df : astropy.Quantity
-            Frequency resolution (e.g. in u.Hz)
-        dt : astropy.Quantity
-            Time resolution (e.g. in u.s)
-        fch1 : astropy.Quantity
-            Central frequency of first channel. If ``ascending=True``, 
-            ``fch1`` is the minimum frequency; if ``ascending=False`` 
-            (default), ``fch1`` is the maximum frequency.
-        ascending : bool
-            Specify whether frequencies should be in ascending order, so that 
-            ``fch1`` is the minimum frequency. Default is False, for which ``fch1``
-            is the maximum frequency. This is overwritten if a waterfall
-            object is provided, where ``ascending`` will be automatically 
-            determined by observational parameters.
-        data : ndarray
-            2D array of intensities to preload into frame
-        metadata : dict, optional
-            Dictionary of features associated with the frame
-        waterfall : Waterfall, optional
-            Associated Waterfall object if data is derived from another frame object 
-            (accessed via ``frame.get_waterfall()``) or a blimpy waterfall object
-        seed : None, int, Generator, optional
-            Random seed or seed generator
-            
-        Returns
-        -------
-        frame : Frame
-            Frame object with preloaded data
+    def from_data(
+        cls,
+        df: Any,
+        dt: Any,
+        fch1: Any,
+        ascending: bool,
+        data: np.ndarray,
+        metadata: dict[str, Any] | None = None,
+        waterfall: Any = None,
+        seed: SeedLike = None,
+    ) -> "Frame":
+        """Build a frame directly from an in-memory data array.
+
+        Args:
+            df: Frequency resolution.
+            dt: Time resolution.
+            fch1: Frequency of the first channel.
+            ascending: Whether the frequency axis is ascending.
+            data: Preloaded frame data.
+            metadata: Optional metadata to attach to the frame.
+            waterfall: Optional associated waterfall object.
+            seed: Random seed or generator.
+
+        Returns:
+            Frame populated with the supplied data.
         """
         tchans, fchans = data.shape
         frame = cls(fchans=fchans,
@@ -188,65 +145,51 @@ class Frame(object):
         return frame
 
     @classmethod
-    def from_waterfall(cls, waterfall, seed=None):
-        """
-        Instantiate Frame using a filterbank file or blimpy Waterfall object.
+    def from_waterfall(cls, waterfall: Any, seed: SeedLike = None) -> "Frame":
+        """Build a frame from a waterfall-backed observation.
+
+        Args:
+            waterfall: Waterfall object or path to a supported file.
+            seed: Random seed or generator.
+
+        Returns:
+            Frame loaded from the supplied waterfall.
         """
         return cls(waterfall=waterfall, seed=seed)
     
     @classmethod
     def from_backend_params(cls,
-                            fchans=None,
-                            obs_length=300, 
-                            sample_rate=3e9, 
-                            num_branches=1024,
-                            fftlength=1048576,
-                            int_factor=51,
-                            fch1=6*u.GHz,
-                            ascending=False,
-                            data=None,
-                            seed=None):
-        """
-        Create frame based on backend / software related parameters.
-        Either ``fchans`` or ``data`` must be provided to get number of frequency
-        channels to create. If a 2D numpy array for ``data`` is provided, ``fchans``
-        will be inferred. The parameter ``int_factor`` must still be provided 
-        to determine ``tchans``; there is a check that the data dimensions also match.
-        Since multiple ``int_factor`` values may correspond to the same ``tchans``, 
-        for clarity we do not infer ``int_factor`` just from the dimensions of the data.
-        
-        Parameters
-        ----------
-        fchans : int, optional
-            Number of frequency samples. Should be provided if ``data`` is None.
-        obs_length : float, optional
-            Length of observation in seconds
-        sample_rate : float, optional
-            Physical sample rate, in Hz, for collecting real voltage data
-        num_branches : int, optional
-            Number of PFB branches. Note that this corresponds to ``num_branches / 2`` coarse channels.
-        fftlength : int, optional
-            FFT length to be used in fine channelization
-        int_factor : int, optional
-            Integration factor used in fine channelization. Determines ``tchans``.
-        fch1 : astropy.Quantity, optional
-            Central frequency of first channel. If ``ascending=True``, 
-            ``fch1`` is the minimum frequency; if ``ascending=False`` 
-            (default), ``fch1`` is the maximum frequency.
-        ascending : bool, optional
-            Specify whether frequencies should be in ascending order, so that 
-            ``fch1`` is the minimum frequency. Default is False, for which ``fch1``
-            is the maximum frequency.
-        data : ndarray, optional
-            2D array of intensities to preload into frame. If provided, ``fchans``
-            will be inferred from this. 
-        seed : None, int, Generator, optional
-            Random seed or seed generator
-            
-        Returns
-        -------
-        frame : Frame
-            Frame object with appropriate dimensions.
+                            fchans: int | None = None,
+                            obs_length: float = 300,
+                            sample_rate: float = 3e9,
+                            num_branches: int = 1024,
+                            fftlength: int = 1048576,
+                            int_factor: int = 51,
+                            fch1: Any = 6*u.GHz,
+                            ascending: bool = False,
+                            data: np.ndarray | None = None,
+                            seed: SeedLike = None) -> "Frame":
+        """Build a frame from backend-like observing parameters.
+
+        Args:
+            fchans: Number of frequency channels. Required when `data` is not
+                supplied.
+            obs_length: Observation length in seconds.
+            sample_rate: Real-voltage sample rate in Hz.
+            num_branches: Number of PFB branches.
+            fftlength: Fine-channel FFT length.
+            int_factor: Fine-channel integration factor.
+            fch1: Frequency of the first channel.
+            ascending: Whether the frequency axis is ascending.
+            data: Optional preloaded frame data.
+            seed: Random seed or generator.
+
+        Returns:
+            Frame with dimensions implied by the backend parameters.
+
+        Raises:
+            ValueError: If neither `fchans` nor `data` is supplied, or if the
+                supplied data shape is inconsistent with the backend parameters.
         """
         chan_bw = sample_rate / num_branches
         df = chan_bw / fftlength
@@ -275,9 +218,11 @@ class Frame(object):
                     seed=seed)
         return frame
         
-    def copy(self):
-        """
-        Return identical copy of frame.
+    def copy(self) -> "Frame":
+        """Return a deep copy of the frame.
+
+        Returns:
+            Independent frame copy.
         """
         c_frame = copy.deepcopy(self)
         # Note that since the __getstate__ function is overwritten, we need to
@@ -287,18 +232,15 @@ class Frame(object):
             c_frame.waterfall = copy.deepcopy(waterfall)
         return c_frame
 
-    def __getstate__(self):
+    def __getstate__(self) -> dict[str, Any]:
         # Exclude waterfall Waterfall object from pickle, since it uses open threads, which
         # can't be pickled -- note that this affects copy!
         state = self.__dict__.copy()
         state['waterfall'] = None
         return state
 
-    def _update_fs(self):
-        """
-        Calculate and update an array of frequencies represented in the
-        frame.
-        """
+    def _update_fs(self) -> None:
+        """Update the frame frequency axis and derived bounds."""
         # Normally, self.ascending will be False; filterbank convention is decreasing freqs
         if self.ascending:
             self.fmin = self.fch1
@@ -316,10 +258,8 @@ class Frame(object):
             self.fmin = self.fs[-1]
             self.fs = self.fs[::-1]
 
-    def _update_ts(self):
-        """
-        Calculate and update an array of times represented in the frame.
-        """
+    def _update_ts(self) -> None:
+        """Update the frame time axis."""
         self.ts = unit_utils.get_value(np.linspace(0,
                                                    self.tchans * self.dt,
                                                    self.tchans,
@@ -327,48 +267,58 @@ class Frame(object):
                                        u.s)
 
     @property
-    def fmid(self):
+    def fmid(self) -> float:
+        """Return the midpoint frequency of the frame."""
         return (self.fmin + self.fmax) / 2
         
     @property
-    def mjd(self):
+    def mjd(self) -> float:
+        """Return the frame start time in Modified Julian Date."""
         return Time(self.t_start, format='unix').mjd
     
     @property
-    def t_stop(self):
+    def t_stop(self) -> float:
+        """Return the observation stop time in Unix seconds."""
         return self.t_start + self.tchans * self.dt
 
     @property
-    def obs_length(self):
+    def obs_length(self) -> float:
+        """Return the total observation length in seconds."""
         return self.tchans * self.dt
     
     @property 
-    def ts_ext(self):
-        """
-        Extended time array of length ``tchans + 1``, including the ending
-        timestamp.    
-        """
+    def ts_ext(self) -> np.ndarray:
+        """Return the time axis extended by one final endpoint sample."""
         return np.append(self.ts, self.ts[-1] + self.dt)
 
     @property
-    def mean(self):
+    def mean(self) -> float:
+        """Return the mean intensity of the frame."""
         return np.mean(self.data)
 
     @property
-    def std(self):
+    def std(self) -> float:
+        """Return the standard deviation of the frame."""
         return np.std(self.data)
 
-    def get_total_stats(self):
+    def get_total_stats(self) -> tuple[float, float]:
+        """Return the mean and standard deviation of the full frame.
+
+        Returns:
+            Mean and standard deviation of the frame data.
+        """
         return self.mean, self.std
 
-    def get_noise_stats(self):
+    def get_noise_stats(self) -> tuple[float, float]:
+        """Return the sigma-clipped noise statistics for the frame.
+
+        Returns:
+            Sigma-clipped noise mean and standard deviation.
+        """
         return self.noise_mean, self.noise_std
 
-    def _update_noise_frame_stats(self):
-        """
-        Calculate and update basic noise statistics (mean and standard
-        deviation) of the frame, using sigma clipping to strip outliers.
-        """
+    def _update_noise_frame_stats(self) -> None:
+        """Update sigma-clipped noise statistics for the frame."""
         clipped_data = sigma_clip(self.data,
                                   sigma=3,
                                   maxiters=5,
@@ -376,45 +326,29 @@ class Frame(object):
         self.noise_mean = np.mean(clipped_data)
         self.noise_std = np.std(clipped_data)
 
-    def zero_data(self):
-        """
-        Reset data to a numpy array of zeros.
-        """
+    def zero_data(self) -> None:
+        """Reset frame data and cached noise statistics to zero."""
         self.data = np.zeros(self.shape)
         self.noise_mean = self.noise_std = 0
 
     def add_noise(self,
-                  x_mean,
-                  x_std=None,
-                  x_min=None,
-                  noise_type='chi2'):
-        """
-        By default, synthesize radiometer noise based on a chi-squared
-        distribution. Alternately, can generate pure Gaussian noise.
-        
-        Specifying ``noise_type='chi2'`` will only use ``x_mean``,
-        and ignore other parameters. Specifying ``noise_type='gaussian'``
-        will use all arguments (if provided).
-        
-        When adding Gaussian noise to the frame, the minimum is simply a
-        lower bound for intensities in the data (e.g. it may make sense to
-        cap intensities at 0), but this is optional.
+                  x_mean: float,
+                  x_std: float | None = None,
+                  x_min: float | None = None,
+                  noise_type: str = 'chi2') -> np.ndarray:
+        """Add synthetic radiometer or Gaussian noise to the frame.
 
-        Parameters
-        ----------
-        x_mean : float
-            Target mean
-        x_std : float, optional
-            Target standard deviation
-        x_min : float, optional
-            Lower bound for Gaussian noise
-        noise_type : {"chi2", "gaussian", "normal"}, default: "chi2"
-            Distribution to use for synthetic noise
+        Args:
+            x_mean: Target mean intensity.
+            x_std: Target standard deviation for Gaussian noise.
+            x_min: Optional lower bound for truncated Gaussian noise.
+            noise_type: Noise distribution selector.
 
-        Return
-        ------
-        noise : ndarray
-            Array of synthetic noise
+        Returns:
+            Synthetic noise array added to the frame.
+
+        Raises:
+            ValueError: If Gaussian noise is requested without `x_std`.
         """
         noise, x_mean, x_std = _generate_noise(
             _NoiseConfig.from_values(x_mean=x_mean,
@@ -437,47 +371,26 @@ class Frame(object):
         return noise
 
     def add_noise_from_obs(self,
-                           x_mean_array=None,
-                           x_std_array=None,
-                           x_min_array=None,
-                           share_index=True,
-                           noise_type='chi2'):
-        """
-        By default, synthesize radiometer noise based on a chi-squared
-        distribution. Alternately, can generate pure Gaussian noise.
-        
-        If no arrays are specified from which to sample, noise
-        samples will be drawn from saved GBT C-Band observations at
-        (dt, df) = (1.4 s, 1.4 Hz) resolution, from frames of shape
-        (tchans, fchans) = (32, 1024). These sample noise parameters consist
-        of 126500 samples for mean, std, and min of each observation.
-        
-        Specifying ``noise_type='chi2'`` will only use ``x_mean_array`` (if provided),
-        and ignore other parameters. Specifying noise_type='gaussian' will use
-        all arrays (if provided).
+                           x_mean_array: np.ndarray | None = None,
+                           x_std_array: np.ndarray | None = None,
+                           x_min_array: np.ndarray | None = None,
+                           share_index: bool = True,
+                           noise_type: str = 'chi2') -> np.ndarray:
+        """Add synthetic noise by sampling empirical observation parameters.
 
-        Note: this method will attempt to scale the noise parameters to match
-        self.dt and self.df. This assumes that the observation data products
-        are *not* normalized by the FFT length used to construct them.
+        Args:
+            x_mean_array: Candidate noise means.
+            x_std_array: Candidate noise standard deviations.
+            x_min_array: Candidate truncated-Gaussian minima.
+            share_index: Whether to sample correlated parameters by shared index.
+            noise_type: Noise distribution selector.
 
-        Parameters
-        ----------
-        x_mean_array : ndarray, optional
-            Array of potential means
-        x_std_array : ndarray, optional
-            Array of potential standard deviations
-        x_min_array : ndarray, optional
-            Array of potential minimum values
-        share_index : bool, optional, default: True
-            Whether to select noise parameters from the same index across each
-            provided array. If True, then each array must be the same length.
-        noise_type : {"chi2", "gaussian", "normal"}, default: "chi2"
-            Distribution to use for synthetic noise
+        Returns:
+            Synthetic noise array added to the frame.
 
-        Return
-        ------
-        noise : ndarray
-            Array of synthetic noise
+        Raises:
+            IndexError: If shared-index sampling is requested for mismatched
+                parameter arrays.
         """
         noise, x_mean, x_std = _generate_sampled_noise(
             _SampledNoiseConfig.from_values(x_mean_array=x_mean_array,
@@ -502,120 +415,39 @@ class Frame(object):
         return noise
 
     def add_signal(self,
-                   path,
-                   t_profile,
-                   f_profile,
-                   bp_profile=None,
-                   bounding_f_range=None,
-                   integrate_path=False,
-                   integrate_t_profile=False,
-                   integrate_f_profile=False,
-                   doppler_smearing=False,
-                   t_subsamples=10,
-                   f_subsamples=10,
-                   smearing_subsamples=10):
-        """
-        Generate synthetic signal.
+                   path: FrequencyPathInput,
+                   t_profile: TimeProfileInput,
+                   f_profile: FrequencyProfile,
+                   bp_profile: BandpassProfileInput | None = None,
+                   bounding_f_range: tuple[Any, Any] | None = None,
+                   integrate_path: bool = False,
+                   integrate_t_profile: bool = False,
+                   integrate_f_profile: bool = False,
+                   doppler_smearing: bool = False,
+                   t_subsamples: int = 10,
+                   f_subsamples: int = 10,
+                   smearing_subsamples: int = 10) -> np.ndarray:
+        """Add a synthetic signal to the frame.
 
-        Add a synethic signal using given path in time-frequency domain and
-        brightness profiles in time and frequency directions.
+        Args:
+            path: Signal path in time-frequency space.
+            t_profile: Time-intensity profile.
+            f_profile: Frequency profile callable.
+            bp_profile: Optional bandpass profile.
+            bounding_f_range: Optional bounding frequency range for rendering.
+            integrate_path: Whether to oversample and average the path in time.
+            integrate_t_profile: Whether to oversample and average the time
+                profile.
+            integrate_f_profile: Whether to oversample and average the frequency
+                profile.
+            doppler_smearing: Whether to numerically smear power across
+                frequency bins.
+            t_subsamples: Number of time subsamples per bin.
+            f_subsamples: Number of frequency subsamples per bin.
+            smearing_subsamples: Number of substeps used for Doppler smearing.
 
-        Parameters
-        ----------
-        path : function, np.ndarray, list, float
-            Function in time that returns frequencies, or provided array or
-            single value of frequencies for the center of the signal at each
-            time sample
-        t_profile : function, np.ndarray, list, float
-            Time profile: function in time that returns an intensity (scalar),
-            or provided array or single value of intensities at each time
-            sample
-        f_profile : function
-            Frequency profile: function in frequency that returns an intensity
-            (scalar), relative to the signal frequency within a time sample.
-            Note that unlike the other parameters, this must be a function
-        bp_profile : function, np.ndarray, list, float, optional
-            Bandpass profile: function in frequency that returns a relative
-            intensity (scalar, between 0 and 1), or provided array or single
-            value of relative intensities at each frequency sample
-        bounding_f_range : tuple
-            Tuple (bounding_min, bounding_max) that constrains the computation
-            of the signal to only a range in frequencies
-        integrate_path : bool, optional
-            Option to average path along time to get a more accurate frequency
-            position in t-f space. Note that this option only makes sense if
-            the provided path can be evaluated at the sub frequency sample
-            level (e.g. as opposed to returning a pre-computed array of
-            frequencies of length ``tchans``). Makes ``t_subsamples`` calculations
-            per time sample.
-        integrate_t_profile : bool, optional
-            Option to integrate ``t_profile`` in the time direction. Note that
-            this option only makes sense if the provided ``t_profile`` can be
-            evaluated at the sub time sample level (e.g. as opposed to
-            returning an array of intensities of length ``tchans``). Makes
-            ``t_subsamples`` calculations per time sample.
-        integrate_f_profile : bool, optional
-            Option to integrate ``f_profile`` in the frequency direction. Makes
-            ``f_subsamples`` calculations per time sample.
-        doppler_smearing : bool, optional
-            Option to numerically "Doppler smear" spectral power over 
-            frequency bins. At time t, averages ``smearing_subsamples`` copies of
-            the signal centered at evenly spaced center frequencies between 
-            times t and t+1. This causes the effective drop in power when 
-            the signal crosses multiple bins.
-        t_subsamples : int, optional
-            Number of bins for integration in the time direction, using
-            Riemann sums. Default is 10.
-        f_subsamples : int, optional
-            Number of bins for integration in the frequency direction, using
-            Riemann sums. Default is 10.
-        smearing_subsamples : int, optional
-            Number of steps for averaging evenly spaced copies of the signal 
-            between center frequencies at times t and t+1. Default is 10.
-        Returns
-        -------
-        signal : ndarray
-            Two-dimensional NumPy array containing synthetic signal data
-
-        Examples
-        --------
-        Here's an example that creates a linear Doppler-drifted signal with
-        chi-squared noise with sampled parameters:
-
-        >>> from astropy import units as u
-        >>> import setigen as stg
-        >>> fchans = 1024
-        >>> tchans = 32
-        >>> df = 2.7939677238464355*u.Hz
-        >>> dt = tsamp = 18.253611008*u.s
-        >>> fch1 = 6095.214842353016*u.MHz
-        >>> frame = stg.Frame(fchans=fchans,
-                              tchans=tchans,
-                              df=df,
-                              dt=dt,
-                              fch1=fch1)
-        >>> noise = frame.add_noise(x_mean=10)
-        >>> signal = frame.add_signal(stg.constant_path(f_start=frame.get_frequency(200),
-                                                        drift_rate=2*u.Hz/u.s),
-                                      stg.constant_t_profile(level=frame.get_intensity(snr=30)),
-                                      stg.gaussian_f_profile(width=40*u.Hz),
-                                      stg.constant_bp_profile(level=1))
-
-        Saving the noise and signals individually may be useful depending on
-        the application, but the combined data can be accessed via
-        frame.get_data(). The synthetic signal can then be visualized and
-        saved within a Jupyter notebook using:
-
-        >>> %matplotlib inline
-        >>> import matplotlib.pyplot as plt
-        >>> fig = plt.figure(figsize=(10, 6))
-        >>> frame.plot()
-        >>> plt.savefig('image.png', bbox_inches='tight')
-        >>> plt.show()
-
-        To run within a script, simply exclude the first line:
-        ``%matplotlib inline``.
-
+        Returns:
+            Two-dimensional signal array that was added to the frame.
         """
         bounding_min, bounding_max = _resolve_bounding_indices(self, bounding_f_range)
 
@@ -662,39 +494,24 @@ class Frame(object):
                                 f_subsamples=f_subsamples)
 
     def add_constant_signal(self,
-                            f_start,
-                            drift_rate,
-                            level,
-                            width,
-                            f_profile_type='sinc2',
-                            doppler_smearing=False):
-        """
-        A wrapper around add_signal() that injects a constant intensity,
-        constant drift_rate signal into the frame.
+                            f_start: Any,
+                            drift_rate: Any,
+                            level: float,
+                            width: Any,
+                            f_profile_type: str = 'sinc2',
+                            doppler_smearing: bool = False) -> np.ndarray:
+        """Add a constant-intensity, constant-drift signal to the frame.
 
-        Parameters
-        ----------
-        f_start : astropy.Quantity
-            Starting signal frequency
-        drift_rate : astropy.Quantity
-            Signal drift rate, in units of frequency per time
-        level : float
-            Signal intensity
-        width : astropy.Quantity
-            Signal width in frequency units
-        f_profile_type : {"sinc2", "box", "gaussian", "lorentzian", "voigt}, default: "sinc2"
-            Signal spectral profile
-        doppler_smearing : bool, optional, default: False
-            Option to numerically "Doppler smear" spectral power over 
-            frequency bins. At time t, averages ``drift_rate / frame.unit_drift_rate`` 
-            copies of the signal centered at evenly spaced center frequencies between 
-            times t and t+1. This causes the effective drop in power when 
-            the signal crosses multiple bins.
+        Args:
+            f_start: Starting signal frequency.
+            drift_rate: Signal drift rate.
+            level: Signal intensity.
+            width: Signal width.
+            f_profile_type: Spectral profile selector.
+            doppler_smearing: Whether to numerically smear power across bins.
 
-        Returns
-        -------
-        signal : ndarray
-            Two-dimensional NumPy array containing synthetic signal data
+        Returns:
+            Two-dimensional signal array that was added to the frame.
         """
         f_start = unit_utils.get_value(f_start, u.Hz)
         drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
@@ -710,48 +527,86 @@ class Frame(object):
                                               doppler_smearing=doppler_smearing),
         ))
 
-    def get_index(self, frequency):
-        """
-        Convert frequency to closest index in frame.
+    def get_index(self, frequency: Any) -> np.ndarray:
+        """Convert frequency to the closest channel index.
+
+        Args:
+            frequency: Frequency or array of frequencies to convert.
+
+        Returns:
+            Closest frame index or indices.
         """
         return np.round((unit_utils.get_value(frequency, u.Hz) - self.fmin) / self.df).astype(int)
 
-    def get_frequency(self, index):
-        """
-        Convert index to frequency.
+    def get_frequency(self, index: int | np.ndarray) -> float | np.ndarray:
+        """Convert a frame index into frequency.
+
+        Args:
+            index: Frame index or indices.
+
+        Returns:
+            Frequency value or array in Hz.
         """
         return self.fmin + self.df * index
 
-    def get_intensity(self, snr):
-        """
-        Calculate intensity from SNR, based on estimates of the noise in the
-        frame.
+    def get_intensity(self, snr: float) -> float:
+        """Calculate signal intensity from SNR using the frame noise estimate.
 
-        Note that there must be noise present in the frame for this to make
-        sense.
+        Args:
+            snr: Desired signal-to-noise ratio.
+
+        Returns:
+            Signal intensity that corresponds to the requested SNR.
+
+        Raises:
+            ValueError: If the frame does not yet contain measurable noise.
         """
         if self.noise_std == 0:
             raise ValueError('You must add noise in the image to specify SNR!')
         return snr * self.noise_std / np.sqrt(self.tchans)
 
-    def get_snr(self, intensity):
-        """
-        Calculate SNR from intensity.
+    def get_snr(self, intensity: float) -> float:
+        """Calculate SNR from signal intensity using the frame noise estimate.
 
-        Note that there must be noise present in the frame for this to make
-        sense.
+        Args:
+            intensity: Signal intensity.
+
+        Returns:
+            Signal-to-noise ratio for the supplied intensity.
+
+        Raises:
+            ValueError: If the frame does not yet contain measurable noise.
         """
         if self.noise_std == 0:
             raise ValueError('You must add noise in the image to return SNR!')
         return intensity * np.sqrt(self.tchans) / self.noise_std
 
-    def get_drift_rate(self, start_index, stop_index):
+    def get_drift_rate(self, start_index: int, stop_index: int) -> float:
+        """Calculate drift rate from pixel coordinates.
+
+        Args:
+            start_index: Starting frequency index.
+            stop_index: Ending frequency index.
+
+        Returns:
+            Drift rate in Hz/s.
+        """
         return (stop_index - start_index) * self.df / (self.tchans * self.dt)
 
-    def get_info(self):
+    def get_info(self) -> dict[str, Any]:
+        """Return the full frame attribute dictionary.
+
+        Returns:
+            Full frame attribute dictionary.
+        """
         return vars(self)
     
-    def get_params(self):
+    def get_params(self) -> dict[str, Any]:
+        """Return the core frame parameters.
+
+        Returns:
+            Dictionary of primary frame parameters.
+        """
         return {
             'fchans': self.fchans,
             'tchans': self.tchans,
@@ -761,133 +616,163 @@ class Frame(object):
             'ascending': self.ascending
         }
 
-    def get_data(self, db=False):
+    def get_data(self, db: bool = False) -> np.ndarray:
+        """Return frame data in linear or decibel units.
+
+        Args:
+            db: Whether to convert intensities to dB before returning them.
+
+        Returns:
+            Frame data array.
+        """
         if db:
             return 10 * np.log10(self.data)
         return self.data
 
-    def get_metadata(self):
+    def get_metadata(self) -> dict[str, Any]:
+        """Return attached frame metadata.
+
+        Returns:
+            Metadata dictionary associated with the frame.
+        """
         return self.metadata
 
-    def add_metadata(self, new_metadata):
-        """
-        Append custom metadata using a dictionary new_metadata.
+    def add_metadata(self, new_metadata: dict[str, Any]) -> None:
+        """Append custom metadata to the frame.
+
+        Args:
+            new_metadata: Metadata entries to merge into the frame metadata.
         """
         self.metadata.update(new_metadata)
         
-    def update_metadata(self, new_metadata):
+    def update_metadata(self, new_metadata: dict[str, Any]) -> None:
+        """Alias for `add_metadata()`.
+
+        Args:
+            new_metadata: Metadata entries to merge into the frame metadata.
+        """
         self.add_metadata(new_metadata)
         
     @utils._copy_docstring(plots.plot_frame)
-    def plot(self, *args, **kwargs):
+    def plot(self, *args: Any, **kwargs: Any) -> Any:
         return plots.plot_frame(self, *args, **kwargs)
         
     @utils._copy_docstring(slice.get_slice)
-    def get_slice(self, *args, **kwargs):
+    def get_slice(self, *args: Any, **kwargs: Any) -> Any:
         return slice.get_slice(self, *args, **kwargs)
         
     # @utils._copy_docstring(frame_utils.integrate)
     # def integrate(self, *args, **kwargs):
     #     return frame_utils.integrate(self, *args, **kwargs)
         
-    def get_waterfall(self):
-        """
-        Return current frame as a Waterfall object. Note: some filterbank
-        metadata may not be accurate anymore, depending on prior frame
-        manipulations.
+    def get_waterfall(self) -> Any:
+        """Return the current frame as an updated waterfall object.
+
+        Returns:
+            Waterfall representation of the frame.
         """
         _update_waterfall(self)
         return self.waterfall
     
-    def check_waterfall(self):
-        """
-        If an associated Waterfall object exists, update and return it. Otherwise,
-        return None. Useful to chain with ``setigen.Frame.from_data()`` if manipulating
-        completely synthetic data.
+    def check_waterfall(self) -> Any:
+        """Return the updated attached waterfall when one exists.
+
+        Returns:
+            Updated waterfall object or `None` when the frame has no attached
+            waterfall.
         """
         if self.waterfall is None:
             return None
         return self.get_waterfall()
 
-    def save_fil(self, filename, max_load=1):
-        """
-        Save frame data as a filterbank file (.fil).
+    def save_fil(self, filename: PathLike, max_load: int = 1) -> None:
+        """Save frame data as a SIGPROC filterbank file.
+
+        Args:
+            filename: Output `.fil` path.
+            max_load: Maximum load parameter for a lazily created waterfall.
         """
         _update_waterfall(self, filename=filename, max_load=max_load)
         _encode_bytestrings(self)
         self.waterfall.write_to_fil(filename)
         _decode_bytestrings(self)
 
-    def save_hdf5(self, filename, max_load=1):
-        """
-        Save frame data as an HDF5 file.
+    def save_hdf5(self, filename: PathLike, max_load: int = 1) -> None:
+        """Save frame data as an HDF5 waterfall file.
+
+        Args:
+            filename: Output `.h5` path.
+            max_load: Maximum load parameter for a lazily created waterfall.
         """
         _update_waterfall(self, filename=filename, max_load=max_load)
         _encode_bytestrings(self)
         self.waterfall.write_to_hdf5(filename)
         _decode_bytestrings(self)
 
-    def save_h5(self, filename, max_load=1):
-        """
-        Save frame data as an HDF5 file.
+    def save_h5(self, filename: PathLike, max_load: int = 1) -> None:
+        """Save frame data as an HDF5 waterfall file.
+
+        Args:
+            filename: Output `.h5` path.
+            max_load: Maximum load parameter for a lazily created waterfall.
         """
         self.save_hdf5(filename, max_load=max_load)
 
-    def save_npy(self, filename):
-        """
-        Save frame data as an .npy file.
+    def save_npy(self, filename: PathLike) -> None:
+        """Save frame data as a NumPy binary file.
+
+        Args:
+            filename: Output `.npy` path.
         """
         np.save(filename, self.data)
 
-    def load_npy(self, filename):
-        """
-        Load frame data from a .npy file.
+    def load_npy(self, filename: PathLike) -> None:
+        """Load frame data from a NumPy binary file.
+
+        Args:
+            filename: Input `.npy` path.
         """
         self.data = np.load(filename)
 
-    def save_pickle(self, filename):
-        """
-        Save entire frame as a pickled file (.pickle).
+    def save_pickle(self, filename: PathLike) -> None:
+        """Serialize the full frame with pickle.
+
+        Args:
+            filename: Output pickle path.
         """
         with open(filename, "wb") as f:
             pickle.dump(self, f)
 
     @classmethod
-    def load_pickle(cls, filename):
-        """
-        Load Frame object from a pickled file (.pickle), created with 
-        :func:`~setigen.frame.Frame.save_pickle`.
+    def load_pickle(cls, filename: PathLike) -> "Frame":
+        """Load a frame from a pickled file.
+
+        Args:
+            filename: Input pickle path created by `save_pickle()`.
+
+        Returns:
+            Deserialized frame object.
         """
         with open(filename, "rb") as f:
             return pickle.load(f)
 
     
-def params_from_backend(obs_length=300, 
-                        sample_rate=3e9, 
-                        num_branches=1024,
-                        fftlength=1048576,
-                        int_factor=51):
-    """
-    Return frame parameters calculated from data backend characteristics.
+def params_from_backend(obs_length: float = 300, 
+                        sample_rate: float = 3e9, 
+                        num_branches: int = 1024,
+                        fftlength: int = 1048576,
+                        int_factor: int = 51) -> dict[str, float]:
+    """Return frame parameters implied by backend characteristics.
 
-    Parameters
-    ----------
-    obs_length : float, optional
-        Length of observation in seconds
-    sample_rate : float, optional
-        Physical sample rate, in Hz, for collecting real voltage data
-    num_branches : int, optional
-        Number of PFB branches. Note that this corresponds to 
-        ``num_branches / 2`` coarse channels.
-    fftlength : int, optional
-        FFT length to be used in fine channelization
-    int_factor : int, optional
-        Integration factor used in fine channelization. Determines ``tchans``.
+    Args:
+        obs_length: Observation length in seconds.
+        sample_rate: Real-voltage sample rate in Hz.
+        num_branches: Number of PFB branches.
+        fftlength: Fine-channel FFT length.
+        int_factor: Fine-channel integration factor.
 
-    Returns
-    -------
-    param_dict : dict
-        Dictionary of parameters
+    Returns:
+        Dictionary containing `tchans`, `df`, and `dt`.
     """
     chan_bw = sample_rate / num_branches
     df = chan_bw / fftlength

@@ -5,21 +5,34 @@ For any given time sample,
 these functions map out the intensity in the frequency direction (centered at
 a particular frequency).
 """
+from __future__ import annotations
+
 from enum import Enum
 
 import numpy as np
 from astropy import units as u
 
 from setigen import unit_utils
+from setigen._typing import FrequencyProfile
 from setigen.funcs import func_utils
 
 
 class WidthMode(str, Enum):
+    """Supported width interpretations for sinc-squared profiles."""
+
     CROSSING = "crossing"
     FWHM = "fwhm"
 
 
-def _coerce_width_mode(width_mode):
+def _coerce_width_mode(width_mode: str | WidthMode) -> WidthMode:
+    """Normalize a user-supplied width mode.
+
+    Args:
+        width_mode: Raw width-mode selector.
+
+    Returns:
+        Normalized width-mode enum value.
+    """
     if isinstance(width_mode, WidthMode):
         return width_mode
     if width_mode == WidthMode.FWHM.value:
@@ -27,18 +40,14 @@ def _coerce_width_mode(width_mode):
     return WidthMode.CROSSING
 
 
-def box_f_profile(width):
-    """
-    Square intensity profile in the frequency direction.
-    
-    Parameters
-    ----------
-    width : float or astropy.Quantity
-        Width of signal
+def box_f_profile(width: float | u.Quantity) -> FrequencyProfile:
+    """Return a box spectral profile.
 
-    Return
-    ------
-    f_profile : func
+    Args:
+        width: Signal width.
+
+    Returns:
+        Frequency-profile callable.
     """
     width = unit_utils.get_value(width, u.Hz)
 
@@ -47,18 +56,14 @@ def box_f_profile(width):
     return f_profile
 
 
-def gaussian_f_profile(width):
-    """
-    Gaussian profile.
-    
-    Parameters
-    ----------
-    width : float or astropy.Quantity
-        FWHM of Gaussian profile
+def gaussian_f_profile(width: float | u.Quantity) -> FrequencyProfile:
+    """Return a Gaussian spectral profile.
 
-    Return
-    ------
-    f_profile : func
+    Args:
+        width: Gaussian FWHM.
+
+    Returns:
+        Frequency-profile callable.
     """
     width = unit_utils.get_value(width, u.Hz)
     factor = 2 * np.sqrt(2 * np.log(2))
@@ -69,18 +74,14 @@ def gaussian_f_profile(width):
     return f_profile
 
 
-def multiple_gaussian_f_profile(width):
-    """
-    Example adding multiple Gaussians in the frequency direction.
-    
-    Parameters
-    ----------
-    width : float or astropy.Quantity
-        FWHM of Gaussian profile
+def multiple_gaussian_f_profile(width: float | u.Quantity) -> FrequencyProfile:
+    """Return a multi-component Gaussian spectral profile.
 
-    Return
-    ------
-    f_profile : func
+    Args:
+        width: Gaussian FWHM.
+
+    Returns:
+        Frequency-profile callable.
     """
     width = unit_utils.get_value(width, u.Hz)
     factor = 2 * np.sqrt(2 * np.log(2))
@@ -94,18 +95,14 @@ def multiple_gaussian_f_profile(width):
     return f_profile
 
 
-def lorentzian_f_profile(width):
-    """
-    Lorentzian profile.
-    
-    Parameters
-    ----------
-    width : float or astropy.Quantity
-        FWHM of Lorentzian profile
+def lorentzian_f_profile(width: float | u.Quantity) -> FrequencyProfile:
+    """Return a Lorentzian spectral profile.
 
-    Return
-    ------
-    f_profile : func
+    Args:
+        width: Lorentzian FWHM.
+
+    Returns:
+        Frequency-profile callable.
     """
     width = unit_utils.get_value(width, u.Hz)
     gamma = width / 2
@@ -115,22 +112,15 @@ def lorentzian_f_profile(width):
     return f_profile
 
 
-def voigt_f_profile(g_width, l_width):
-    """
-    Voigt profile.
-    
-    Further information here: https://en.wikipedia.org/wiki/Voigt_profile.
-    
-    Parameters
-    ----------
-    g_width : float or astropy.Quantity
-        FWHM of Gaussian profile
-    l_width : float or astropy.Quantity
-        FWHM of Lorentzian profile
+def voigt_f_profile(g_width: float | u.Quantity, l_width: float | u.Quantity) -> FrequencyProfile:
+    """Return a Voigt spectral profile.
 
-    Return
-    ------
-    f_profile : func
+    Args:
+        g_width: Gaussian FWHM.
+        l_width: Lorentzian FWHM.
+
+    Returns:
+        Frequency-profile callable.
     """
     g_width = unit_utils.get_value(g_width, u.Hz)
     factor = 2 * np.sqrt(2 * np.log(2))
@@ -144,29 +134,20 @@ def voigt_f_profile(g_width, l_width):
     return f_profile
 
 
-def sinc2_f_profile(width, width_mode="crossing", trunc=True):
-    """
-    Sinc squared profile; width is the FWHM of the squared normalized sinc function.
-    
-    The trunc parameter controls whether or not the sinc squared profile is 
-    truncated at the first root (e.g. zeroed out for more distant frequencies).
+def sinc2_f_profile(
+    width: float | u.Quantity,
+    width_mode: str | WidthMode = "crossing",
+    trunc: bool = True,
+) -> FrequencyProfile:
+    """Return a sinc-squared spectral profile.
 
-    Note that you can model an ideal cosine signal by using 
-    ``width=2*frame.df``, ``width_mode="crossing"``, and ``trunc=False``.
-    
-    Parameters
-    ----------
-    width : float or astropy.Quantity
-        Signal width, in Hz
-    width_mode : {"crossing", "fwhm"}, default: "crossing"
-        How to interpret ``width``. Can be "crossing" or "fwhm", for 
-        zero crossing.
-    trunc : bool, default: True
-        Whether to truncate signal after first zero crossing
+    Args:
+        width: Signal width in Hz.
+        width_mode: Whether `width` is interpreted as zero-crossing or FWHM.
+        trunc: Whether to truncate after the first zero crossing.
 
-    Return
-    ------
-    f_profile : func
+    Returns:
+        Frequency-profile callable.
     """
     width = unit_utils.get_value(width, u.Hz)
     resolved_width_mode = _coerce_width_mode(width_mode)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
@@ -12,45 +14,26 @@ else:
 import numpy as np
 
 from . import data_stream
+from setigen._typing import SeedLike
 
 
 class RealQuantizer(object):
-    """
-    Implement a quantizer for input voltages.
-    """
+    """Quantize real-valued voltages to integer levels."""
     
     def __init__(self,
-                 target_mean=0,
-                 target_fwhm=32, 
-                 num_bits=8, 
-                 stats_calc_period=1,
-                 stats_calc_num_samples=10000):
-        """
-        Initialize a quantizer, which maps real input voltages to integers between
-        -2**(``num_bits`` - 1) and 2**(``num_bits`` - 1) - 1, inclusive. Specifically, it estimates the
-        mean and standard deviation of the voltages, and maps to 0 mean and a target full width at
-        half maximum (FWHM). Voltages that extend past the quantized voltage range are clipped
-        accordingly.
-        
-        The mean and standard deviation calculations can be limited to save computation using the 
-        ``stats_calc_period`` and ``stats_calc_num_samples`` parameters. The former is an integer that
-        specifies the period of computation; if 1, it computes the stats every time. If set to a 
-        non-positive integer, like -1, the computation will run once during the first call and never
-        again. The latter specifies the maximum number of voltage samples to use in calculating the 
-        statistics; depending on the nature of the input voltages, a relatively small number of samples 
-        may be sufficient for capturing the general distribution of voltages.
+                 target_mean: float=0,
+                 target_fwhm: float=32, 
+                 num_bits: int=8, 
+                 stats_calc_period: int=1,
+                 stats_calc_num_samples: int=10000) -> None:
+        """Initialize a real-valued quantizer.
 
-        Parameters
-        ----------
-        target_fwhm : float, optional
-            Target FWHM
-        num_bits : int, optional
-            Number of bits to quantize to. Quantized voltages will span -2**(``num_bits`` - 1) 
-            to 2**(``num_bits`` - 1) - 1, inclusive.
-        stats_calc_period : int, optional
-            Sets the period for computing the mean and standard deviation of input voltages
-        stats_calc_num_samples : int, optional
-            Maximum number of samples for use in estimating noise statistics
+        Args:
+            target_mean: Target mean of the quantized values.
+            target_fwhm: Target full width at half maximum.
+            num_bits: Number of quantization bits.
+            stats_calc_period: Period for recomputing input statistics.
+            stats_calc_num_samples: Maximum samples used for statistic estimates.
         """
         self.target_mean = target_mean
         self.target_fwhm = target_fwhm
@@ -64,47 +47,33 @@ class RealQuantizer(object):
         self.stats_calc_num_samples = stats_calc_num_samples
         
     
-    def _reset_cache(self):
-        """
-        Clear statistics and indices caches.
-        """
+    def _reset_cache(self) -> None:
+        """Clear cached statistics and update counters."""
         self.stats_calc_indices = 0
         self.stats_cache = [None, None]
              
        
-    def _set_target_stats(self, target_mean, target_std):
-        """
-        Set the target stats for the quantizer.
-        
-        Parameters
-        ----------
-        target_mean : float
-            Target mean
-        target_std : float
-            Target standard deviation
+    def _set_target_stats(self, target_mean: float, target_std: float) -> None:
+        """Set target mean and standard deviation for the quantizer.
+
+        Args:
+            target_mean: Target mean.
+            target_std: Target standard deviation.
         """
         self.target_mean = target_mean
         self.target_std = target_std
         self.target_fwhm = target_std * (2 * np.sqrt(2 * np.log(2)))
         
     
-    def quantize(self, voltages, custom_std=None):
-        """
-        Quantize input voltages. Cache voltage mean and standard deviation, per polarization and
-        per antenna.
-        
-        Parameters
-        ----------
-        voltages : array
-            Array of real voltages
-        custom_std : float
-            Custom standard deviation to use for scaling, instead of automatic calculation. The quantizer will go
-            from ``custom_std`` to ``self.target_std``. 
-            
-        Returns
-        -------
-        q_voltages : array
-            Array of quantized voltages
+    def quantize(self, voltages: xp.ndarray, custom_std: float | None = None) -> xp.ndarray:
+        """Quantize real input voltages.
+
+        Args:
+            voltages: Array of real voltages.
+            custom_std: Optional standard deviation to use for scaling.
+
+        Returns:
+            Array of quantized voltages.
         """
         if self.stats_calc_indices == 0:
             self.stats_cache = data_stream.estimate_stats(voltages, self.stats_calc_num_samples)
@@ -128,40 +97,36 @@ class RealQuantizer(object):
         return q_voltages
     
     
-    def digitize(self, voltages, custom_std=None):
-        """
-        Quantize input voltages. Wrapper for :func:`~setigen.voltage.quantization.RealQuantizer.quantize`.
+    def digitize(self, voltages: xp.ndarray, custom_std: float | None = None) -> xp.ndarray:
+        """Alias for `quantize()`.
+
+        Args:
+            voltages: Array of real voltages.
+            custom_std: Optional standard deviation to use for scaling.
+
+        Returns:
+            Array of quantized voltages.
         """
         return self.quantize(voltages, custom_std=custom_std)
     
     
 class ComplexQuantizer(object):
-    """
-    Implement a quantizer for complex voltages, using a pair of RealQuantizers.
-    """
+    """Quantize complex voltages using paired real-valued quantizers."""
     
     def __init__(self,
-                 target_mean=0,
-                 target_fwhm=32, 
-                 num_bits=8,
-                 stats_calc_period=1,
-                 stats_calc_num_samples=10000):
-        """
-        Initialize a complex quantizer, which maps complex input voltage components to integers
-        between -2**(``num_bits`` - 1) and 2**(``num_bits`` - 1) - 1, inclusive. Uses a pair of 
-        RealQuantizers to quantize real and imaginary components separately. 
+                 target_mean: float=0,
+                 target_fwhm: float=32, 
+                 num_bits: int=8,
+                 stats_calc_period: int=1,
+                 stats_calc_num_samples: int=10000) -> None:
+        """Initialize a complex-valued quantizer.
 
-        Parameters
-        ----------
-        target_fwhm : float, optional
-            Target FWHM
-        num_bits : int, optional
-            Number of bits to quantize to. Quantized voltages will span -2**(``num_bits`` - 1) 
-            to 2**(``num_bits`` - 1) - 1, inclusive.
-        stats_calc_period : int, optional
-            Sets the period for computing the mean and standard deviation of input voltages
-        stats_calc_num_samples : int, optional
-            Maximum number of samples for use in estimating noise statistics
+        Args:
+            target_mean: Target mean of the quantized values.
+            target_fwhm: Target full width at half maximum.
+            num_bits: Number of quantization bits.
+            stats_calc_period: Period for recomputing input statistics.
+            stats_calc_num_samples: Maximum samples used for statistic estimates.
         """
         self.target_mean = target_mean
         self.target_fwhm = target_fwhm
@@ -186,36 +151,29 @@ class ComplexQuantizer(object):
                                          stats_calc_num_samples=stats_calc_num_samples)
         
     
-    def _reset_cache(self):
-        """
-        Clear statistics and indices caches.
-        """
+    def _reset_cache(self) -> None:
+        """Clear cached statistics and update counters."""
         self.stats_cache_r = [None, None]
         self.stats_cache_i = [None, None]
         self.quantizer_r._reset_cache()
         self.quantizer_i._reset_cache()
         
     
-    def quantize(self, voltages, custom_stds=None):
-        """
-        Quantize input complex voltages. Cache voltage means and standard deviations, per 
-        polarization and per antenna.
-        
-        Parameters
-        ----------
-        voltages : array
-            Array of complex voltages
-        custom_stds : float, list, or array
-            Custom standard deviation to use for scaling, instead of automatic 
-            calculation. Each quantizer will go from ``custom_stds`` 
-            values to ``self.target_std``. Can either be a single value or 
-            an array-like object of length 2, to set the custom standard 
-            deviation for real and imaginary parts.
-            
-        Returns
-        -------
-        q_voltages : array
-            Array of complex quantized voltages
+    def quantize(self,
+                 voltages: xp.ndarray,
+                 custom_stds: float | list[float | None] | tuple[float | None, float | None] | None = None) -> xp.ndarray:
+        """Quantize complex input voltages.
+
+        Args:
+            voltages: Array of complex voltages.
+            custom_stds: Optional scalar or length-two sequence of standard
+                deviations for the real and imaginary parts.
+
+        Returns:
+            Array of complex quantized voltages.
+
+        Raises:
+            ValueError: If `custom_stds` is not scalar or length two.
         """
         if custom_stds is None or np.isscalar(custom_stds):
             custom_stds = [custom_stds] * 2
@@ -232,40 +190,26 @@ class ComplexQuantizer(object):
         return q_r + q_i * 1j
 
 
-def quantize_real(x,
-                  target_mean=0,
-                  target_std=32/(2*np.sqrt(2*np.log(2))), 
-                  num_bits=8,
-                  data_mean=None,
-                  data_std=None,
-                  stats_calc_num_samples=10000):
-    """
-    Quantize real voltage data to integers with specified number of bits
-    and target statistics. 
+def quantize_real(x: xp.ndarray,
+                  target_mean: float = 0,
+                  target_std: float = 32 / (2 * np.sqrt(2 * np.log(2))),
+                  num_bits: int = 8,
+                  data_mean: float | None = None,
+                  data_std: float | None = None,
+                  stats_calc_num_samples: int = 10000) -> xp.ndarray:
+    """Quantize real voltages to integer levels.
 
-    Parameters
-    ----------
-    x : array
-        Array of voltages
-    target_mean : float, optional
-        Target mean for voltages
-    target_std : float, optional
-        Target standard deviation for voltages
-    num_bits : int, optional
-        Number of bits to quantize to. Quantized voltages will span -2**(``num_bits`` - 1) 
-        to 2**(``num_bits`` - 1) - 1, inclusive.
-    data_mean : float, optional
-        Mean of input voltages, if already known
-    data_std : float, optional
-        Standard deviation of input voltages, if already known. If None, estimates mean and
-        standard deviation automatically.
-    stats_calc_num_samples : int, optional
-        Maximum number of samples for use in estimating noise statistics
-        
-    Returns
-    -------
-    q_voltages : array
-        Array of quantized voltages
+    Args:
+        x: Array of voltages.
+        target_mean: Target mean for quantized voltages.
+        target_std: Target standard deviation for quantized voltages.
+        num_bits: Number of quantization bits.
+        data_mean: Optional precomputed input mean.
+        data_std: Optional precomputed input standard deviation.
+        stats_calc_num_samples: Maximum samples used for statistic estimates.
+
+    Returns:
+        Array of quantized voltages.
     """
     if data_std is None:
         data_mean, data_std = data_stream.estimate_stats(x, stats_calc_num_samples)
@@ -282,33 +226,22 @@ def quantize_real(x,
     return q_voltages
 
 
-def quantize_complex(x, 
-                     target_mean=0,
-                     target_std=32/(2*np.sqrt(2*np.log(2))), 
-                     num_bits=8, 
-                     stats_calc_num_samples=10000):
-    """
-    Quantize complex voltage data to integers with specified number of bits
-    and target FWHM range. 
+def quantize_complex(x: xp.ndarray,
+                     target_mean: float = 0,
+                     target_std: float = 32 / (2 * np.sqrt(2 * np.log(2))),
+                     num_bits: int = 8,
+                     stats_calc_num_samples: int = 10000) -> xp.ndarray:
+    """Quantize complex voltages to integer levels.
 
-    Parameters
-    ----------
-    x : array
-        Array of complex voltages
-    target_mean : float, optional
-        Target mean for voltages
-    target_std : float, optional
-        Target standard deviation for voltages
-    num_bits : int, optional
-        Number of bits to quantize to. Quantized voltages will span -2**(``num_bits`` - 1) 
-        to 2**(``num_bits`` - 1) - 1, inclusive.
-    stats_calc_num_samples : int, optional
-        Maximum number of samples for use in estimating noise statistics
-        
-    Returns
-    -------
-    q_c : array
-        Array of complex quantized voltages
+    Args:
+        x: Array of complex voltages.
+        target_mean: Target mean for quantized voltages.
+        target_std: Target standard deviation for quantized voltages.
+        num_bits: Number of quantization bits.
+        stats_calc_num_samples: Maximum samples used for statistic estimates.
+
+    Returns:
+        Array of complex quantized voltages.
     """
     r, i = xp.real(x), xp.imag(x)
     

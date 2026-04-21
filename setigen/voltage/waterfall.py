@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
@@ -10,35 +12,29 @@ else:
     import numpy as xp
     
 import numpy as np
-import time
 
 from ._reduction.channelize import _channelize_block
 from ._reduction.decoder import _decode_raw_block
 from ._reduction.input import _resolve_raw_input
 
 
-def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, fftlength=256, int_factor=1):
+def get_pfb_waterfall(pfb_voltages_x: np.ndarray,
+                      pfb_voltages_y: np.ndarray | None = None,
+                      fftlength: int = 256,
+                      int_factor: int = 1) -> np.ndarray:
+    """Fine-channelize already-channelized complex voltages.
+
+    Args:
+        pfb_voltages_x: Complex voltages for the first polarization with shape
+            ``(time_samples, num_chans)``.
+        pfb_voltages_y: Optional complex voltages for the second polarization
+            with the same shape as ``pfb_voltages_x``.
+        fftlength: Fine-channel FFT length.
+        int_factor: Time integration factor after fine channelization.
+
+    Returns:
+        Integrated power waterfall with shape ``(tchans, fchans)``.
     """
-    Perform fine channelization on input complex voltages after filterbank,
-    for single or dual polarizations. 
-    
-    Parameters
-    ----------
-    pfb_voltages_x : array
-        Complex voltages in first polarization, of shape (time_samples, num_chans)
-    pfb_voltages_y : array, optional
-        Complex voltages in second polarization, of shape (time_samples, num_chans)
-    fftlength : int
-        FFT length to be used in fine channelization
-    int_factor : int, optional
-        Integration factor to be used in fine channelization
-    
-    Returns
-    -------
-    XX_psd : array
-        Finely channelized voltages
-    """
-    
     XX_psd = xp.zeros((pfb_voltages_x.shape[1], pfb_voltages_x.shape[0] // fftlength, fftlength))
     
     pfb_voltages_list = [pfb_voltages_x]
@@ -63,28 +59,29 @@ def get_pfb_waterfall(pfb_voltages_x, pfb_voltages_y=None, fftlength=256, int_fa
     return XX_psd
 
 
-def get_waterfall_from_raw(raw_filename, block_size, num_chans, int_factor=1, fftlength=256):
-    """ 
-    Produces waterfall data array from the first block of a dual-polarized, 8 bit RAW file. Lightweight 
-    function mainly for testing. 
-    
-    Parameters
-    ----------
-    raw_filename : str
-        Filename of GUPPI RAW file
-    block_size : int
-        Number of bytes in a data block
-    num_chans : int
-        Number of coarse channels saved in RAW file
-    fftlength : int
-        FFT length to be used in fine channelization
-    int_factor : int, optional
-        Integration factor to be used in fine channelization
-    
-    Returns
-    -------
-    XX_psd : array
-        Finely channelized voltages
+def get_waterfall_from_raw(raw_filename: str,
+                           block_size: int,
+                           num_chans: int,
+                           int_factor: int = 1,
+                           fftlength: int = 256) -> np.ndarray:
+    """Reduce the first RAW block into a Stokes-I waterfall array.
+
+    This helper is intentionally lightweight and primarily intended for tests
+    and quick inspection of a single RAW block.
+
+    Args:
+        raw_filename: GUPPI RAW file path or RAW stem.
+        block_size: Expected number of bytes in a RAW data block.
+        num_chans: Expected number of coarse channels in the RAW file.
+        int_factor: Time integration factor after fine channelization.
+        fftlength: Fine-channel FFT length.
+
+    Returns:
+        Stokes-I waterfall for the first RAW block.
+
+    Raises:
+        ValueError: If the provided block metadata does not match the RAW
+            header values.
     """
     input_spec = _resolve_raw_input(raw_filename)
     if input_spec.block_size != block_size:

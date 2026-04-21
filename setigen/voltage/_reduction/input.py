@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 import glob
 import math
+from pathlib import Path
+from typing import Any, Iterator
 
 from .. import raw_utils
 
 
 @dataclass(frozen=True)
 class _RawInputSpec:
+    """Normalized description of a RAW input stem."""
+
     stem: Path
     files: tuple[Path, ...]
-    header: dict
+    header: dict[str, Any]
     header_size: int
     num_bits: int
     chan_bw: float
@@ -29,18 +32,43 @@ class _RawInputSpec:
     tstart_mjd: float
 
 
-def _compute_header_size(header):
+def _compute_header_size(header: dict[str, Any]) -> int:
+    """Compute padded RAW header size in bytes.
+
+    Args:
+        header: Parsed RAW header dictionary.
+
+    Returns:
+        Padded header size in bytes.
+    """
     return int(512 * math.ceil((80 * (len(header) + 1)) / 512))
 
 
-def _normalize_num_pols(header_npol):
+def _normalize_num_pols(header_npol: Any) -> int:
+    """Normalize RAW `NPOL` values to the number of signal polarizations.
+
+    Args:
+        header_npol: Raw `NPOL` header value.
+
+    Returns:
+        Number of signal polarizations represented by the input.
+    """
     num_pols = int(header_npol)
     if num_pols == 4:
         return 2
     return num_pols
 
 
-def _resolve_tstart_mjd(header):
+def _resolve_tstart_mjd(header: dict[str, Any]) -> float:
+    """Resolve observation start time in MJD from RAW header fields.
+
+    Args:
+        header: Parsed RAW header dictionary.
+
+    Returns:
+        Observation start time in MJD, or `0.0` when the header is missing the
+        required timing fields.
+    """
     try:
         stt_imjd = float(header["STT_IMJD"])
         stt_smjd = float(header.get("STT_SMJD", 0))
@@ -50,7 +78,18 @@ def _resolve_tstart_mjd(header):
     return stt_imjd + (stt_smjd + stt_offs) / 86400.0
 
 
-def _resolve_raw_files(input_path):
+def _resolve_raw_files(input_path: str | Path) -> tuple[Path, tuple[Path, ...]]:
+    """Resolve a RAW stem or `.raw` file into the concrete file sequence.
+
+    Args:
+        input_path: RAW stem or specific `.raw` file path.
+
+    Returns:
+        Tuple of normalized stem path and concrete RAW files.
+
+    Raises:
+        FileNotFoundError: If no matching RAW files can be found.
+    """
     input_path = Path(input_path)
     if input_path.suffix == ".raw":
         stem = raw_utils.get_stem(str(input_path))
@@ -67,20 +106,38 @@ def _resolve_raw_files(input_path):
     return Path(stem), files
 
 
-def _resolve_raw_input(input_path):
+def _resolve_raw_input(input_path: str | Path) -> _RawInputSpec:
+    """Parse and validate the first RAW header for a reduction run.
+
+    Args:
+        input_path: RAW stem or specific `.raw` file path.
+
+    Returns:
+        Normalized RAW input description.
+
+    Raises:
+        ValueError: If the RAW file uses unsupported bit depth or polarization
+            count.
+        NotImplementedError: If the input uses a multi-antenna RAW format that
+            this reducer does not yet support.
+    """
     stem, files = _resolve_raw_files(input_path)
     header = raw_utils.read_header(str(files[0]))
     header_size = _compute_header_size(header)
 
     num_bits = int(header["NBITS"])
     if num_bits not in (4, 8):
-        raise ValueError(f"Unsupported RAW bit width: {num_bits}. Only 4-bit and 8-bit inputs are supported.")
+        raise ValueError(
+            f"Unsupported RAW bit width: {num_bits}. Only 4-bit and 8-bit inputs are supported."
+        )
 
     chan_bw = float(header["CHAN_BW"]) * 1e6
     ascending = chan_bw > 0
     num_antennas = int(header.get("NANTS", 1))
     if num_antennas != 1:
-        raise NotImplementedError("RAW reduction currently supports single-antenna inputs only.")
+        raise NotImplementedError(
+            "RAW reduction currently supports single-antenna inputs only."
+        )
 
     num_pols = _normalize_num_pols(header["NPOL"])
     if num_pols not in (1, 2):
@@ -118,7 +175,20 @@ def _resolve_raw_input(input_path):
     )
 
 
-def _iter_raw_data_blocks(input_spec: _RawInputSpec, *, max_blocks=None):
+def _iter_raw_data_blocks(
+    input_spec: _RawInputSpec,
+    *,
+    max_blocks: int | None = None,
+) -> Iterator[bytes]:
+    """Yield RAW data payloads block by block across all files in a stem.
+
+    Args:
+        input_spec: Normalized RAW input description.
+        max_blocks: Optional maximum number of blocks to yield.
+
+    Yields:
+        RAW data payloads, one block at a time.
+    """
     blocks_seen = 0
     for path in input_spec.files:
         with open(path, "rb") as handle:

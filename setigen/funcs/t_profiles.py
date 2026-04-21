@@ -4,22 +4,38 @@ Sample intensity profiles for signal injection.
 These functions calculate the signal intensity and variation in the time
 direction.
 """
+from __future__ import annotations
+
 from enum import Enum
 
 import numpy as np
 from astropy import units as u
 
 from setigen import unit_utils
+from setigen._typing import SeedLike, TimeProfile
 from setigen.funcs import func_utils
 
 
 class PulseDirection(str, Enum):
+    """Supported pulse directions for periodic Gaussian profiles."""
+
     RANDOM = "rand"
     UP = "up"
     DOWN = "down"
 
 
-def _coerce_pulse_direction(pulse_direction):
+def _coerce_pulse_direction(pulse_direction: str | PulseDirection) -> PulseDirection:
+    """Normalize a user-supplied pulse direction.
+
+    Args:
+        pulse_direction: Raw pulse-direction selector.
+
+    Returns:
+        Normalized pulse-direction enum value.
+
+    Raises:
+        ValueError: If the pulse direction is unsupported.
+    """
     if isinstance(pulse_direction, PulseDirection):
         return pulse_direction
     try:
@@ -28,18 +44,14 @@ def _coerce_pulse_direction(pulse_direction):
         raise ValueError(f"Invalid pulse direction: {pulse_direction!r}") from exc
 
 
-def constant_t_profile(level=1):
-    """
-    Constant intensity profile.
-    
-    Parameters
-    ----------
-    level : float, default: 1
-        Intensity level
+def constant_t_profile(level: float = 1) -> TimeProfile:
+    """Return a constant intensity profile.
 
-    Return
-    ------
-    t_profile : func
+    Args:
+        level: Constant intensity level.
+
+    Returns:
+        Time-profile callable.
     """
     def t_profile(t):
         if isinstance(t, (np.ndarray, list)):
@@ -50,24 +62,22 @@ def constant_t_profile(level=1):
     return t_profile
 
 
-def sine_t_profile(period, phase=0, amplitude=1, level=1):
-    """
-    Intensity varying as a sine curve.
-    
-    Parameters
-    ----------
-    period : float or astropy.Quantity
-        Modulation period
-    phase : float, default: 0
-        Modulation phase
-    amplitude : float, default: 1
-        Modulation amplitude
-    level : float, default: 1
-        Mean intensity level
+def sine_t_profile(
+    period: float | u.Quantity,
+    phase: float = 0,
+    amplitude: float = 1,
+    level: float = 1,
+) -> TimeProfile:
+    """Return a sinusoidal intensity profile.
 
-    Return
-    ------
-    t_profile : func
+    Args:
+        period: Modulation period.
+        phase: Modulation phase.
+        amplitude: Modulation amplitude.
+        level: Mean intensity level.
+
+    Returns:
+        Time-profile callable.
     """
     period = unit_utils.get_value(period, u.s)
 
@@ -76,48 +86,32 @@ def sine_t_profile(period, phase=0, amplitude=1, level=1):
     return t_profile
 
 
-def periodic_gaussian_t_profile(pulse_width,
-                                period,
-                                phase=0,
-                                pulse_offset_width=0,
-                                pulse_direction='rand',
-                                pnum=3,
-                                amplitude=1,
-                                level=1,
-                                min_level=0,
-                                seed=None):
-    """
-    Intensity varying as Gaussian pulses, allowing for variation in the arrival
-    time of each pulse.
-    
-    Parameters
-    ----------
-    pulse_width : float or astropy.Quantity
-        FWHM width of individual pulses
-    period : float or astropy.Quantity
-        Baseline modulation period
-    phase : float or astropy.Quantity, default: 0
-        Baseline modulation phase
-    pulse_offset_width : float or astropy.Quantity, default: 0
-        FWHM of timing variation from the modulation period
-    pulse_direction : {"rand", "up", "down"}, default: "rand"
-        Whether the intensity increases or decreases from the baseline level
-    pnum : float or astropy.Quantity, default: 3
-        Number of Gaussians pulses to consider when calculating the intensity 
-        at each timestep. The higher this number, the more accurate the
-        intensities.
-    amplitude : float, default: 1
-        Pulse magnitude
-    level : float, default: 1
-        Baseline intensity level
-    min_level : float, default: 0
-        Minimum intensity level
-    seed : None, int, Generator, optional
-        Random seed or seed generator
+def periodic_gaussian_t_profile(pulse_width: float | u.Quantity,
+                                period: float | u.Quantity,
+                                phase: float | u.Quantity = 0,
+                                pulse_offset_width: float | u.Quantity = 0,
+                                pulse_direction: str | PulseDirection = 'rand',
+                                pnum: int = 3,
+                                amplitude: float = 1,
+                                level: float = 1,
+                                min_level: float = 0,
+                                seed: SeedLike = None) -> TimeProfile:
+    """Return a periodic Gaussian-pulse intensity profile.
 
-    Return
-    ------
-    t_profile : func
+    Args:
+        pulse_width: FWHM of individual pulses.
+        period: Baseline modulation period.
+        phase: Baseline modulation phase.
+        pulse_offset_width: FWHM of timing jitter.
+        pulse_direction: Whether pulses go up, down, or randomly both.
+        pnum: Number of neighboring pulses to include in the calculation.
+        amplitude: Pulse magnitude.
+        level: Baseline intensity level.
+        min_level: Minimum allowed intensity level.
+        seed: Random seed or generator.
+
+    Returns:
+        Time-profile callable.
     """
     rng = np.random.default_rng(seed)
     period = unit_utils.get_value(period, u.s)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, BinaryIO
+
 import numpy as np
 from tqdm import tqdm
 
@@ -125,14 +127,40 @@ _DEFAULT_HEADER_ENTRIES = (
 )
 
 
-def _set_identity_header_value(header_dict, *, key, fallback_value, input_header_dict, guard_value):
+def _set_identity_header_value(header_dict: dict[str, Any],
+                               *,
+                               key: str,
+                               fallback_value: Any,
+                               input_header_dict: dict[str, Any] | None,
+                               guard_value: str) -> None:
+    """Set or normalize a human-readable identity field in the RAW header.
+
+    Args:
+        header_dict: Header dictionary being assembled.
+        key: Header key to update.
+        fallback_value: Default value when the key is absent.
+        input_header_dict: Optional source header dictionary from an input RAW
+            file.
+        guard_value: Value fragment used to detect whether the field has
+            already been marked as synthetic.
+    """
     if key not in header_dict:
         header_dict[key] = fallback_value
     elif input_header_dict is not None and guard_value not in input_header_dict[key]:
         header_dict[key] = f"{input_header_dict[key].strip()}{_HEADER_VALUE_SETIGEN_SUFFIX}"
 
 
-def _header_populate_configuration(backend, header_dict=None):
+def _header_populate_configuration(backend: Any,
+                                   header_dict: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Populate RAW header values derived from backend configuration.
+
+    Args:
+        backend: Raw-voltage backend providing runtime configuration.
+        header_dict: Optional existing header overrides.
+
+    Returns:
+        Header dictionary populated with configuration-derived values.
+    """
     header_dict = {} if header_dict is None else dict(header_dict)
 
     _set_identity_header_value(header_dict,
@@ -177,7 +205,15 @@ def _header_populate_configuration(backend, header_dict=None):
     return header_dict
 
 
-def _header_add_from_template(header_dict=None):
+def _header_add_from_template(header_dict: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Fill missing header values from the built-in default template.
+
+    Args:
+        header_dict: Optional existing header overrides.
+
+    Returns:
+        Header dictionary with default entries populated.
+    """
     header_dict = {} if header_dict is None else dict(header_dict)
 
     for key, value in _DEFAULT_HEADER_ENTRIES:
@@ -186,7 +222,17 @@ def _header_add_from_template(header_dict=None):
     return header_dict
 
 
-def _header_add_from_input_header(input_header_dict, header_dict=None):
+def _header_add_from_input_header(input_header_dict: dict[str, Any],
+                                  header_dict: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Copy missing values from an input RAW header dictionary.
+
+    Args:
+        input_header_dict: Parsed input RAW header values.
+        header_dict: Optional existing header overrides.
+
+    Returns:
+        Header dictionary with missing values populated from the input header.
+    """
     header_dict = {} if header_dict is None else dict(header_dict)
 
     for key, value in input_header_dict.items():
@@ -195,7 +241,14 @@ def _header_add_from_input_header(input_header_dict, header_dict=None):
     return header_dict
 
 
-def _make_header(backend, f, header_dict):
+def _make_header(backend: Any, f: BinaryIO, header_dict: dict[str, Any]) -> None:
+    """Write one RAW header block to an open file handle.
+
+    Args:
+        backend: Raw-voltage backend providing runtime configuration.
+        f: Writable binary file handle.
+        header_dict: Header values to serialize.
+    """
     directio = False
 
     if _HEADER_KEY_DIRECTIO in header_dict:
@@ -223,7 +276,18 @@ def _make_header(backend, f, header_dict):
     header_dict[_HEADER_KEY_PKTIDX] += backend.samples_per_block
 
 
-def _read_next_block(backend):
+def _read_next_block(backend: Any) -> np.ndarray:
+    """Read and decode the next RAW block from an input file.
+
+    Args:
+        backend: Raw-voltage backend configured for input-RAW passthrough.
+
+    Returns:
+        Complex voltage buffer for the next RAW block.
+
+    Raises:
+        ValueError: If the input RAW bit depth is unsupported.
+    """
     _ = backend.input_file_handler.read(backend.header_size)
     data_chunk = backend.input_file_handler.read(backend.block_size)
 

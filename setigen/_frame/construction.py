@@ -4,6 +4,7 @@ import copy
 from dataclasses import dataclass
 import pathlib
 import time
+from typing import Any
 
 import numpy as np
 
@@ -18,6 +19,8 @@ from .. import unit_utils
 
 @dataclass(frozen=True)
 class _SyntheticFrameSpec:
+    """Normalized specification for creating a synthetic frame."""
+
     df: float
     dt: float
     fch1: float
@@ -30,6 +33,8 @@ class _SyntheticFrameSpec:
 
 @dataclass(frozen=True)
 class _WaterfallLoadSpec:
+    """Normalized specification for loading a frame from a waterfall."""
+
     waterfall: Waterfall
     header: object
     df: float
@@ -42,20 +47,58 @@ class _WaterfallLoadSpec:
     source_name: str
 
 
-def _is_synthetic_init(*, fchans=None, tchans=None, data=None, kwargs=None):
+def _is_synthetic_init(
+    *,
+    fchans: int | None = None,
+    tchans: int | None = None,
+    data: np.ndarray | None = None,
+    kwargs: dict[str, Any] | None = None,
+) -> bool:
+    """Return whether a frame should be initialized synthetically.
+
+    Args:
+        fchans: Number of frequency channels.
+        tchans: Number of time channels.
+        data: Optional preloaded data array.
+        kwargs: Additional frame-construction keyword arguments.
+
+    Returns:
+        Whether the supplied initialization parameters describe a synthetic frame.
+    """
     kwargs = {} if kwargs is None else kwargs
     return None not in [fchans, tchans] or "shape" in kwargs or data is not None
 
 
-def _normalize_synthetic_init(*,
-                              fchans=None,
-                              tchans=None,
-                              df=2.7939677238464355 * u.Hz,
-                              dt=18.253611008 * u.s,
-                              fch1=6 * u.GHz,
-                              ascending=False,
-                              data=None,
-                              kwargs=None):
+def _normalize_synthetic_init(
+    *,
+    fchans: int | None = None,
+    tchans: int | None = None,
+    df: Any = 2.7939677238464355 * u.Hz,
+    dt: Any = 18.253611008 * u.s,
+    fch1: Any = 6 * u.GHz,
+    ascending: bool = False,
+    data: np.ndarray | None = None,
+    kwargs: dict[str, Any] | None = None,
+) -> _SyntheticFrameSpec:
+    """Normalize synthetic frame-construction inputs.
+
+    Args:
+        fchans: Number of frequency channels.
+        tchans: Number of time channels.
+        df: Frequency resolution.
+        dt: Time resolution.
+        fch1: First-channel frequency.
+        ascending: Whether the frequency axis is ascending.
+        data: Optional preloaded frame data.
+        kwargs: Additional frame-construction keyword arguments.
+
+    Returns:
+        Normalized synthetic frame specification.
+
+    Raises:
+        ValueError: If the supplied data shape does not match the requested frame
+            shape.
+    """
     kwargs = {} if kwargs is None else kwargs
 
     normalized_df = unit_utils.get_value(abs(df), u.Hz)
@@ -94,7 +137,23 @@ def _normalize_synthetic_init(*,
                                source_name=source_name)
 
 
-def _normalize_waterfall_init(*, waterfall, kwargs=None):
+def _normalize_waterfall_init(
+    *,
+    waterfall: str | pathlib.PurePath | Waterfall,
+    kwargs: dict[str, Any] | None = None,
+) -> _WaterfallLoadSpec:
+    """Normalize frame-construction inputs sourced from a waterfall.
+
+    Args:
+        waterfall: Waterfall object or path to a waterfall-backed file.
+        kwargs: Additional loader keyword arguments.
+
+    Returns:
+        Normalized waterfall-backed frame specification.
+
+    Raises:
+        FileNotFoundError: If the supplied waterfall object type is unsupported.
+    """
     kwargs = {} if kwargs is None else kwargs
 
     if isinstance(waterfall, pathlib.PurePath):
@@ -139,16 +198,38 @@ def _normalize_waterfall_init(*, waterfall, kwargs=None):
                               source_name=source_name)
 
 
-def _normalize_frame_init(*,
-                          waterfall=None,
-                          fchans=None,
-                          tchans=None,
-                          df=2.7939677238464355 * u.Hz,
-                          dt=18.253611008 * u.s,
-                          fch1=6 * u.GHz,
-                          ascending=False,
-                          data=None,
-                          kwargs=None):
+def _normalize_frame_init(
+    *,
+    waterfall: str | pathlib.PurePath | Waterfall | None = None,
+    fchans: int | None = None,
+    tchans: int | None = None,
+    df: Any = 2.7939677238464355 * u.Hz,
+    dt: Any = 18.253611008 * u.s,
+    fch1: Any = 6 * u.GHz,
+    ascending: bool = False,
+    data: np.ndarray | None = None,
+    kwargs: dict[str, Any] | None = None,
+) -> _SyntheticFrameSpec | _WaterfallLoadSpec:
+    """Normalize frame-construction inputs from either supported source.
+
+    Args:
+        waterfall: Waterfall object or path to a waterfall-backed file.
+        fchans: Number of frequency channels.
+        tchans: Number of time channels.
+        df: Frequency resolution.
+        dt: Time resolution.
+        fch1: First-channel frequency.
+        ascending: Whether the frequency axis is ascending.
+        data: Optional preloaded frame data.
+        kwargs: Additional construction keyword arguments.
+
+    Returns:
+        Normalized frame specification.
+
+    Raises:
+        ValueError: If neither synthetic dimensions nor a waterfall source is
+            provided.
+    """
     kwargs = {} if kwargs is None else kwargs
     if _is_synthetic_init(fchans=fchans,
                           tchans=tchans,
@@ -167,7 +248,16 @@ def _normalize_frame_init(*,
     raise ValueError("Frame must be provided dimensions or an existing filterbank file.")
 
 
-def _initialize_frame_from_spec(frame, spec):
+def _initialize_frame_from_spec(
+    frame: Any,
+    spec: _SyntheticFrameSpec | _WaterfallLoadSpec,
+) -> None:
+    """Populate a frame object from a normalized construction spec.
+
+    Args:
+        frame: Frame instance to populate.
+        spec: Normalized synthetic or waterfall-backed specification.
+    """
     frame.df = spec.df
     frame.dt = spec.dt
     frame.fch1 = spec.fch1
@@ -186,7 +276,13 @@ def _initialize_frame_from_spec(frame, spec):
         frame.header = None
 
 
-def _attach_loaded_waterfall(frame, waterfall):
+def _attach_loaded_waterfall(frame: Any, waterfall: Waterfall | None) -> None:
+    """Attach a deepcopy of a loaded waterfall to a frame.
+
+    Args:
+        frame: Frame instance to update.
+        waterfall: Loaded waterfall to attach, if one exists.
+    """
     if waterfall is None:
         return
     try:

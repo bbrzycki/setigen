@@ -56,6 +56,30 @@ def test_level(backend_setup):
                                  obs_length=300) == pytest.approx(0.00013489699168632314)
 
 
+def test_level_scales_with_snr_and_observation_length(backend_setup):
+    rvb = copy.deepcopy(backend_setup)
+    fftlength = 2
+
+    level_25_one_block = stg.voltage.get_level(snr=25,
+                                               raw_voltage_backend=rvb,
+                                               fftlength=fftlength,
+                                               num_blocks=1,
+                                               length_mode="num_blocks")
+    level_50_one_block = stg.voltage.get_level(snr=50,
+                                               raw_voltage_backend=rvb,
+                                               fftlength=fftlength,
+                                               num_blocks=1,
+                                               length_mode="num_blocks")
+    level_25_four_blocks = stg.voltage.get_level(snr=25,
+                                                 raw_voltage_backend=rvb,
+                                                 fftlength=fftlength,
+                                                 num_blocks=4,
+                                                 length_mode="num_blocks")
+
+    assert level_50_one_block / level_25_one_block == pytest.approx(np.sqrt(2))
+    assert level_25_four_blocks / level_25_one_block == pytest.approx(1 / np.sqrt(2))
+
+
 def test_level_length_mode_errors(backend_setup):
     rvb = copy.deepcopy(backend_setup)
     fftlength = 2**14
@@ -73,9 +97,35 @@ def test_level_length_mode_errors(backend_setup):
                               length_mode='not_a_mode')
 
 
+def test_level_rejects_geometry_with_no_fine_spectra(backend_setup):
+    rvb = copy.deepcopy(backend_setup)
+
+    with pytest.raises(ValueError, match="no complete fine-channelized spectra"):
+        stg.voltage.get_level(snr=25,
+                              raw_voltage_backend=rvb,
+                              fftlength=2**14,
+                              num_blocks=1,
+                              length_mode="num_blocks")
+
+
 def test_leakage_factor(backend_setup):
     rvb = copy.deepcopy(backend_setup)
     fftlength = 2**14
     assert stg.voltage.get_leakage_factor(f_start=6001e6, 
                                           raw_voltage_backend=rvb, 
                                           fftlength=fftlength) == pytest.approx(1.3318603467759598)
+
+
+def test_leakage_factor_is_one_on_bin_center_and_sinc_corrected_half_bin(backend_setup):
+    rvb = copy.deepcopy(backend_setup)
+    fftlength = 2**14
+    fine_bw = rvb.chan_bw / fftlength
+    centered_frequency = rvb.fch1 + 17 * fine_bw
+    half_bin_frequency = centered_frequency + 0.5 * fine_bw
+
+    assert stg.voltage.get_leakage_factor(centered_frequency,
+                                          rvb,
+                                          fftlength) == pytest.approx(1)
+    assert stg.voltage.get_leakage_factor(half_bin_frequency,
+                                          rvb,
+                                          fftlength) == pytest.approx(1 / np.sinc(0.5))

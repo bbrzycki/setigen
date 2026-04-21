@@ -53,7 +53,10 @@ If a file becomes difficult to understand in one pass, consider splitting it bef
 
 - use explicit exceptions for library validation instead of `assert`
 - avoid mutable default arguments
+- annotate every runtime package function, method, property, and class signature with parameter and return types
 - add type hints in touched public code where practical
+- use Google-style docstrings for new or materially edited docstrings, with `Args`, `Returns`, and `Raises` sections when they apply
+- apply Google-style docstrings consistently to non-trivial classes, functions, and methods; do not use bulk regex rewrites to transform docstrings
 - prefer incremental refactors over broad rewrites
 - do not mass-reformat unrelated files
 - keep comments concise and focused on non-obvious reasoning

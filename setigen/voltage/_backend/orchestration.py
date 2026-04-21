@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+from typing import Any
 
 from tqdm import tqdm
 
@@ -12,7 +13,16 @@ from .headers import (
 )
 
 
-def _build_record_header(backend, record_config):
+def _build_record_header(backend: Any, record_config: Any) -> dict[str, Any]:
+    """Assemble the final RAW header for a recording run.
+
+    Args:
+        backend: Raw-voltage backend.
+        record_config: Normalized recording configuration.
+
+    Returns:
+        Final header dictionary to serialize into each RAW block.
+    """
     header_dict = dict(record_config.header_dict)
 
     if record_config.load_template:
@@ -22,7 +32,12 @@ def _build_record_header(backend, record_config):
     return _header_populate_configuration(backend, header_dict)
 
 
-def _reset_recording_state(backend):
+def _reset_recording_state(backend: Any) -> None:
+    """Reset backend and frontend caches before starting a recording run.
+
+    Args:
+        backend: Raw-voltage backend.
+    """
     backend.antenna_source.reset_start()
 
     for antenna in range(backend.num_antennas):
@@ -32,22 +47,52 @@ def _reset_recording_state(backend):
             backend.requantizer[antenna][pol]._reset_cache()
 
 
-def _get_num_output_files(backend, *, xp):
+def _get_num_output_files(backend: Any, *, xp: Any) -> int:
+    """Return the number of `.raw` files needed for the configured run.
+
+    Args:
+        backend: Raw-voltage backend.
+        xp: Numerical array module, either NumPy or CuPy.
+
+    Returns:
+        Number of output RAW files required.
+    """
     return int(xp.ceil(backend.num_blocks / backend.blocks_per_file))
 
 
-def _get_blocks_to_write(backend, *, file_index, num_files):
+def _get_blocks_to_write(backend: Any, *, file_index: int, num_files: int) -> int:
+    """Return the number of RAW blocks to write into one output file.
+
+    Args:
+        backend: Raw-voltage backend.
+        file_index: Zero-based output-file index.
+        num_files: Total number of output files.
+
+    Returns:
+        Number of RAW blocks to place in the selected file.
+    """
     if file_index == num_files - 1 and backend.num_blocks % backend.blocks_per_file != 0:
         return backend.num_blocks % backend.blocks_per_file
     return backend.blocks_per_file
 
 
-def _record_files(backend,
-                  *,
-                  output_file_stem,
-                  record_config,
-                  header_dict,
-                  xp):
+def _record_files(
+    backend: Any,
+    *,
+    output_file_stem: str,
+    record_config: Any,
+    header_dict: dict[str, Any],
+    xp: Any,
+) -> None:
+    """Write one full observation as one or more GUPPI RAW files.
+
+    Args:
+        backend: Raw-voltage backend.
+        output_file_stem: Path stem for output RAW files.
+        record_config: Normalized recording configuration.
+        header_dict: Final RAW header dictionary.
+        xp: Numerical array module, either NumPy or CuPy.
+    """
     num_files = _get_num_output_files(backend, xp=xp)
     with tqdm(total=backend.num_blocks, disable=not record_config.verbose) as pbar:
         pbar.set_description("Blocks")
@@ -61,18 +106,22 @@ def _record_files(backend,
 
             with input_context as input_file_handler:
                 backend.input_file_handler = input_file_handler
-                with open(save_fn, "wb") as f:
-                    blocks_to_write = _get_blocks_to_write(backend,
-                                                           file_index=file_index,
-                                                           num_files=num_files)
+                with open(save_fn, "wb") as handle:
+                    blocks_to_write = _get_blocks_to_write(
+                        backend,
+                        file_index=file_index,
+                        num_files=num_files,
+                    )
                     for block_index in range(blocks_to_write):
                         if record_config.verbose:
                             tqdm.write(f"Creating block {block_index}...")
-                        _make_header(backend, f, header_dict)
-                        voltages = backend.collect_data_block(digitize=record_config.digitize,
-                                                              requantize=True,
-                                                              verbose=record_config.verbose)
-                        f.write(xp.array(voltages, dtype=xp.int8).tobytes())
+                        _make_header(backend, handle, header_dict)
+                        voltages = backend.collect_data_block(
+                            digitize=record_config.digitize,
+                            requantize=True,
+                            verbose=record_config.verbose,
+                        )
+                        handle.write(xp.array(voltages, dtype=xp.int8).tobytes())
                         if record_config.verbose:
                             tqdm.write(f"File {file_index}, block {block_index} recorded!")
                         pbar.update(1)

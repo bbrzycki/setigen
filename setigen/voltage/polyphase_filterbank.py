@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
@@ -11,31 +13,21 @@ else:
     
 import numpy as np
 import scipy.signal
-import time
+from typing import Any
+
+from setigen._typing import SeedLike
 
 
 class PolyphaseFilterbank(object):
-    """
-    Implement a polyphase filterbank (PFB) for coarse channelization of real voltage input data.
+    """Implement a polyphase filterbank for coarse channelization."""
     
-    Follows description in Danny C. Price, Spectrometers and Polyphase Filterbanks in 
-    Radio Astronomy, 2016. Available online at: http://arxiv.org/abs/1607.03579.
-    """
-    
-    def __init__(self, num_taps=8, num_branches=1024, window_fn='hamming'):
-        """
-        Initialize a polyphase filterbank object, with a voltage sample cache that ensures that
-        consecutive sample retrievals get contiguous data (i.e. without introduced time delays).
+    def __init__(self, num_taps: int = 8, num_branches: int = 1024, window_fn: str = 'hamming') -> None:
+        """Initialize a polyphase filterbank.
 
-        Parameters
-        ----------
-        num_taps : int, optional
-            Number of PFB taps
-        num_branches : int, optional
-            Number of PFB branches. Note that this results in 
-            ``num_branches / 2`` coarse channels.
-        window_fn : str, optional
-            Windowing function used for the PFB
+        Args:
+            num_taps: Number of PFB taps.
+            num_branches: Number of PFB branches.
+            window_fn: Windowing function used for the PFB.
         """
         self.num_taps = num_taps
         self.num_branches = num_branches
@@ -48,28 +40,19 @@ class PolyphaseFilterbank(object):
         # Estimate stds after channelizing Gaussian with mean 0, std 1
         self.channelized_stds = None
         
-    def _reset_cache(self):
-        """
-        Clear sample cache.
-        """
+    def _reset_cache(self) -> None:
+        """Clear the cached overlap samples."""
         self.cache = None
                 
-    def estimate_channelized_stds(self, factor=10000, seed=None):
-        """
-        Estimate standard deviations in real and imaginary components after channelizing
-        a zero-mean Gaussian distribution with variance 1. 
+    def estimate_channelized_stds(self, factor: int = 10000, seed: SeedLike = None) -> xp.ndarray:
+        """Estimate post-channelization real and imaginary standard deviations.
 
-        Parameters
-        ----------
-        factor : int, default : 10000
-            Use ``factor * num_branches`` samples for estimation
-        seed : None, int, Generator, optional
-            Random seed or seed generator
+        Args:
+            factor: Multiplier for `num_branches` used in the estimate.
+            seed: Random seed or generator.
 
-        Return 
-        ------
-        channelized_stds : array
-            Array of standard deviation estimates
+        Returns:
+            Estimated real and imaginary standard deviations.
         """
         rng = xp.random.default_rng(seed)
         sample_v = rng.standard_normal(size=factor * self.num_branches)
@@ -77,29 +60,23 @@ class PolyphaseFilterbank(object):
         self.channelized_stds = xp.array([v_pfb.real.std(), v_pfb.imag.std()])
         return self.channelized_stds
         
-    def _get_pfb_window(self):
-        """
-        Creates and saves PFB windowing coefficients. 
-        """
+    def _get_pfb_window(self) -> None:
+        """Create and cache the PFB window coefficients."""
         self.window = get_pfb_window(self.num_taps, 
                                      self.num_branches, 
                                      self.window_fn)
 
-    def get_response(self, fftlength=512):
-        """
-        Saves frequency response shape and ratio of maximum to mean of the 
-        frequency response.
+    def get_response(self, fftlength: int = 512) -> xp.ndarray:
+        """Return the half-coarse-channel PFB frequency response.
 
-        Parameters
-        ----------
-        fftlength : int, default : 512
-            FFT length used in fine channelization, which must be a multiple of
-            num_taps (``fftlength = factor * num_taps``)
+        Args:
+            fftlength: Fine-channel FFT length used for the response estimate.
 
-        Return 
-        ------
-        response : array
-            Half-coarse channel frequency response
+        Returns:
+            Half-coarse-channel frequency response.
+
+        Raises:
+            ValueError: If `fftlength` is not a multiple of `num_taps`.
         """
         if fftlength % self.num_taps != 0:
             raise ValueError(f"fftlength ({fftlength}) must be a multiple of taps ({self.num_taps})")
@@ -111,42 +88,29 @@ class PolyphaseFilterbank(object):
         self.max_mean_ratio = xp.max(half_coarse_chan) / xp.mean(half_coarse_chan)
         return half_coarse_chan
 
-    def tile_response(self, num_chans, fftlength=512):
-        """
-        Construct tiled PFB frequency response.
+    def tile_response(self, num_chans: int, fftlength: int = 512) -> xp.ndarray:
+        """Construct a tiled multi-channel PFB frequency response.
 
-        Parameters
-        ----------
-        num_chans : int
-            Number of coarse channels to tile
-        fftlength : int, default : 512
-            FFT length used in fine channelization, which must be a multiple of
-            num_taps (``fftlength = factor * num_taps``)
+        Args:
+            num_chans: Number of coarse channels to tile.
+            fftlength: Fine-channel FFT length used for the response estimate.
 
-        Return 
-        ------
-        response : array
-            Multiple coarse channel frequency response
+        Returns:
+            Tiled coarse-channel response.
         """
         response = self.get_response(fftlength=fftlength)
         return xp.tile(xp.concatenate([response[::-1], response]), 
                        num_chans)
 
-    def channelize(self, x, cache=True):
-        """
-        Channelize input voltages by applying the PFB and taking a normalized FFT. 
+    def channelize(self, x: xp.ndarray, cache: bool = True) -> xp.ndarray:
+        """Channelize input voltages with the PFB and a normalized FFT.
 
-        Parameters
-        ----------
-        x : array
-            Array of voltages
-        cache : bool, default : True
-            Option to cache last section of data, which is excluded in PFB step
-            
-        Returns
-        -------
-        X_pfb : array
-            Post-FFT complex voltages
+        Args:
+            x: Input voltage array.
+            cache: Whether to retain overlap samples between calls.
+
+        Returns:
+            Post-FFT complex voltages.
         """
         if cache:
             # Cache last section of data, which is excluded in PFB step
@@ -161,30 +125,20 @@ class PolyphaseFilterbank(object):
         return X_pfb
     
     
-def pfb_frontend(x, pfb_window, num_taps, num_branches):
-    """
-    Apply windowing function to create polyphase filterbank frontend.
-    
-    Follows description in Danny C. Price, Spectrometers and Polyphase 
-    Filterbanks in Radio Astronomy, 2016. Available online at: 
-    http://arxiv.org/abs/1607.03579.
-    
-    Parameters
-    ----------
-    x : array
-        Array of voltages
-    pfb_window : array
-        Array of PFB windowing coefficients
-    num_taps : int
-        Number of PFB taps
-    num_branches : int
-        Number of PFB branches. Note that this results in 
-        ``num_branches / 2`` coarse channels.
-            
-    Returns
-    -------
-    x_summed : array
-        Array of voltages post-PFB weighting
+def pfb_frontend(x: xp.ndarray,
+                 pfb_window: xp.ndarray,
+                 num_taps: int,
+                 num_branches: int) -> xp.ndarray:
+    """Apply the polyphase frontend windowing operation.
+
+    Args:
+        x: Input voltage array.
+        pfb_window: PFB window coefficients.
+        num_taps: Number of PFB taps.
+        num_branches: Number of PFB branches.
+
+    Returns:
+        Voltage array after PFB weighting.
     """
     W = int(len(x) / num_taps / num_branches)
     
@@ -203,25 +157,18 @@ def pfb_frontend(x, pfb_window, num_taps, num_branches):
     return x_summed
 
 
-def get_pfb_window(num_taps, num_branches, window_fn='hamming'):
-    """
-    Get windowing function to multiply to time series data
-    according to a finite impulse response (FIR) filter.
+def get_pfb_window(num_taps: int,
+                   num_branches: int,
+                   window_fn: str='hamming') -> xp.ndarray:
+    """Return PFB window coefficients.
 
-    Parameters
-    ----------
-    num_taps : int
-        Number of PFB taps
-    num_branches : int
-        Number of PFB branches. Note that this results in 
-        ``num_branches / 2`` coarse channels.
-    window_fn : str, optional
-        Windowing function used for the PFB
-            
-    Returns
-    -------
-    window : array
-        Array of PFB windowing coefficients
+    Args:
+        num_taps: Number of PFB taps.
+        num_branches: Number of PFB branches.
+        window_fn: Windowing function used for the PFB.
+
+    Returns:
+        PFB window coefficients.
     """ 
     window = scipy.signal.firwin(num_taps * num_branches, 
                                  cutoff=1.0 / num_branches,
@@ -231,26 +178,20 @@ def get_pfb_window(num_taps, num_branches, window_fn='hamming'):
     return xp.array(window)
 
 
-def get_pfb_voltages(x, num_taps, num_branches, window_fn='hamming'):
-    """
-    Produce complex raw voltage data as a function of time and coarse channel.
+def get_pfb_voltages(x: xp.ndarray,
+                     num_taps: int,
+                     num_branches: int,
+                     window_fn: str='hamming') -> xp.ndarray:
+    """Produce coarse-channel complex voltages from real-voltage input.
 
-    Parameters
-    ----------
-    x : array
-        Array of voltages
-    num_taps : int
-        Number of PFB taps
-    num_branches : int
-        Number of PFB branches. Note that this results in 
-        ``num_branches / 2`` coarse channels.
-    window_fn : str, optional
-        Windowing function used for the PFB
-            
-    Returns
-    -------
-    X_pfb : array
-        Post-FFT complex voltages
+    Args:
+        x: Input voltage array.
+        num_taps: Number of PFB taps.
+        num_branches: Number of PFB branches.
+        window_fn: Windowing function used for the PFB.
+
+    Returns:
+        Post-FFT complex voltages.
     """
     # Generate window coefficients
     win_coeffs = get_pfb_window(num_taps, num_branches, window_fn)

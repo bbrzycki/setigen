@@ -1,13 +1,26 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import click
 
 from .reduction import RawReductionSpec, reduce_raw
 
 
-def _validate_output_path(ctx, param, value):
+def _validate_output_path(ctx: click.Context,
+                          param: click.Parameter,
+                          value: str | None) -> Path | None:
+    """Convert an optional click path argument into a `Path`.
+
+    Args:
+        ctx: Active click context.
+        param: Click parameter definition.
+        value: Raw path value from click.
+
+    Returns:
+            `Path` instance or `None` when no value was supplied.
+    """
     if value is None:
         return None
     return Path(value)
@@ -54,22 +67,35 @@ def _validate_output_path(ctx, param, value):
               callback=_validate_output_path,
               default=None,
               help="Optional temporary directory for staged writes.")
-def main(input_path,
-         output_path,
-         fftlength,
-         integration_factor,
-         pol_mode,
-         output_format,
-         start_chan,
-         num_chans,
-         backend,
-         overwrite,
-         tmp_dir):
+def main(input_path: Path,
+         output_path: Path,
+         fftlength: int,
+         integration_factor: int,
+         pol_mode: str,
+         output_format: str,
+         start_chan: int | None,
+         num_chans: int | None,
+         backend: str,
+         overwrite: bool,
+         tmp_dir: Path | None) -> None:
     """
     Reduce a GUPPI RAW file or RAW stem to a .fil or .h5 filterbank product.
 
     INPUT_PATH may be a specific *.0000.raw file or a RAW stem.
     OUTPUT_PATH is the destination .fil or .h5 file.
+
+    Args:
+        input_path: RAW stem or specific `.raw` file path.
+        output_path: Destination `.fil` or `.h5` path.
+        fftlength: Fine-channel FFT length.
+        integration_factor: Number of spectra to integrate in time.
+        pol_mode: Polarization output mode.
+        output_format: Output file format.
+        start_chan: First coarse channel to reduce.
+        num_chans: Number of coarse channels to reduce.
+        backend: Numerical array backend name.
+        overwrite: Whether an existing output file may be replaced.
+        tmp_dir: Optional directory for staged writes.
     """
     spec = RawReductionSpec(
         fftlength=fftlength,

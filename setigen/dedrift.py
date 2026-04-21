@@ -1,24 +1,29 @@
+from __future__ import annotations
+
 import numpy as np
 from .frame import Frame
 
 
-def dedrift(fr, drift_rate=None):
-    """
-    Dedrift frame with a provided drift rate, or with the "drift_rate"
-    keyword in the frame's metadata. This function dedrifts with respect
-    to the center of the frame, so signals at the edges may get cut off.
-    
-    Parameters
-    ----------
-    fr : Frame
-        Input frame
-    drift_rate : float, optional
-        Drift rate in Hz/s
-        
-    Returns
-    -------
-    dr_fr : Frame
-        De-drifted frame
+def dedrift(fr: Frame, drift_rate: float | None = None) -> Frame:
+    """De-drift a frame using an explicit or metadata-provided drift rate.
+
+    This operation aligns drifting signals relative to the center of the
+    frame. Signals near the frequency edges may be truncated by the resulting
+    shift.
+
+    Args:
+        fr: Input frame to de-drift.
+        drift_rate: Drift rate in Hz/s. When omitted, the function looks for
+            ``"drift_rate"`` in ``fr.metadata``.
+
+    Returns:
+        New frame with the drift removed.
+
+    Raises:
+        KeyError: If no drift rate is provided or stored in the frame
+            metadata.
+        ValueError: If the requested drift rate would shift the signal beyond
+            the frame width.
     """
     if drift_rate is None:
         if 'drift_rate' in fr.metadata:

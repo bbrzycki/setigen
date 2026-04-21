@@ -1,26 +1,24 @@
+from __future__ import annotations
+
 import numpy as np
 import glob
 import matplotlib.pyplot as plt
 from pathlib import Path
+from typing import Any
+
+from .._typing import PathLike
 
 
-def format_header_line(key, value, as_strings=False):
-    """
-    Format key, value pair as an 80 character RAW header line.
-    
-    Parameters
-    ----------
-    key : str
-        Header key
-    value : str or int or float
-        Header value
-    as_strings : bool
-        If values are already formatted strings, pass True
-        
-    Returns
-    -------
-    line : str
-        Formatted line
+def format_header_line(key: str, value: str | int | float, as_strings: bool = False) -> str:
+    """Format a RAW header key-value pair as an 80-character line.
+
+    Args:
+        key: Header key.
+        value: Header value.
+        as_strings: Whether the value is already preformatted as a string.
+
+    Returns:
+        Formatted 80-character header line.
     """
     if as_strings:
         if "\'" in value:
@@ -39,40 +37,28 @@ def format_header_line(key, value, as_strings=False):
     return line
 
 
-def get_header_key_val(header_line):
-    """
-    Split header_line into key, value pair.
-    
-    Parameters
-    ----------
-    header_line : str
-        Formatted header line
-        
-    Returns
-    -------
-    key : str
-        Header key
-    value : str
-        Header value (as string)
+def get_header_key_val(header_line: str) -> tuple[str, str]:
+    """Split a formatted RAW header line into key and value.
+
+    Args:
+        header_line: Formatted header line.
+
+    Returns:
+        Header key and value as strings.
     """
     key = header_line[:8].strip()
     value = header_line[9:].strip().strip("''")
     return key, value
 
 
-def read_header(filename):
-    """
-    Return header dictionary, read from a GUPPI RAW file.
-    
-    Parameters
-    ----------
-    filename : str
-        Path to RAW file
-        
-    Returns
-    -------
-    header_dict : dict
-        Dictionary of header key, value pairs
+def read_header(filename: PathLike) -> dict[str, str]:
+    """Read a GUPPI RAW header into a dictionary.
+
+    Args:
+        filename: Path to a RAW file.
+
+    Returns:
+        Dictionary of header key-value pairs.
     """
     header_dict = {}
     with open(filename, "rb") as f:
@@ -84,30 +70,29 @@ def read_header(filename):
     return header_dict
 
 
-def get_stem(filename):
-    """
-    Extract RAW stem from RAW filename.
+def get_stem(filename: PathLike) -> Path:
+    """Extract the RAW stem from a RAW filename.
+
+    Args:
+        filename: Path to a specific RAW file.
+
+    Returns:
+        RAW file stem.
     """
     raw_path = Path(filename)
     return raw_path.parent / ''.join(raw_path.stem.split('.')[:-1])
 
 
-def get_raw_params(input_file_stem,
-                   start_chan=0):
-    """
-    Return dictionary with parameters from RAW file's header.
-    
-    Parameters
-    ----------
-    input_file_stem : str
-        Path to RAW file stem (prefix)
-    start_chan : int, optional
-        Index of first coarse channel to be recorded
-        
-    Returns
-    -------
-    raw_params : dict
-        Dictionary with header parameters
+def get_raw_params(input_file_stem: PathLike,
+                   start_chan: int = 0) -> dict[str, Any]:
+    """Return selected observing parameters from a RAW header.
+
+    Args:
+        input_file_stem: RAW file stem.
+        start_chan: Index of the first coarse channel to be recorded.
+
+    Returns:
+        Dictionary of parsed RAW parameters.
     """
     header = read_header(f'{input_file_stem}.0000.raw')
     
@@ -138,19 +123,14 @@ def get_raw_params(input_file_stem,
     return raw_params
 
 
-def get_blocks_in_file(filename):
-    """
-    Return number of blocks within a RAW file.
-    
-    Parameters
-    ----------
-    filename : str
-        Path to RAW file
-        
-    Returns
-    -------
-    count : int
-        Number of data blocks
+def get_blocks_in_file(filename: PathLike) -> int:
+    """Return the number of data blocks in a RAW file.
+
+    Args:
+        filename: Path to a RAW file.
+
+    Returns:
+        Number of data blocks in the file.
     """
     
     header = read_header(filename)
@@ -166,37 +146,27 @@ def get_blocks_in_file(filename):
     return count
 
 
-def get_blocks_per_file(input_file_stem):
-    """
-    Return blocks in first file matching the filename stem.
-    
-    Parameters
-    ----------
-    input_file_stem : str
-        Path to RAW file stem (prefix)
-        
-    Returns
-    -------
-    count : int
-        Number of data blocks
+def get_blocks_per_file(input_file_stem: PathLike) -> int:
+    """Return blocks in the first file matching a RAW stem.
+
+    Args:
+        input_file_stem: RAW file stem.
+
+    Returns:
+        Number of data blocks in the first file.
     """
     first_file = f'{input_file_stem}.0000.raw'
     return get_blocks_in_file(first_file)
 
 
-def get_total_blocks(input_file_stem):
-    """
-    Return total number of blocks in data.
-    
-    Parameters
-    ----------
-    input_file_stem : str
-        Path to RAW file stem (prefix)
-        
-    Returns
-    -------
-    num_blocks : int
-        Number of data blocks
+def get_total_blocks(input_file_stem: PathLike) -> int:
+    """Return the total number of blocks across all files in a RAW stem.
+
+    Args:
+        input_file_stem: RAW file stem.
+
+    Returns:
+        Total number of data blocks.
     """
     filenames = glob.glob(f'{input_file_stem}.????.raw')
     blocks_per_file = get_blocks_per_file(input_file_stem)
@@ -207,7 +177,13 @@ def get_total_blocks(input_file_stem):
         return blocks_per_file * (len(filenames) - 1) + blocks_in_last_file
 
 
-def get_dists(filename, show=True):
+def get_dists(filename: PathLike, show: bool = True) -> None:
+    """Plot and print component distributions from the first RAW block.
+
+    Args:
+        filename: Path to a RAW file.
+        show: Whether to display the histogram plots.
+    """
     header = read_header(filename)
     with open(filename, "rb") as f:
         i = 0

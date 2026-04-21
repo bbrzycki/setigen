@@ -13,6 +13,7 @@ import numpy as np
 from tqdm import tqdm
 import time
 import copy
+from typing import Any
 from setigen.voltage import raw_utils
 from setigen.voltage import polyphase_filterbank
 from setigen.voltage import quantization
@@ -52,54 +53,40 @@ class RawVoltageBackend(object):
     creation of GUPPI RAW voltage files from synthetic real voltages.
     """
     def __init__(self,
-                 antenna_source,
-                 digitizer,
-                 filterbank,
-                 requantizer,
-                 start_chan=0,
-                 num_chans=64,
-                 block_size=134217728,
-                 blocks_per_file=128,
-                 num_subblocks=32,
-                 max_working_set_bytes=512 * 1024**2):
-        """
-        Initialize a RawVoltageBackend object, with an input antenna source (either Antenna or 
-        MultiAntennaArray), and backend elements (digitizer, filterbank, requantizer). Also, details 
-        behind the RAW file format and recording are specified on initialization, such as which
-        coarse channels are saved and the size of recording blocks.
+                 antenna_source: Any,
+                 digitizer: Any,
+                 filterbank: Any,
+                 requantizer: Any,
+                 start_chan: int = 0,
+                 num_chans: int = 64,
+                 block_size: int = 134217728,
+                 blocks_per_file: int = 128,
+                 num_subblocks: int = 32,
+                 max_working_set_bytes: int = 512 * 1024**2) -> None:
+        """Initialize a raw-voltage recording backend.
 
-        Parameters
-        ----------
-        antenna_source : Antenna or MultiAntennaArray
-            Antenna or MultiAntennaArray, from which real voltage data is created
-        digitizer : RealQuantizer or ComplexQuantizer, or list
-            Quantizer used to digitize input voltages. Either a single object to be used as a template
-            for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
-        filterbank : PolyphaseFilterbank, or list
-            Polyphase filterbank object used to channelize voltages. Either a single object to be used as a 
-            template for each antenna and polarization, or a 2D list of filterbank objects of shape 
-            (num_antennas, num_pols).
-        requantizer : ComplexQuantizer, or list
-            Quantizer used on complex channelized voltages. Either a single object to be used as a template
-            for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
-        start_chan : int, optional
-            Index of first coarse channel to be recorded
-        num_chans : int, optional
-            Number of coarse channels to be recorded
-        block_size : int, optional
-            Recording block size, in bytes
-        blocks_per_file : int, optional
-            Number of blocks to be saved per RAW file
-        num_subblocks : int, optional
-            Number of partitions per block, used for computation. If 
-            ``num_subblocks=1``, one block's worth of data will be passed 
-            through the pipeline and recorded at once. Use this parameter to 
-            reduce memory load, especially when using GPU acceleration.
-        max_working_set_bytes : int, optional
-            Soft cap for transient per-subblock working-set size. If a block
-            would exceed this budget, the backend automatically increases the
-            effective number of subblocks to keep synthetic voltage generation
-            within a safer memory envelope.
+        Args:
+            antenna_source: `Antenna` or `MultiAntennaArray` providing voltage
+                samples.
+            digitizer: Digitizer template or per-antenna/per-polarization
+                digitizer matrix.
+            filterbank: PFB template or per-antenna/per-polarization filterbank
+                matrix.
+            requantizer: Requantizer template or per-antenna/per-polarization
+                requantizer matrix.
+            start_chan: Index of the first coarse channel to record.
+            num_chans: Number of coarse channels to record.
+            block_size: Output RAW block size in bytes.
+            blocks_per_file: Number of RAW blocks to place in each file.
+            num_subblocks: Requested number of computational subblocks per RAW
+                block.
+            max_working_set_bytes: Soft cap for transient per-subblock working
+                set. The backend may increase the effective subblock count to
+                stay within this budget.
+
+        Raises:
+            ValueError: If the antenna source is invalid.
+            TypeError: If a backend element has an unsupported type.
         """
         self.antenna_source = antenna_source
         if isinstance(antenna_source, v_antenna.Antenna):
@@ -200,48 +187,29 @@ class RawVoltageBackend(object):
     
     @classmethod
     def from_data(cls, 
-                  input_file_stem,
-                  antenna_source,
-                  digitizer=None,
-                  filterbank=None,
-                  start_chan=0,
-                  num_subblocks=32,
-                  max_working_set_bytes=512 * 1024**2):
-        """
-        Initialize a RawVoltageBackend object, using existing RAW data as a background for
-        signal insertion and recording. Compared to normal initialization, some parameters are inferred 
-        from the input data.
+                  input_file_stem: str,
+                  antenna_source: Any,
+                  digitizer: Any = None,
+                  filterbank: Any = None,
+                  start_chan: int = 0,
+                  num_subblocks: int = 32,
+                  max_working_set_bytes: int = 512 * 1024**2) -> "RawVoltageBackend":
+        """Initialize a backend that injects signals into existing RAW input.
 
-        Parameters
-        ----------
-        input_file_stem : str
-            Filename or path stem to input RAW data
-        antenna_source : Antenna or MultiAntennaArray
-            Antenna or MultiAntennaArray, from which real voltage data is created
-        digitizer : RealQuantizer or ComplexQuantizer, or list, optional
-            Quantizer used to digitize input voltages. Either a single object to be used as a template
-            for each antenna and polarization, or a 2D list of quantizers of shape (num_antennas, num_pols).
-        filterbank : PolyphaseFilterbank, or list, optional
-            Polyphase filterbank object used to channelize voltages. Either a single object to be used as a 
-            template for each antenna and polarization, or a 2D list of filterbank objects of shape 
-            (num_antennas, num_pols).
-        start_chan : int, optional
-            Index of first coarse channel to be recorded
-        num_subblocks : int, optional
-            Number of partitions per block, used for computation. If 
-            ``num_subblocks=1``, one block's worth of data will be passed 
-            through the pipeline and recorded at once. Use this parameter to 
-            reduce memory load, especially when using GPU acceleration.
-        max_working_set_bytes : int, optional
-            Soft cap for transient per-subblock working-set size. If a block
-            would exceed this budget, the backend automatically increases the
-            effective number of subblocks to keep synthetic voltage generation
-            within a safer memory envelope.
-            
-        Returns
-        -------
-        backend : RawVoltageBackend
-            Created backend object
+        Args:
+            input_file_stem: Path stem to the input RAW data.
+            antenna_source: `Antenna` or `MultiAntennaArray` providing injected
+                voltage samples.
+            digitizer: Optional digitizer template or per-stream matrix.
+            filterbank: Optional PFB template or per-stream matrix.
+            start_chan: Index of the first coarse channel to record.
+            num_subblocks: Requested number of computational subblocks per RAW
+                block.
+            max_working_set_bytes: Soft cap for transient per-subblock working
+                set.
+
+        Returns:
+                Initialized backend configured from the input RAW metadata.
         """
         if digitizer is None:
             digitizer = quantization.RealQuantizer()
@@ -290,27 +258,22 @@ class RawVoltageBackend(object):
         return backend
     
     def collect_data_block(self,
-                           digitize=True,
-                           requantize=True,
-                           verbose=True):
-        """
-        General function to actually collect data from the antenna source and return coarsely channelized 
-        complex voltages. Collects one block of data.
-        
-        Parameters
-        ----------
-        digitize : bool, optional
-            Whether to quantize input voltages before the PFB
-        requantize : bool, optional
-            Whether to quantize output complex voltages after the PFB
-        verbose : bool, optional
-            Control whether tqdm prints progress messages 
-            
-        Returns
-        -------
-        final_voltages : array
-            Complex voltages formatted according to GUPPI RAW specifications; array of shape 
-            (num_chans * num_antennas, block_size / (num_chans * num_antennas))
+                           digitize: bool = True,
+                           requantize: bool = True,
+                           verbose: bool = True) -> np.ndarray:
+        """Collect one packed RAW data block from the antenna source.
+
+        Args:
+            digitize: Whether to quantize input voltages before the PFB.
+            requantize: Whether to quantize complex post-PFB voltages.
+            verbose: Whether to emit progress output.
+
+        Returns:
+                Packed RAW buffer with shape `(num_chans * num_antennas,
+                block_size / (num_chans * num_antennas))`.
+
+        Raises:
+            ValueError: If input RAW mixing is requested without requantization.
         """
         obsnchan = self.num_chans * self.num_antennas
         if requantize:
@@ -396,48 +359,41 @@ class RawVoltageBackend(object):
         return final_voltages    
     
     
-    def get_num_blocks(self, obs_length):
-        """
-        Calculate the number of blocks required as a function of observation length, in seconds. Note that only 
-        an integer number of blocks will be recorded, so the actual observation length may be shorter than the 
-        ``obs_length`` provided.
+    def get_num_blocks(self, obs_length: float) -> int:
+        """Calculate the number of RAW blocks implied by an observation length.
+
+        Args:
+            obs_length: Observation length in seconds.
+
+        Returns:
+                Number of full RAW blocks required.
         """
         return int(obs_length * abs(self.chan_bw) * self.num_antennas * self.num_chans * self.bytes_per_sample / self.block_size)
         
     
     def record(self, 
-               output_file_stem,
-               obs_length=None, 
-               num_blocks=None,
-               length_mode='obs_length',
-               header_dict=None,
-               digitize=True,
-               load_template=True,
-               verbose=True):
-        """
-        General function to actually collect data from the antenna source and return coarsely channelized complex
-        voltages. If input data is provided, only as much data as is in the input will be generated.
-        
-        Parameters
-        ----------
-        output_file_stem : str
-            Filename or path stem; the suffix will be automatically appended
-        obs_length : float, optional
-            Length of observation in seconds, if in 'obs_length' mode
-        num_blocks : int, optional
-            Number of data blocks to record, if in 'num_blocks' mode
-        length_mode : str, optional
-            Mode for specifying length of observation, either 'obs_length' 
-            in seconds or 'num_blocks' in data blocks
-        header_dict : dict, optional
-            Dictionary of header values to set. Use to overwrite non-essential 
-            header values or add custom ones.
-        digitize : bool, optional
-            Whether to quantize input voltages before the PFB
-        verbose : bool, optional
-            Control whether tqdm prints progress messages 
-        load_template : bool, optional
-            Control whether the internal header template's keys are used.
+               output_file_stem: str,
+               obs_length: float | None = None, 
+               num_blocks: int | None = None,
+               length_mode: str = 'obs_length',
+               header_dict: dict[str, Any] | None = None,
+               digitize: bool = True,
+               load_template: bool = True,
+               verbose: bool = True) -> None:
+        """Record one observation as one or more GUPPI RAW files.
+
+        Args:
+            output_file_stem: Path stem for the output RAW files.
+            obs_length: Observation length in seconds when using
+                `length_mode="obs_length"`.
+            num_blocks: Number of RAW blocks when using
+                `length_mode="num_blocks"`.
+            length_mode: Strategy for interpreting the supplied observation
+                length.
+            header_dict: Optional RAW header overrides and additions.
+            digitize: Whether to quantize input voltages before the PFB.
+            load_template: Whether to merge the built-in RAW header template.
+            verbose: Whether to emit progress output.
         """
         record_config = _RecordConfig.from_values(obs_length=obs_length,
                                                   num_blocks=num_blocks,
@@ -466,42 +422,29 @@ class RawVoltageBackend(object):
                       xp=xp)
                     
              
-def get_block_size(num_antennas=1,
-                   tchans_per_block=128,
-                   num_bits=8,
-                   num_pols=2,
-                   num_branches=1024,
-                   num_chans=64,
-                   fftlength=1024,
-                   int_factor=4):
-    """
-    Calculate block size, given a desired number of time bins per RAW data block 
-    ``tchans_per_block``. Takes in backend parameters, including fine channelization
-    factors. Can be used to calculate reasonable block sizes for raw voltage recording.
-    
-    Parameters
-    ----------
-    num_antennas : int
-        Number of antennas
-    tchans_per_block : int
-        Final number of time bins in fine resolution product, per data block
-    num_bits : int
-        Number of bits in requantized data (for saving into file). Can be 8 or 4.
-    num_pols : int
-        Number of polarizations recorded
-    num_branches : int
-        Number of branches in polyphase filterbank 
-    num_chans : int
-        Number of coarse channels written to file
-    fftlength : int
-        FFT length to be used in fine channelization
-    int_factor : int, optional
-        Integration factor to be used in fine channelization
-    
-    Returns
-    -------
-    block_size : int
-        Block size, in bytes
+def get_block_size(num_antennas: int = 1,
+                   tchans_per_block: int = 128,
+                   num_bits: int = 8,
+                   num_pols: int = 2,
+                   num_branches: int = 1024,
+                   num_chans: int = 64,
+                   fftlength: int = 1024,
+                   int_factor: int = 4) -> int:
+    """Calculate a RAW block size from the desired reduced-product dimensions.
+
+    Args:
+        num_antennas: Number of antennas.
+        tchans_per_block: Number of output time bins per RAW block after fine
+            channelization.
+        num_bits: Requantized bit depth, usually 8 or 4.
+        num_pols: Number of recorded polarizations.
+        num_branches: Number of PFB branches.
+        num_chans: Number of recorded coarse channels.
+        fftlength: Fine-channel FFT length.
+        int_factor: Fine-channel time integration factor.
+
+    Returns:
+            RAW block size in bytes.
     """
     return _get_block_size(num_antennas=num_antennas,
                            tchans_per_block=tchans_per_block,
@@ -513,49 +456,34 @@ def get_block_size(num_antennas=1,
                            int_factor=int_factor)
 
 
-def get_total_obs_num_samples(obs_length=None, 
-                              num_blocks=None, 
-                              length_mode='obs_length',
-                              num_antennas=1,
-                              sample_rate=3e9,
-                              block_size=134217728,
-                              num_bits=8,
-                              num_pols=2,
-                              num_branches=1024,
-                              num_chans=64):
-    """
-    Calculate number of required real voltage time samples for as given 
-    ``obs_length`` or ``num_blocks``, without directly using a 
-    ``RawVoltageBackend`` object. 
-    
-    Parameters
-    ----------
-    obs_length : float, optional
-        Length of observation in seconds, if in 'obs_length' mode
-    num_blocks : int, optional
-        Number of data blocks to record, if in 'num_blocks' mode
-    length_mode : str, optional
-        Mode for specifying length of observation, either 'obs_length' in 
-        seconds or 'num_blocks' in data blocks
-    num_antennas : int
-        Number of antennas
-    sample_rate : float
-        Sample rate in Hz
-    block_size : int
-        Block size used in recording GUPPI RAW files
-    num_bits : int
-        Number of bits in requantized data (for saving into file). Can be 8 or 4.
-    num_pols : int
-        Number of polarizations recorded
-    num_branches : int
-        Number of branches in polyphase filterbank 
-    num_chans : int
-        Number of coarse channels written to file
-    
-    Returns
-    -------
-    num_samples : int
-        Number of samples
+def get_total_obs_num_samples(obs_length: float | None = None, 
+                              num_blocks: int | None = None, 
+                              length_mode: str = 'obs_length',
+                              num_antennas: int = 1,
+                              sample_rate: float = 3e9,
+                              block_size: int = 134217728,
+                              num_bits: int = 8,
+                              num_pols: int = 2,
+                              num_branches: int = 1024,
+                              num_chans: int = 64) -> int:
+    """Estimate the required real-voltage sample count without constructing a backend.
+
+    Args:
+        obs_length: Observation length in seconds when using
+            `length_mode="obs_length"`.
+        num_blocks: Number of RAW blocks when using
+            `length_mode="num_blocks"`.
+        length_mode: Strategy for interpreting the supplied observation length.
+        num_antennas: Number of antennas.
+        sample_rate: Time-domain sample rate in Hz.
+        block_size: RAW block size in bytes.
+        num_bits: Requantized bit depth.
+        num_pols: Number of recorded polarizations.
+        num_branches: Number of PFB branches.
+        num_chans: Number of recorded coarse channels.
+
+    Returns:
+            Estimated count of real voltage samples required.
     """
     return _get_total_obs_num_samples(obs_length=obs_length,
                                       num_blocks=num_blocks,

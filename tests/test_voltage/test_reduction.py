@@ -129,6 +129,50 @@ def test_channelize_block_polarization_modes():
     assert_allclose(full_stokes[:, 3, :], (-2 * np.imag(xy)).reshape(2, 2))
 
 
+def test_channelize_block_integrates_consecutive_fine_spectra():
+    voltages = np.array([
+        [[1 + 0j, 0 + 1j]],
+        [[2 + 0j, 0 + 2j]],
+        [[3 + 0j, 0 + 3j]],
+        [[4 + 0j, 0 + 4j]],
+        [[5 + 0j, 0 + 5j]],
+        [[6 + 0j, 0 + 6j]],
+        [[7 + 0j, 0 + 7j]],
+        [[8 + 0j, 0 + 8j]],
+    ], dtype=np.complex64)
+
+    spec_x = np.fft.fftshift(
+        np.fft.fft(voltages[:, 0, 0].reshape(4, 2), axis=1) / 2**0.5,
+        axes=1,
+    )
+    spec_y = np.fft.fftshift(
+        np.fft.fft(voltages[:, 0, 1].reshape(4, 2), axis=1) / 2**0.5,
+        axes=1,
+    )
+    fine_power = np.abs(spec_x) ** 2 + np.abs(spec_y) ** 2
+    expected = fine_power.reshape(2, 2, 2).sum(axis=1)
+
+    reduced = _channelize_block(voltages,
+                                fftlength=2,
+                                integration_factor=2,
+                                pol_mode=1,
+                                backend="numpy")
+
+    assert reduced.shape == (2, 1, 2)
+    assert_allclose(reduced[:, 0, :], expected)
+
+
+def test_channelize_block_rejects_full_pol_single_pol_input():
+    voltages = np.ones((4, 1, 1), dtype=np.complex64)
+
+    with pytest.raises(ValueError, match="dual-polarization"):
+        _channelize_block(voltages,
+                          fftlength=2,
+                          integration_factor=1,
+                          pol_mode=4,
+                          backend="numpy")
+
+
 def test_reduce_raw_to_frame_matches_existing_helper(tmp_path):
     backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
     raw_stem = tmp_path / "helper_parity"
@@ -152,6 +196,66 @@ def test_reduce_raw_to_frame_matches_existing_helper(tmp_path):
 
     assert frame.data.shape == helper.shape
     assert_allclose(frame.data, helper)
+
+
+def test_reduce_raw_channel_subset_matches_full_coarse_slice(tmp_path):
+    backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
+    raw_stem = tmp_path / "subset"
+
+    backend.record(output_file_stem=raw_stem,
+                   num_blocks=1,
+                   length_mode="num_blocks",
+                   verbose=False)
+
+    full_spec = stg.voltage.RawReductionSpec(fftlength=8,
+                                             integration_factor=1,
+                                             pol_mode=1,
+                                             output_format="fil")
+    subset_spec = stg.voltage.RawReductionSpec(fftlength=8,
+                                               integration_factor=1,
+                                               pol_mode=1,
+                                               output_format="fil",
+                                               start_chan=1,
+                                               num_chans=2)
+
+    full_frame = stg.voltage.reduce_raw_to_frame(raw_stem, full_spec)
+    subset_frame = stg.voltage.reduce_raw_to_frame(raw_stem, subset_spec)
+
+    assert subset_frame.data.shape == (full_frame.tchans, 16)
+    assert_allclose(subset_frame.data, full_frame.data[:, 8:24])
+    assert subset_frame.df == pytest.approx(full_frame.df)
+    assert subset_frame.dt == pytest.approx(full_frame.dt)
+    assert subset_frame.fch1 == pytest.approx(full_frame.fch1 + full_frame.df * 8)
+
+
+def test_reduce_raw_channel_subset_writes_consistent_filterbank_header(tmp_path):
+    backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
+    raw_stem = tmp_path / "subset_header"
+    output_path = tmp_path / "subset_header.fil"
+
+    backend.record(output_file_stem=raw_stem,
+                   num_blocks=1,
+                   length_mode="num_blocks",
+                   verbose=False)
+
+    spec = stg.voltage.RawReductionSpec(fftlength=8,
+                                        integration_factor=2,
+                                        pol_mode=1,
+                                        output_format="fil",
+                                        start_chan=2,
+                                        num_chans=1)
+    stg.voltage.reduce_raw(raw_stem, output_path, spec, overwrite=True)
+
+    wf = Waterfall(str(output_path))
+    expected_df_mhz = abs(backend.chan_bw) / spec.fftlength * 1e-6
+    expected_fch1_mhz = (backend.fch1 + spec.start_chan * backend.chan_bw - backend.chan_bw / 2) * 1e-6
+
+    assert wf.header["nifs"] == 1
+    assert wf.header["nchans"] == spec.fftlength
+    assert wf.header["foff"] == pytest.approx(expected_df_mhz)
+    assert wf.header["fch1"] == pytest.approx(expected_fch1_mhz)
+    assert wf.header["tsamp"] == pytest.approx(backend.tbin * spec.fftlength * spec.integration_factor)
+    assert wf.data.shape == (4, 1, spec.fftlength)
 
 
 def test_reduce_raw_roundtrip_fil_total_power(tmp_path):

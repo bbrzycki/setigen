@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import numpy as np
 from astropy import units as u
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+from typing import Any
 
 from . import frame 
 from ._plot.axes import (
@@ -12,18 +15,28 @@ from ._plot.axes import (
 
 
 class TimeSeries(frame.Frame):
-    """
-    A class to store an intensity time series as Frame object.
-    """
+    """Store a one-dimensional time series as a `Frame` subclass."""
     def __init__(self,
-                 tchans=None,
-                 df=2.7939677238464355*u.Hz,
-                 dt=18.253611008*u.s,
-                 fch1=6*u.GHz,
-                 ascending=False,
-                 data=None,
-                 seed=None,
-                 **kwargs):
+                 tchans: int | None = None,
+                 df: Any = 2.7939677238464355*u.Hz,
+                 dt: Any = 18.253611008*u.s,
+                 fch1: Any = 6*u.GHz,
+                 ascending: bool = False,
+                 data: np.ndarray | None = None,
+                 seed: Any = None,
+                 **kwargs: Any) -> None:
+        """Initialize a one-channel time-series frame.
+
+        Args:
+            tchans: Number of time channels.
+            df: Frequency resolution.
+            dt: Time resolution.
+            fch1: Frequency of the first channel.
+            ascending: Whether the frequency axis is ascending.
+            data: Optional preloaded time series.
+            seed: Random seed or generator.
+            **kwargs: Additional frame-construction keyword arguments.
+        """
         if "fchans" in kwargs:
             assert kwargs.pop("fchans") == 1
         frame.Frame.__init__(self,
@@ -37,30 +50,32 @@ class TimeSeries(frame.Frame):
                              seed=seed,
                              **kwargs)
 
-    def array(self, db=False):
+    def array(self, db: bool = False) -> np.ndarray:
+        """Return the time series as a one-dimensional array.
+
+        Args:
+            db: Whether to convert intensities to dB.
+
+        Returns:
+            One-dimensional time-series array.
+        """
         return self.get_data(db=db)[:, 0]
 
     def plot(self, 
-             ttype="trel",
-             norm=False,
-             db=False,
-             minor_ticks=False,
-             **kwargs):
-        """
-        Plot spectrum.
+             ttype: str = "trel",
+             norm: bool = False,
+             db: bool = False,
+             minor_ticks: bool = False,
+             **kwargs: Any) -> None:
+        """Plot the time series.
 
-        Parameters
-        ----------
-        ttype : {"trel", "px", "bins"}, default: "trel"
-            Type of time axis labels. "px" and "bins" put the axis in units of 
-            pixels (bins), and "trel" sets the axis in time units relative to 
-            the start.
-        norm : bool, default: False 
-            Option to plot time series normalized to a mean of 1
-        db : bool, default: False
-            Option to convert intensities to dB
-        minor_ticks : bool, default: False
-            Option to include minor ticks on both axes
+        Args:
+            ttype: Time-axis display mode.
+            norm: Whether to normalize the time series to mean one before
+                plotting.
+            db: Whether to convert intensities to dB.
+            minor_ticks: Whether to enable minor ticks.
+            **kwargs: Additional `matplotlib.pyplot.plot()` keyword arguments.
         """
         if norm:
             new_ts = self.copy()
@@ -89,15 +104,19 @@ class TimeSeries(frame.Frame):
         taxis.set_label_text(tlabel)
         ax.yaxis.set_label_text(ylabel)
 
-    def normalize(self):
-        """
-        Normalize time series to mean 1.
-        """
+    def normalize(self) -> None:
+        """Normalize the time series to unit mean."""
         self.data = self.data / np.mean(self.data)
 
-    def autocorr(self, remove_spike=False):
-        """
-        Calculate full autocorrelation, normalizing time series to zero mean and unit variance.
+    def autocorr(self, remove_spike: bool = False) -> np.ndarray:
+        """Calculate the normalized autocorrelation of the time series.
+
+        Args:
+            remove_spike: Whether to replace the zero-lag spike with the first
+                nonzero lag.
+
+        Returns:
+            Normalized autocorrelation sequence.
         """
         ts = self.array()
         ts = ts - np.mean(ts)
@@ -107,5 +126,13 @@ class TimeSeries(frame.Frame):
         acf /= acf[0] # This is essentially the variance (scaled by len(ts))
         return acf
 
-    def acf(self, remove_spike=False):
+    def acf(self, remove_spike: bool = False) -> np.ndarray:
+        """Alias for `autocorr()`.
+
+        Args:
+            remove_spike: Whether to replace the zero-lag spike.
+
+        Returns:
+            Normalized autocorrelation sequence.
+        """
         return self.autocorr(remove_spike=remove_spike)

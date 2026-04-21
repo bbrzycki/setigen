@@ -1,38 +1,34 @@
+from __future__ import annotations
+
 import os
 import errno
 from pathlib import Path
 import numpy as np
 from blimpy import Waterfall
+from typing import Iterator
+
+from ._typing import PathLike
 
 
-def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
-    """
-    Create a generator that returns smaller Waterfall objects by 'splitting'
-    an input filterbank file according to the number of frequency samples.
+def split_waterfall_generator(
+    waterfall_fn: PathLike,
+    fchans: int,
+    tchans: int | None = None,
+    f_shift: int | None = None,
+) -> Iterator[Waterfall]:
+    """Yield smaller waterfall views split from a larger filterbank file.
 
-    Since this function only loads in data in chunks according to fchans,
-    it handles very large observations well. Specifically, it will not attempt
-    to load all the data into memory before splitting, which won't work when
-    the data is very large anyway.
+    Args:
+        waterfall_fn: Input filterbank filename.
+        fchans: Number of frequency samples per split.
+        tchans: Optional number of time samples to include.
+        f_shift: Optional shift in frequency bins between splits.
 
-    Parameters
-    ----------
-    waterfall_fn : str
-        Filterbank filename with .fil extension
-    fchans : int
-        Number of frequency samples per new filterbank file
-    tchans : int, optional
-        Number of time samples to select - will default from start of observation.
-        If None, just uses the entire integration time
-    f_shift : int, optional
-        Number of samples to shift when splitting filterbank. If
-        None, defaults to ``f_shift=fchans`` so that there is no
-        overlap between new filterbank files
+    Yields:
+        Waterfall views covering smaller sections of the input.
 
-    Returns
-    -------
-    waterfall : Waterfall
-        A blimpy Waterfall object containing a smaller section of the data
+    Raises:
+        ValueError: If `tchans` exceeds the available number of time samples.
     """
 
     info_wf = Waterfall(waterfall_fn, load_data=False)
@@ -68,31 +64,24 @@ def split_waterfall_generator(waterfall_fn, fchans, tchans=None, f_shift=None):
         f_stop += f_shift * df
 
 
-def split_fil(waterfall_fn, output_dir, fchans, tchans=None, f_shift=None):
-    """
-    Create a set of new filterbank files by 'splitting' an input filterbank
-    file according to the number of frequency samples.
+def split_fil(
+    waterfall_fn: PathLike,
+    output_dir: PathLike,
+    fchans: int,
+    tchans: int | None = None,
+    f_shift: int | None = None,
+) -> list[Path]:
+    """Split a filterbank file into smaller `.fil` files.
 
-    Parameters
-    ----------
-    waterfall_fn : str
-        Filterbank filename with .fil extension
-    output_dir : str
-        Directory for new filterbank files
-    fchans : int
-        Number of frequency samples per new filterbank file
-    tchans : int, optional
-        Number of time samples to select - will default from start of observation.
-        If None, just uses the entire integration time
-    f_shift : int, optional
-        Number of samples to shift when splitting filterbank. If
-        None, defaults to ``f_shift=fchans`` so that there is no
-        overlap between new filterbank files
+    Args:
+        waterfall_fn: Input filterbank filename.
+        output_dir: Directory for the new filterbank files.
+        fchans: Number of frequency samples per split file.
+        tchans: Optional number of time samples to include.
+        f_shift: Optional shift in frequency bins between splits.
 
-    Returns
-    -------
-    split_fns : list of str
-        List of new filenames
+    Returns:
+        Paths to the new filterbank files.
     """
     output_dir = Path(output_dir)
 
@@ -117,23 +106,30 @@ def split_fil(waterfall_fn, output_dir, fchans, tchans=None, f_shift=None):
     return split_fns
 
 
-def split_array(data, f_sample_num=None, t_sample_num=None,
-                f_shift=None, t_shift=None,
-                f_trim=False, t_trim=False):
-    """
-    Split NumPy arrays into a list of smaller arrays according to limits in
-    frequency and time. This doesn't reduce/combine data, it simply cuts the
-    data into smaller chunks.
+def split_array(data: np.ndarray,
+                f_sample_num: int | None = None,
+                t_sample_num: int | None = None,
+                f_shift: int | None = None,
+                t_shift: int | None = None,
+                f_trim: bool = False,
+                t_trim: bool = False) -> np.ndarray:
+    """Split an array into smaller frequency-time windows.
 
-    Parameters
-    ----------
-    data : ndarray
-        Time-frequency data
+    Args:
+        data: Two-dimensional time-frequency data array.
+        f_sample_num: Number of frequency samples per split.
+        t_sample_num: Number of time samples per split.
+        f_shift: Shift in frequency bins between splits.
+        t_shift: Shift in time bins between splits.
+        f_trim: Whether to drop splits with incomplete frequency width.
+        t_trim: Whether to drop splits with incomplete time height.
 
-    Returns
-    -------
-    split_data : list of ndarray
-        List of new time-frequency data frames
+    Returns:
+        Array of split time-frequency windows.
+
+    Raises:
+        ValueError: If the input is not an ndarray or an invalid shift is
+            supplied.
     """
 
     split_data = []

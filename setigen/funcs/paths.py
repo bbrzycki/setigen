@@ -5,25 +5,43 @@ For any given starting frequency,
 these functions map out the path of a signal as a function of time in
 time-frequency space.
 """
+from __future__ import annotations
+
 from enum import Enum
 
 import numpy as np
 from astropy import units as u
 
 from setigen import unit_utils
+from setigen._typing import FrequencyPath, SeedLike
 
 
 class SpreadType(str, Enum):
+    """Supported spread distributions for simple RFI paths."""
+
     UNIFORM = "uniform"
     NORMAL = "normal"
 
 
 class RfiType(str, Enum):
+    """Supported RFI path families."""
+
     STATIONARY = "stationary"
     RANDOM_WALK = "random_walk"
 
 
-def _coerce_spread_type(spread_type):
+def _coerce_spread_type(spread_type: str | SpreadType) -> SpreadType:
+    """Normalize a user-supplied spread type.
+
+    Args:
+        spread_type: Raw spread-type selector.
+
+    Returns:
+        Normalized spread-type enum value.
+
+    Raises:
+        ValueError: If the spread type is unsupported.
+    """
     if isinstance(spread_type, SpreadType):
         return spread_type
     try:
@@ -32,7 +50,15 @@ def _coerce_spread_type(spread_type):
         raise ValueError(f"'{spread_type}' is not a valid spread type!") from exc
 
 
-def _coerce_rfi_type(rfi_type):
+def _coerce_rfi_type(rfi_type: str | RfiType) -> RfiType:
+    """Normalize a user-supplied RFI type.
+
+    Args:
+        rfi_type: Raw RFI-type selector.
+
+    Returns:
+        Normalized RFI-type enum value.
+    """
     if isinstance(rfi_type, RfiType):
         return rfi_type
     if rfi_type == RfiType.RANDOM_WALK.value:
@@ -40,20 +66,15 @@ def _coerce_rfi_type(rfi_type):
     return RfiType.STATIONARY
 
 
-def constant_path(f_start, drift_rate):
-    """
-    Constant drift rate.
-    
-    Parameters
-    ----------
-    f_start : float or astropy.Quantity
-        Starting center frequency
-    drift_rate : float or astropy.Quantity
-        Doppler drift rate
+def constant_path(f_start: float | u.Quantity, drift_rate: float | u.Quantity) -> FrequencyPath:
+    """Return a constant-drift path.
 
-    Return
-    ------
-    path : func
+    Args:
+        f_start: Starting center frequency.
+        drift_rate: Doppler drift rate.
+
+    Returns:
+        Path callable.
     """
     f_start = unit_utils.get_value(f_start, u.Hz)
     drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
@@ -63,20 +84,15 @@ def constant_path(f_start, drift_rate):
     return path
 
 
-def squared_path(f_start, drift_rate):
-    """
-    Quadratic signal path; drift_rate here only refers to the starting slope.
-    
-    Parameters
-    ----------
-    f_start : float or astropy.Quantity
-        Starting center frequency
-    drift_rate : float or astropy.Quantity
-        Doppler drift rate
+def squared_path(f_start: float | u.Quantity, drift_rate: float | u.Quantity) -> FrequencyPath:
+    """Return a quadratic drift path.
 
-    Return
-    ------
-    path : func
+    Args:
+        f_start: Starting center frequency.
+        drift_rate: Initial drift-rate slope.
+
+    Returns:
+        Path callable.
     """
     f_start = unit_utils.get_value(f_start, u.Hz)
     drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
@@ -86,24 +102,22 @@ def squared_path(f_start, drift_rate):
     return path
 
 
-def sine_path(f_start, drift_rate, period, amplitude):
-    """
-    Sine path in time-frequency space.
-    
-    Parameters
-    ----------
-    f_start : float or astropy.Quantity
-        Starting center frequency
-    drift_rate : float or astropy.Quantity
-        Doppler drift rate
-    period : float or astropy.Quantity
-        Modulation period
-    amplitude : float or astropy.Quantity
-        Modulation amplitude
+def sine_path(
+    f_start: float | u.Quantity,
+    drift_rate: float | u.Quantity,
+    period: float | u.Quantity,
+    amplitude: float | u.Quantity,
+) -> FrequencyPath:
+    """Return a sinusoidally modulated drift path.
 
-    Return
-    ------
-    path : func
+    Args:
+        f_start: Starting center frequency.
+        drift_rate: Doppler drift rate.
+        period: Modulation period.
+        amplitude: Modulation amplitude.
+
+    Returns:
+        Path callable.
     """
     f_start = unit_utils.get_value(f_start, u.Hz)
     drift_rate = unit_utils.get_value(drift_rate, u.Hz / u.s)
@@ -115,32 +129,26 @@ def sine_path(f_start, drift_rate, period, amplitude):
     return path
 
 
-def simple_rfi_path(f_start, drift_rate, spread, spread_type='uniform', 
-                    rfi_type='stationary', seed=None):
-    """
-    A crude simulation of one style of RFI that shows up, in which the signal
-    jumps around in frequency. This method samples the center frequency for
-    each time sample from either a uniform or normal distribution. 
-    
-    Parameters
-    ----------
-    f_start : float or astropy.Quantity
-        Starting center frequency
-    drift_rate : float or astropy.Quantity
-        Doppler drift rate
-    spread : float or astropy.Quantity
-        Range of center frequency variations
-    spread_type : {"uniform", "normal"}, default: "uniform"
-        Type of frequency variation
-    rfi_type : {"stationary", "random_walk"}, default: "stationary"
-        The "stationary" option only offsets with respect to a straight-line 
-        path, but "random_walk" accumulates frequency offsets over time.
-    seed : None, int, Generator, optional
-        Random seed or seed generator
+def simple_rfi_path(
+    f_start: float | u.Quantity,
+    drift_rate: float | u.Quantity,
+    spread: float | u.Quantity,
+    spread_type: str | SpreadType = 'uniform', 
+    rfi_type: str | RfiType = 'stationary',
+    seed: SeedLike = None,
+) -> FrequencyPath:
+    """Return a simple randomized RFI path.
 
-    Return
-    ------
-    path : func
+    Args:
+        f_start: Starting center frequency.
+        drift_rate: Doppler drift rate.
+        spread: Width of frequency variations.
+        spread_type: Distribution used for per-time-step offsets.
+        rfi_type: Whether offsets are stationary or cumulative.
+        seed: Random seed or generator.
+
+    Returns:
+        Path callable.
     """
     rng = np.random.default_rng(seed)
     f_start = unit_utils.get_value(f_start, u.Hz)

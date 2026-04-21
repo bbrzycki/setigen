@@ -3,13 +3,32 @@ from __future__ import annotations
 import numpy as np
 
 
-def _decode_raw_block(data_chunk,
+def _decode_raw_block(data_chunk: bytes,
                       *,
-                      num_bits,
-                      num_pols,
-                      num_chans,
-                      start_chan=0,
-                      num_selected_chans=None):
+                      num_bits: int,
+                      num_pols: int,
+                      num_chans: int,
+                      start_chan: int = 0,
+                      num_selected_chans: int | None = None) -> np.ndarray:
+    """Decode one RAW block into complex coarse-channel voltages.
+
+    Args:
+        data_chunk: Raw byte payload from a single RAW block.
+        num_bits: Bit depth per complex component. Supported values are 4 and
+            8.
+        num_pols: Number of polarizations encoded in the payload.
+        num_chans: Total number of coarse channels in the payload.
+        start_chan: First coarse channel to decode.
+        num_selected_chans: Number of coarse channels to decode starting at
+            ``start_chan``.
+
+    Returns:
+        Complex voltage array with shape ``(time, coarse_chan, pol)``.
+
+    Raises:
+        ValueError: If the selected channel range is invalid or the bit depth
+            is unsupported.
+    """
     if num_selected_chans is None:
         num_selected_chans = num_chans - start_chan
 

@@ -31,6 +31,8 @@ class PolyphaseFilterbank(object):
         self.num_taps = num_taps
         self.num_branches = num_branches
         self.window_fn = window_fn
+        self.frontend_method = "reference"
+        self.max_frontend_working_set_bytes = 512 * 1024**2
         
         self.cache = None
         
@@ -142,7 +144,14 @@ class PolyphaseFilterbank(object):
                 x = xp.concatenate([self.cache, x])
             self.cache = x[-self.num_taps*self.num_branches:]
         
-        x = pfb_frontend(x, self.window, self.num_taps, self.num_branches)
+        x = pfb_frontend(
+            x,
+            self.window,
+            self.num_taps,
+            self.num_branches,
+            method=self.frontend_method,
+            max_working_set_bytes=self.max_frontend_working_set_bytes,
+        )
 
         if method == "auto":
             selected_limit = min(8, max(1, self.num_branches // 64))
@@ -197,7 +206,9 @@ def pfb_frontend_reference(x: xp.ndarray,
 def pfb_frontend(x: xp.ndarray,
                  pfb_window: xp.ndarray,
                  num_taps: int,
-                 num_branches: int) -> xp.ndarray:
+                 num_branches: int,
+                 method: Literal["auto", "reference", "vectorized"] = "auto",
+                 max_working_set_bytes: int | None = 512 * 1024**2) -> xp.ndarray:
     """Apply the vectorized polyphase frontend windowing operation.
 
     Args:
@@ -205,16 +216,33 @@ def pfb_frontend(x: xp.ndarray,
         pfb_window: PFB window coefficients.
         num_taps: Number of PFB taps.
         num_branches: Number of PFB branches.
+        method: Frontend implementation method. ``"reference"`` uses the
+            original row loop, ``"vectorized"`` loops over taps, and
+            ``"auto"`` uses the conservative reference loop. Users can request
+            ``"vectorized"`` explicitly for workloads where it is faster.
+        max_working_set_bytes: Optional memory budget for the auto selector.
 
     Returns:
         Voltage array after PFB weighting.
+
+    Raises:
+        ValueError: If the frontend method is unsupported.
     """
+    if method not in ("auto", "reference", "vectorized"):
+        raise ValueError("method must be one of 'auto', 'reference', or 'vectorized'.")
+
     W = int(len(x) / num_taps / num_branches)
+    output_rows = (W - 1) * num_taps
+    if method == "auto":
+        # Keep auto conservative: the reference loop has the lowest peak
+        # temporary memory and no backend-dependent performance assumptions.
+        method = "reference"
+    if method == "reference":
+        return pfb_frontend_reference(x, pfb_window, num_taps, num_branches)
 
     x_p = x[:W*num_taps*num_branches].reshape((W * num_taps, num_branches))
     h_p = pfb_window.reshape((num_taps, num_branches))
 
-    output_rows = (W - 1) * num_taps
     x_summed = xp.zeros((output_rows, num_branches))
     for tap in range(num_taps):
         x_summed += x_p[tap:tap + output_rows, :] * h_p[tap, :]

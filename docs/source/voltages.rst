@@ -338,6 +338,15 @@ are:
 - ``num_taps`` controls the spectral profile of each individual coarse channel. The larger this is, the closer the spectral response gets to ideal.
 - ``num_branches`` controls the number of coarse channels. After the real FFT, we obtain ``num_branches / 2`` total coarse channels spanning the Nyquist range.
 
+The PFB frontend uses the original row-loop implementation by default for both
+NumPy and CuPy backends. A tap-vectorized frontend is available for local
+experiments by setting ``filterbank.frontend_method = 'vectorized'``, but it is
+not enabled automatically because it can increase temporary memory use and is
+not guaranteed to be faster for every backend or block size. This frontend
+choice is separate from ``coarse_method='auto'`` in direct spectrogram
+generation, which controls whether the coarse-channel FFT computes all coarse
+DFT bins or only selected output bins.
+
 Voltage backend
 ^^^^^^^^^^^^^^^
 

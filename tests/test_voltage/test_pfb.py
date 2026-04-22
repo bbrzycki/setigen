@@ -53,7 +53,29 @@ def test_vectorized_pfb_frontend_matches_reference():
     actual = pfb_frontend(samples,
                           filterbank.window,
                           num_taps,
-                          num_branches)
+                          num_branches,
+                          method="vectorized")
+
+    assert_allclose(actual, expected)
+
+
+def test_pfb_frontend_auto_matches_reference():
+    rng = np.random.default_rng(124)
+    num_taps = 4
+    num_branches = 32
+    filterbank = stg.voltage.PolyphaseFilterbank(num_taps=num_taps,
+                                                 num_branches=num_branches)
+    samples = rng.standard_normal(num_taps * num_branches * 5)
+
+    expected = pfb_frontend_reference(samples,
+                                      filterbank.window,
+                                      num_taps,
+                                      num_branches)
+    actual = pfb_frontend(samples,
+                          filterbank.window,
+                          num_taps,
+                          num_branches,
+                          method="auto")
 
     assert_allclose(actual, expected)
 

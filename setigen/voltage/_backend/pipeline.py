@@ -227,6 +227,9 @@ def _channelize_voltage(
     antenna: int,
     pol: int,
     digitize: bool,
+    start_chan: int | None = None,
+    num_chans: int | None = None,
+    coarse_method: str = "auto",
 ) -> Any:
     """Digitize, PFB-channelize, and coarse-channel select one voltage stream.
 
@@ -236,18 +239,33 @@ def _channelize_voltage(
         antenna: Antenna index.
         pol: Polarization index.
         digitize: Whether to digitize before PFB channelization.
+        start_chan: Optional first coarse channel to return. Defaults to the
+            backend recording start channel.
+        num_chans: Optional number of coarse channels to return. Defaults to
+            the backend recording channel count.
+        coarse_method: Coarse-channel transform method for the PFB.
 
     Returns:
         Complex coarse-channel voltages for the selected channel slice.
     """
+    if start_chan is None:
+        start_chan = backend.start_chan
+    if num_chans is None:
+        num_chans = backend.num_chans
+
     if digitize:
         start = time.time()
         v = backend.digitizer[antenna][pol].quantize(v)
         backend.digitizer_stage_t += time.time() - start
 
     start = time.time()
-    v = backend.filterbank[antenna][pol].channelize(v, cache=True)
-    v = v[:, backend.start_chan : backend.start_chan + backend.num_chans]
+    v = backend.filterbank[antenna][pol].channelize(
+        v,
+        cache=True,
+        start_chan=start_chan,
+        num_chans=num_chans,
+        method=coarse_method,
+    )
     backend.filterbank_stage_t += time.time() - start
     return v
 

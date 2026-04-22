@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -59,6 +60,58 @@ def _fftshifted_spectra(voltages: np.ndarray, *, fftlength: int, xp: Any) -> lis
     return spectra_by_pol
 
 
+def _selected_fftshifted_spectra(
+    voltages: np.ndarray,
+    *,
+    fftlength: int,
+    channel_indices: Sequence[int],
+    xp: Any,
+) -> list[Any] | None:
+    """Fine-channelize selected flattened frequency bins from one RAW block.
+
+    Args:
+        voltages: Decoded coarse-channel voltages with time, coarse-channel,
+            and polarization axes.
+        fftlength: Fine-channel FFT length.
+        channel_indices: Flattened fine-channel indices to return, ordered as
+            in the full coarse/fine flattened product.
+        xp: Numerical array module, either NumPy or CuPy.
+
+    Returns:
+        Per-polarization FFT-shifted spectra with shape ``(time, frequency)``,
+        or ``None`` if no complete FFT row can be formed.
+    """
+    trimmed = voltages[: (voltages.shape[0] // fftlength) * fftlength]
+    if trimmed.shape[0] == 0:
+        return None
+
+    channel_indices = np.asarray(channel_indices, dtype=int)
+    if channel_indices.size == 0:
+        return None
+    max_index = voltages.shape[1] * fftlength
+    if np.any(channel_indices < 0) or np.any(channel_indices >= max_index):
+        raise ValueError("Selected fine-channel indices are out of bounds.")
+
+    coarse_indices = channel_indices // fftlength
+    shifted_fine_indices = channel_indices % fftlength
+    fft_bins = (shifted_fine_indices + fftlength // 2) % fftlength
+    unique_coarse = np.unique(coarse_indices)
+
+    sample_idx = xp.arange(fftlength)
+    spectra_by_pol = []
+    for pol in range(trimmed.shape[2]):
+        samples = xp.asarray(trimmed[:, :, pol]).T
+        samples = samples.reshape((samples.shape[0], samples.shape[1] // fftlength, fftlength))
+        out = xp.empty((samples.shape[1], channel_indices.size), dtype=complex)
+        for coarse_chan in unique_coarse:
+            out_cols = np.where(coarse_indices == coarse_chan)[0]
+            bins = xp.asarray(fft_bins[out_cols])
+            twiddle = xp.exp(-2j * xp.pi * sample_idx[:, xp.newaxis] * bins[xp.newaxis, :] / fftlength)
+            out[:, out_cols] = samples[coarse_chan] @ twiddle / fftlength**0.5
+        spectra_by_pol.append(out)
+    return spectra_by_pol
+
+
 def _integrate_products(products: Any, *, integration_factor: int, xp: Any) -> Any:
     """Integrate fine-channelized products over consecutive time rows.
 
@@ -98,6 +151,8 @@ def _channelize_block(
     integration_factor: int,
     pol_mode: int,
     backend: str,
+    channel_indices: Sequence[int] | None = None,
+    fine_method: str = "auto",
 ) -> np.ndarray | None:
     """Reduce one decoded RAW block into total-power or polarization products.
 
@@ -107,6 +162,10 @@ def _channelize_block(
         integration_factor: Number of spectra to integrate in time.
         pol_mode: Polarization output mode.
         backend: Numerical array backend name.
+        channel_indices: Optional flattened fine-channel indices to return.
+        fine_method: Fine-channel transform method. ``"full"`` computes the
+            full FFT before slicing, ``"selected"`` computes only requested
+            DFT bins, and ``"auto"`` uses selected DFT for small requests.
 
     Returns:
         Reduced spectrogram chunk, or `None` if no complete output rows are
@@ -116,8 +175,26 @@ def _channelize_block(
         ValueError: If the requested polarization mode is unsupported or
             incompatible with the decoded input.
     """
+    if fine_method not in ("auto", "full", "selected"):
+        raise ValueError("fine_method must be one of 'auto', 'full', or 'selected'.")
+
     xp = _get_array_module(backend)
-    spectra = _fftshifted_spectra(voltages, fftlength=fftlength, xp=xp)
+    if channel_indices is not None:
+        channel_indices = np.asarray(channel_indices, dtype=int)
+        if fine_method == "auto":
+            selected_limit = min(64, max(1, fftlength // 8))
+            fine_method = "selected" if len(channel_indices) <= selected_limit else "full"
+    if channel_indices is not None and fine_method == "selected":
+        spectra = _selected_fftshifted_spectra(
+            voltages,
+            fftlength=fftlength,
+            channel_indices=channel_indices,
+            xp=xp,
+        )
+        selected_output = True
+    else:
+        spectra = _fftshifted_spectra(voltages, fftlength=fftlength, xp=xp)
+        selected_output = False
     if spectra is None:
         return None
 
@@ -126,6 +203,8 @@ def _channelize_block(
 
     if pol_mode == 1:
         total = xx if yy is None else xx + yy
+        if channel_indices is not None and not selected_output:
+            total = _flatten_channels(total)[:, channel_indices]
         integrated = _integrate_products(
             total,
             integration_factor=integration_factor,
@@ -133,7 +212,10 @@ def _channelize_block(
         )
         if integrated is None:
             return None
-        result = _flatten_channels(integrated)[:, np.newaxis, :]
+        if selected_output or channel_indices is not None:
+            result = integrated[:, np.newaxis, :]
+        else:
+            result = _flatten_channels(integrated)[:, np.newaxis, :]
     else:
         if yy is None:
             raise ValueError(
@@ -142,6 +224,12 @@ def _channelize_block(
         xy = spectra[0] * xp.conj(spectra[1])
         re_xy = xp.real(xy)
         im_xy = xp.imag(xy)
+
+        if channel_indices is not None and not selected_output:
+            xx = _flatten_channels(xx)[:, channel_indices]
+            yy = _flatten_channels(yy)[:, channel_indices]
+            re_xy = _flatten_channels(re_xy)[:, channel_indices]
+            im_xy = _flatten_channels(im_xy)[:, channel_indices]
 
         if pol_mode == 4:
             products = xp.stack((xx, yy, re_xy, im_xy), axis=1)
@@ -157,11 +245,14 @@ def _channelize_block(
         )
         if integrated is None:
             return None
-        result = integrated.reshape(
-            integrated.shape[0],
-            integrated.shape[1],
-            integrated.shape[2] * integrated.shape[3],
-        )
+        if selected_output or channel_indices is not None:
+            result = integrated
+        else:
+            result = integrated.reshape(
+                integrated.shape[0],
+                integrated.shape[1],
+                integrated.shape[2] * integrated.shape[3],
+            )
 
     if xp is not np:
         result = xp.asnumpy(result)

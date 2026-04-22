@@ -7,6 +7,7 @@ from blimpy import Waterfall
 import setigen as stg
 from setigen.voltage._reduction.channelize import _channelize_block
 from setigen.voltage._reduction.decoder import _decode_raw_block
+from setigen.voltage.reduction import _reduce_chunks
 
 
 def _make_backend(*,
@@ -159,6 +160,56 @@ def test_channelize_block_integrates_consecutive_fine_spectra():
     assert_allclose(reduced[:, 0, :], expected)
 
 
+def test_channelize_block_selected_fine_matches_full_slice():
+    rng = np.random.default_rng(22)
+    voltages = (
+        rng.standard_normal((16, 3, 2))
+        + 1j * rng.standard_normal((16, 3, 2))
+    ).astype(np.complex64)
+
+    full = _channelize_block(voltages,
+                             fftlength=4,
+                             integration_factor=2,
+                             pol_mode=1,
+                             backend="numpy",
+                             fine_method="full")
+    selected_indices = np.arange(3, 9)
+    selected = _channelize_block(voltages,
+                                 fftlength=4,
+                                 integration_factor=2,
+                                 pol_mode=1,
+                                 backend="numpy",
+                                 channel_indices=selected_indices,
+                                 fine_method="selected")
+
+    assert_allclose(selected[:, 0, :], full[:, 0, selected_indices], rtol=1e-6, atol=1e-6)
+
+
+def test_channelize_block_selected_fine_full_stokes_matches_full_slice():
+    rng = np.random.default_rng(23)
+    voltages = (
+        rng.standard_normal((16, 3, 2))
+        + 1j * rng.standard_normal((16, 3, 2))
+    ).astype(np.complex64)
+
+    full = _channelize_block(voltages,
+                             fftlength=4,
+                             integration_factor=2,
+                             pol_mode=-4,
+                             backend="numpy",
+                             fine_method="full")
+    selected_indices = np.arange(2, 10)
+    selected = _channelize_block(voltages,
+                                 fftlength=4,
+                                 integration_factor=2,
+                                 pol_mode=-4,
+                                 backend="numpy",
+                                 channel_indices=selected_indices,
+                                 fine_method="selected")
+
+    assert_allclose(selected, full[:, :, selected_indices], rtol=1e-6, atol=1e-6)
+
+
 def test_channelize_block_rejects_full_pol_single_pol_input():
     voltages = np.ones((4, 1, 1), dtype=np.complex64)
 
@@ -255,6 +306,38 @@ def test_reduce_raw_channel_subset_writes_consistent_filterbank_header(tmp_path)
     assert wf.data.shape == (4, 1, spec.fftlength)
 
 
+def test_reduce_raw_frequency_range_matches_full_fine_slice(tmp_path):
+    backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
+    raw_stem = tmp_path / "fine_subset"
+
+    backend.record(output_file_stem=raw_stem,
+                   num_blocks=1,
+                   length_mode="num_blocks",
+                   verbose=False)
+
+    full_spec = stg.voltage.RawReductionSpec(fftlength=8,
+                                             integration_factor=1,
+                                             pol_mode=1,
+                                             output_format="fil")
+    full_frame = stg.voltage.reduce_raw_to_frame(raw_stem, full_spec)
+    start = 5
+    stop = 19
+    f0 = full_frame.fch1 + full_frame.df * start
+    f1 = full_frame.fch1 + full_frame.df * (stop - 1)
+    subset_spec = stg.voltage.RawReductionSpec(fftlength=8,
+                                               integration_factor=1,
+                                               pol_mode=1,
+                                               output_format="fil",
+                                               frequency_range=(f0, f1),
+                                               fine_method="selected")
+    subset_frame = stg.voltage.reduce_raw_to_frame(raw_stem, subset_spec)
+
+    assert subset_frame.data.shape == (full_frame.tchans, stop - start)
+    assert subset_frame.fch1 == pytest.approx(f0)
+    assert subset_frame.df == pytest.approx(full_frame.df)
+    assert_allclose(subset_frame.data, full_frame.data[:, start:stop], rtol=1e-6, atol=1e-6)
+
+
 def test_reduce_raw_roundtrip_fil_total_power(tmp_path):
     backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
     raw_stem = tmp_path / "roundtrip_total"
@@ -279,6 +362,132 @@ def test_reduce_raw_roundtrip_fil_total_power(tmp_path):
     assert frame.data.shape == (16, 32)
     assert frame.fchans == 32
     assert frame.tchans == 16
+
+
+def test_direct_spectrogram_matches_raw_roundtrip_total_power(tmp_path):
+    raw_backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
+    direct_backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
+    raw_stem = tmp_path / "direct_total"
+
+    raw_backend.record(output_file_stem=raw_stem,
+                       num_blocks=1,
+                       length_mode="num_blocks",
+                       verbose=False)
+
+    raw_spec = stg.voltage.RawReductionSpec(fftlength=8,
+                                            integration_factor=1,
+                                            pol_mode=1,
+                                            output_format="fil")
+    direct_spec = stg.voltage.VoltageSpectrogramSpec(fftlength=8,
+                                                     integration_factor=1,
+                                                     pol_mode=1,
+                                                     coarse_method="full",
+                                                     fine_method="full")
+    raw_frame = stg.voltage.reduce_raw_to_frame(raw_stem, raw_spec)
+    direct_frame = direct_backend.to_spectrogram(direct_spec,
+                                                num_blocks=1,
+                                                length_mode="num_blocks",
+                                                verbose=False).to_frame()
+
+    assert direct_frame.data.shape == raw_frame.data.shape
+    assert_allclose(direct_frame.data, raw_frame.data)
+
+
+def test_direct_spectrogram_frequency_range_matches_full_direct():
+    full_backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
+    subset_backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
+
+    full_spec = stg.voltage.VoltageSpectrogramSpec(fftlength=8,
+                                                   integration_factor=1,
+                                                   pol_mode=1,
+                                                   coarse_method="full",
+                                                   fine_method="full")
+    full_result = full_backend.to_spectrogram(full_spec,
+                                             num_blocks=1,
+                                             length_mode="num_blocks",
+                                             verbose=False)
+    full_frame = full_result.to_frame()
+    start = 4
+    stop = 12
+    f0 = full_frame.fch1 + full_frame.df * start
+    f1 = full_frame.fch1 + full_frame.df * (stop - 1)
+    subset_spec = stg.voltage.VoltageSpectrogramSpec(fftlength=8,
+                                                     integration_factor=1,
+                                                     pol_mode=1,
+                                                     frequency_range=(f0, f1),
+                                                     coarse_method="full",
+                                                     fine_method="selected")
+    subset_frame = subset_backend.to_spectrogram(subset_spec,
+                                                num_blocks=1,
+                                                length_mode="num_blocks",
+                                                verbose=False).to_frame()
+
+    assert subset_frame.data.shape == (full_frame.tchans, stop - start)
+    assert subset_frame.fch1 == pytest.approx(f0)
+    assert subset_frame.df == pytest.approx(full_frame.df)
+    assert_allclose(subset_frame.data, full_frame.data[:, start:stop], rtol=1e-6, atol=1e-6)
+
+
+def test_direct_spectrogram_matches_raw_roundtrip_full_stokes_4bit(tmp_path):
+    raw_backend = _make_backend(num_pols=2, num_bits=4, num_chans=4, fftlength=8, tchans_per_block=8)
+    direct_backend = _make_backend(num_pols=2, num_bits=4, num_chans=4, fftlength=8, tchans_per_block=8)
+    raw_stem = tmp_path / "direct_stokes_4bit"
+
+    raw_backend.record(output_file_stem=raw_stem,
+                       num_blocks=1,
+                       length_mode="num_blocks",
+                       verbose=False)
+
+    raw_spec = stg.voltage.RawReductionSpec(fftlength=8,
+                                            integration_factor=1,
+                                            pol_mode=-4,
+                                            output_format="fil")
+    direct_spec = stg.voltage.VoltageSpectrogramSpec(fftlength=8,
+                                                     integration_factor=1,
+                                                     pol_mode=-4,
+                                                     coarse_method="full",
+                                                     fine_method="full")
+    raw_chunks = []
+    for chunk, _, _ in _reduce_chunks(raw_stem, raw_spec):
+        raw_chunks.append(chunk)
+    raw_data = np.concatenate(raw_chunks, axis=0)
+    direct_data = direct_backend.to_spectrogram(direct_spec,
+                                               num_blocks=1,
+                                               length_mode="num_blocks",
+                                               verbose=False).data
+
+    assert direct_data.shape == raw_data.shape
+    assert_allclose(direct_data, raw_data)
+
+
+def test_direct_spectrogram_from_data_shape(tmp_path):
+    base_backend = _make_backend(num_pols=2, num_bits=8, num_chans=4, fftlength=8, tchans_per_block=8)
+    raw_stem = tmp_path / "direct_from_data"
+    base_backend.record(output_file_stem=raw_stem,
+                        num_blocks=1,
+                        length_mode="num_blocks",
+                        verbose=False)
+
+    raw_params = stg.voltage.get_raw_params(input_file_stem=raw_stem,
+                                            start_chan=0)
+    antenna = stg.voltage.Antenna(sample_rate=base_backend.sample_rate,
+                                  seed=123,
+                                  **raw_params)
+    read_backend = stg.voltage.RawVoltageBackend.from_data(input_file_stem=raw_stem,
+                                                           antenna_source=antenna,
+                                                           start_chan=0,
+                                                           num_subblocks=4)
+    spec = stg.voltage.VoltageSpectrogramSpec(fftlength=8,
+                                              integration_factor=1,
+                                              pol_mode=1,
+                                              coarse_method="full",
+                                              fine_method="full")
+    result = read_backend.to_spectrogram(spec,
+                                         num_blocks=1,
+                                         length_mode="num_blocks",
+                                         verbose=False)
+
+    assert result.data.shape == (8, 1, 32)
 
 
 def test_reduce_raw_roundtrip_h5_total_power(tmp_path):

@@ -24,6 +24,10 @@ from setigen.voltage.reduction import (
     reduce_raw,
     reduce_raw_to_frame,
 )
+from setigen.voltage.spectrogram import (
+    VoltageSpectrogramResult,
+    VoltageSpectrogramSpec,
+)
 
 __all__ = [
     "DataStream",
@@ -52,4 +56,6 @@ __all__ = [
     "RawReductionSpec",
     "reduce_raw",
     "reduce_raw_to_frame",
+    "VoltageSpectrogramResult",
+    "VoltageSpectrogramSpec",
 ]

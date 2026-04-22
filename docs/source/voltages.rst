@@ -139,6 +139,61 @@ acceleration, and rawspec-style polarization semantics for ``pol_mode=1``,
 directly and are not wrapped in :class:`~setigen.frame.Frame`, which remains a
 2D total-power interface.
 
+Direct voltage spectrograms
+---------------------------
+
+When the desired product is a dynamic spectrum rather than a persistent RAW
+file, :meth:`~setigen.voltage.backend.RawVoltageBackend.to_spectrogram` can run
+the same exact voltage path and skip the intermediate RAW serialization step.
+The backend still generates voltage samples, applies the digitizer, coarse PFB,
+and complex requantizer, and then performs fine channelization and integration
+directly in Python.
+
+.. code-block:: python
+
+    spec = stg.voltage.VoltageSpectrogramSpec(
+        fftlength=1024,
+        integration_factor=4,
+        pol_mode=stg.voltage.PolarizationMode.TOTAL_POWER,
+        coarse_method='auto',
+        fine_method='auto',
+    )
+
+    result = rvb.to_spectrogram(spec,
+                                num_blocks=1,
+                                length_mode='num_blocks',
+                                verbose=False)
+    frame = result.to_frame()
+
+The ``coarse_method`` and ``fine_method`` options accept ``'auto'``,
+``'full'``, and ``'selected'``. Automatic selection is used only for exact
+methods that preserve the current channel response and FFT normalization. For
+small coarse-channel or fine-channel selections, ``'auto'`` may compute only
+the requested DFT bins; otherwise it falls back to the full FFT path.
+
+For targeted analysis, the direct spectrogram and RAW reduction APIs support
+frequency-region selection on the final fine-channel axis:
+
+.. code-block:: python
+
+    roi = stg.voltage.VoltageSpectrogramSpec(
+        fftlength=1024,
+        integration_factor=4,
+        frequency_range=(6001.0e6, 6001.5e6),
+        fine_method='selected',
+    )
+
+    frame = rvb.to_spectrogram(roi,
+                               num_blocks=1,
+                               length_mode='num_blocks',
+                               verbose=False).to_frame()
+
+The frequency range is mutually exclusive with ``start_chan`` and
+``num_chans``. Existing RAW generation remains available through
+:meth:`~setigen.voltage.backend.RawVoltageBackend.record`; direct spectrogram
+generation does not write a RAW file unless users separately call
+``record``.
+
 Using GPU acceleration
 ----------------------
 

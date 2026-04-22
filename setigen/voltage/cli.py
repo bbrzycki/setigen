@@ -54,11 +54,21 @@ def _validate_output_path(ctx: click.Context,
               type=click.IntRange(min=1),
               default=None,
               help="Number of coarse channels to reduce.")
+@click.option("--frequency-range",
+              nargs=2,
+              type=float,
+              default=None,
+              help="Inclusive final-frequency range to reduce, in Hz.")
 @click.option("--backend",
               type=click.Choice(["auto", "numpy", "cupy"]),
               default="auto",
               show_default=True,
               help="Array backend for fine channelization.")
+@click.option("--fine-method",
+              type=click.Choice(["auto", "full", "selected"]),
+              default="auto",
+              show_default=True,
+              help="Fine-channel FFT method.")
 @click.option("--overwrite",
               is_flag=True,
               help="Allow overwriting the output file if it already exists.")
@@ -74,7 +84,9 @@ def main(input_path: Path,
          output_format: str,
          start_chan: int | None,
          num_chans: int | None,
+         frequency_range: tuple[float, float] | None,
          backend: str,
+         fine_method: str,
          overwrite: bool,
          tmp_dir: Path | None) -> None:
     """
@@ -92,7 +104,9 @@ def main(input_path: Path,
         output_format: Output file format.
         start_chan: First coarse channel to reduce.
         num_chans: Number of coarse channels to reduce.
+        frequency_range: Inclusive final-frequency range to reduce, in Hz.
         backend: Numerical array backend name.
+        fine_method: Fine-channel FFT method.
         overwrite: Whether an existing output file may be replaced.
         tmp_dir: Optional directory for staged writes.
     """
@@ -103,7 +117,9 @@ def main(input_path: Path,
         output_format=output_format,
         start_chan=start_chan,
         num_chans=num_chans,
+        frequency_range=frequency_range,
         backend=backend,
+        fine_method=fine_method,
     )
     final_path = reduce_raw(input_path,
                             output_path,

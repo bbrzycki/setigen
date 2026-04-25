@@ -1,18 +1,8 @@
 from __future__ import annotations
 
-import os
-
-GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
-if GPU_FLAG == '1':
-    try:
-        import cupy as xp
-    except ImportError:
-        import numpy as xp
-else:
-    import numpy as xp
-    
 import numpy as np
 
+from ._array_backend import xp
 from . import data_stream
 
 

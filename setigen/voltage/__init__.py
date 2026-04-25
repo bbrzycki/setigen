@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+from setigen.voltage._array_backend import get_backend, set_backend
 from setigen.voltage.data_stream import (
     DataStream, BackgroundDataStream, estimate_stats
 )
@@ -30,6 +31,8 @@ from setigen.voltage.spectrogram import (
 )
 
 __all__ = [
+    "get_backend",
+    "set_backend",
     "DataStream",
     "BackgroundDataStream",
     "estimate_stats",

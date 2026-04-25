@@ -1,20 +1,11 @@
 from __future__ import annotations
 
-import os
 from typing import Literal
 
-GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
-if GPU_FLAG == '1':
-    try:
-        import cupy as xp
-    except ImportError:
-        import numpy as xp
-else:
-    import numpy as xp
-    
 import scipy.signal
 
 from setigen._typing import SeedLike
+from ._array_backend import xp
 
 
 class PolyphaseFilterbank(object):

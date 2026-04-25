@@ -55,13 +55,17 @@ and [`SCIENCE.md`](SCIENCE.md).
 currently imports `pkg_resources` at runtime. Normal installs pick this up
 automatically.
 
-The `setigen.voltage` module specifically can be GPU accelerated, via CuPy (https://docs.cupy.dev/en/stable/install.html). CuPy is not strictly required to use the voltage module, but it reduces compute time significantly. If CuPy is installed, enable `setigen` GPU usage either by setting the `SETIGEN_ENABLE_GPU` environmental variable to 1 or doing so in Python:
+The `setigen.voltage` module specifically can be GPU accelerated, via CuPy (https://docs.cupy.dev/en/stable/install.html). CuPy is not strictly required to use the voltage module, but it reduces compute time significantly. If CuPy is installed, enable `setigen` GPU usage before constructing voltage objects:
 
 ```
 import os
-os.environ['SETIGEN_ENABLE_GPU'] = '1'
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+import setigen as stg
+stg.voltage.set_backend('cupy')
 ```
+
+The legacy `SETIGEN_ENABLE_GPU=1` environment variable is still supported for existing scripts. Use `stg.voltage.set_backend('numpy')` to force CPU execution.
 
 While it isn’t used directly by `setigen`, you may also find it helpful to install [`cusignal`](https://github.com/rapidsai/cusignal) for access to CUDA-enabled versions of `scipy` functions when writing custom voltage signal source functions.
 

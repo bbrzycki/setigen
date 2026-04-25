@@ -1,13 +1,3 @@
-import os
-
-GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
-if GPU_FLAG == '1':
-    try:
-        import cupy as xp
-    except ImportError:
-        import numpy as xp
-else:
-    import numpy as xp
 import numpy as np
 
 from tqdm import tqdm
@@ -18,6 +8,7 @@ from setigen.voltage import raw_utils
 from setigen.voltage import polyphase_filterbank
 from setigen.voltage import quantization
 from setigen.voltage import antenna as v_antenna
+from setigen.voltage._array_backend import xp
 from setigen.voltage._backend.headers import (
     _read_next_block,
 )

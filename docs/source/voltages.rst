@@ -204,17 +204,15 @@ to install CuPy, which performs the equivalent NumPy array operations on the
 GPU (https://docs.cupy.dev/en/stable/install.html). This is not necessary to 
 run raw voltage generation, but will highly accelerate the pipeline. 
 
-Once you have CuPy installed, to enable GPU acceleration, you must set 
-``SETIGEN_ENABLE_GPU`` to '1' in the shell or in Python via 
-``os.environ``. It can also be useful to set ``CUDA_VISIBLE_DEVICES`` 
-to specify which GPUs to use. The following enables GPU usage and specifies to 
-use the GPU indexed as 0.
+Once you have CuPy installed, enable GPU acceleration before constructing
+voltage objects. It can also be useful to set ``CUDA_VISIBLE_DEVICES`` to
+specify which GPUs to use. The following enables GPU usage and specifies to use
+the GPU indexed as 0.
 
 In Bash:
 
 .. code-block:: bash
 
-    export SETIGEN_ENABLE_GPU=1
     export CUDA_VISIBLE_DEVICES=0
     
 In Python:
@@ -222,8 +220,14 @@ In Python:
 .. code-block:: python
 
     import os
-    os.environ['SETIGEN_ENABLE_GPU'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+    import setigen as stg
+    stg.voltage.set_backend('cupy')
+
+The legacy ``SETIGEN_ENABLE_GPU=1`` environment variable is still supported for
+existing scripts. Use ``stg.voltage.set_backend('numpy')`` to force CPU
+execution.
     
 Details behind classes
 ----------------------

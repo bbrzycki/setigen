@@ -1,20 +1,11 @@
 from __future__ import annotations
 
-import os
 import numpy as np
-
-GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
-if GPU_FLAG == '1':
-    try:
-        import cupy as xp
-    except ImportError:
-        import numpy as xp
-else:
-    import numpy as xp
 
 from astropy import units as u
 from typing import Any
 
+from ._array_backend import xp
 from ._antenna.array_ops import (
     _apply_background_to_antenna,
     _collect_array_samples,

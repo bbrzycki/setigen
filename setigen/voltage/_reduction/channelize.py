@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import importlib
 from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
+
+from setigen.voltage._array_backend import get_array_module
 
 
 def _get_array_module(backend: str) -> Any:
@@ -19,18 +20,10 @@ def _get_array_module(backend: str) -> Any:
     Raises:
         ValueError: If the backend value is unsupported.
     """
-    if backend == "numpy":
-        return np
-    if backend == "cupy":
-        cupy = importlib.import_module("cupy")
-        return cupy
-    if backend == "auto":
-        try:
-            cupy = importlib.import_module("cupy")
-        except ImportError:
-            return np
-        return cupy
-    raise ValueError(f"Unsupported reduction backend '{backend}'.")
+    try:
+        return get_array_module(backend)
+    except ValueError as exc:
+        raise ValueError(f"Unsupported reduction backend '{backend}'.") from exc
 
 
 def _fftshifted_spectra(voltages: np.ndarray, *, fftlength: int, xp: Any) -> list[Any] | None:

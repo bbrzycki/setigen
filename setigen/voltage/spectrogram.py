@@ -199,7 +199,15 @@ def _make_direct_input_spec(backend: Any) -> Any:
 
 
 def _to_host_array(array: Any, *, xp: Any) -> Any:
-    """Return an array on the host, copying from CuPy when needed."""
+    """Return an array on the host, copying from CuPy when needed.
+
+    Args:
+        array: NumPy-like or CuPy-like array.
+        xp: Numerical array module used to create ``array``.
+
+    Returns:
+        Host-side array when ``xp`` supports GPU arrays; otherwise ``array``.
+    """
     try:
         return xp.asnumpy(array)
     except AttributeError:

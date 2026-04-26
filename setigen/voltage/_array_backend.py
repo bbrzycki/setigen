@@ -14,16 +14,40 @@ _modules: dict[str, Any] = {"numpy": np}
 
 
 def _env_backend() -> ArrayBackend:
+    """Resolve the legacy environment-selected backend.
+
+    Returns:
+        ``"cupy"`` when ``SETIGEN_ENABLE_GPU=1``; otherwise ``"numpy"``.
+    """
     return "cupy" if os.getenv("SETIGEN_ENABLE_GPU", "0") == "1" else "numpy"
 
 
 def _validate_backend(backend: str) -> ArrayBackend:
+    """Validate and normalize an array backend name.
+
+    Args:
+        backend: Backend name to validate.
+
+    Returns:
+        Validated backend name.
+
+    Raises:
+        ValueError: If the backend name is unsupported.
+    """
     if backend not in ("auto", "numpy", "cupy"):
         raise ValueError("backend must be one of 'auto', 'numpy', or 'cupy'.")
     return backend  # type: ignore[return-value]
 
 
 def _import_cupy() -> Any:
+    """Import and cache CuPy.
+
+    Returns:
+        Imported CuPy module.
+
+    Raises:
+        ImportError: If CuPy is unavailable.
+    """
     if "cupy" not in _modules:
         try:
             _modules["cupy"] = importlib.import_module("cupy")
@@ -94,12 +118,23 @@ def get_array_module(backend: str | None = None) -> Any:
 
 
 def get_backend() -> str:
-    """Return the currently active concrete backend name."""
+    """Return the currently active concrete backend name.
+
+    Returns:
+        Concrete backend name, either ``"numpy"`` or ``"cupy"``.
+    """
     return "cupy" if get_array_module().__name__ == "cupy" else "numpy"
 
 
 def asnumpy(array: Any) -> np.ndarray:
-    """Return ``array`` as a NumPy array, copying from the GPU when needed."""
+    """Return ``array`` as a NumPy array, copying from the GPU when needed.
+
+    Args:
+        array: NumPy-like or CuPy-like array.
+
+    Returns:
+        Host-side NumPy array.
+    """
     module = get_array_module()
     if module is not np and hasattr(module, "asnumpy"):
         return module.asnumpy(array)
@@ -111,9 +146,22 @@ class _ArrayModuleProxy:
 
     @property
     def __name__(self) -> str:
+        """Return the active array module name.
+
+        Returns:
+            Active module name.
+        """
         return get_array_module().__name__
 
     def __getattr__(self, name: str) -> Any:
+        """Forward attribute lookups to the active array module.
+
+        Args:
+            name: Attribute name to resolve.
+
+        Returns:
+            Attribute from the active array module.
+        """
         return getattr(get_array_module(), name)
 
     def __repr__(self) -> str:

@@ -1,4 +1,5 @@
 import importlib.util
+from types import SimpleNamespace
 
 import numpy as np
 from numpy.testing import assert_allclose
@@ -7,9 +8,14 @@ from astropy import units as u
 from blimpy import Waterfall
 
 import setigen as stg
+import setigen.voltage._reduction.channelize as channelize_module
+import setigen.voltage.reduction as reduction_module
+import setigen.voltage.spectrogram as spectrogram_module
+from setigen.voltage._reduction.metadata import _ReductionMetadata, _build_reduction_metadata
 from setigen.voltage._reduction.channelize import _channelize_block
 from setigen.voltage._reduction.decoder import _decode_raw_block
 from setigen.voltage.reduction import _reduce_chunks
+from setigen.voltage.spectrogram import _to_host_array
 
 
 def _require_cupy_device():
@@ -225,6 +231,61 @@ def test_channelize_block_selected_fine_full_stokes_matches_full_slice():
     assert_allclose(selected, full[:, :, selected_indices], rtol=1e-6, atol=1e-6)
 
 
+def test_channelize_block_auto_and_full_slice_channel_selection():
+    rng = np.random.default_rng(24)
+    voltages = (
+        rng.standard_normal((16, 3, 2))
+        + 1j * rng.standard_normal((16, 3, 2))
+    ).astype(np.complex64)
+    selected_indices = np.arange(2, 8)
+
+    full_total = _channelize_block(voltages,
+                                   fftlength=4,
+                                   integration_factor=2,
+                                   pol_mode=1,
+                                   backend="numpy",
+                                   fine_method="full")
+    auto_selected = _channelize_block(voltages,
+                                      fftlength=4,
+                                      integration_factor=2,
+                                      pol_mode=1,
+                                      backend="numpy",
+                                      channel_indices=selected_indices)
+    full_selected = _channelize_block(voltages,
+                                      fftlength=4,
+                                      integration_factor=2,
+                                      pol_mode=1,
+                                      backend="numpy",
+                                      channel_indices=selected_indices,
+                                      fine_method="full")
+    full_stokes = _channelize_block(voltages,
+                                    fftlength=4,
+                                    integration_factor=2,
+                                    pol_mode=-4,
+                                    backend="numpy",
+                                    fine_method="full")
+    full_stokes_selected = _channelize_block(voltages,
+                                             fftlength=4,
+                                             integration_factor=2,
+                                             pol_mode=-4,
+                                             backend="numpy",
+                                             channel_indices=selected_indices,
+                                             fine_method="full")
+
+    assert_allclose(auto_selected[:, 0, :],
+                    full_total[:, 0, selected_indices],
+                    rtol=1e-6,
+                    atol=1e-6)
+    assert_allclose(full_selected[:, 0, :],
+                    full_total[:, 0, selected_indices],
+                    rtol=1e-6,
+                    atol=1e-6)
+    assert_allclose(full_stokes_selected,
+                    full_stokes[:, :, selected_indices],
+                    rtol=1e-6,
+                    atol=1e-6)
+
+
 def test_channelize_block_rejects_full_pol_single_pol_input():
     voltages = np.ones((4, 1, 1), dtype=np.complex64)
 
@@ -234,6 +295,384 @@ def test_channelize_block_rejects_full_pol_single_pol_input():
                           integration_factor=1,
                           pol_mode=4,
                           backend="numpy")
+
+
+def test_channelize_block_edge_cases():
+    voltages = np.ones((3, 1, 2), dtype=np.complex64)
+
+    with pytest.raises(ValueError, match="fine_method must be"):
+        _channelize_block(voltages,
+                          fftlength=2,
+                          integration_factor=1,
+                          pol_mode=1,
+                          backend="numpy",
+                          fine_method="bad")
+
+    with pytest.raises(ValueError, match="out of bounds"):
+        _channelize_block(voltages,
+                          fftlength=2,
+                          integration_factor=1,
+                          pol_mode=1,
+                          backend="numpy",
+                          channel_indices=[2],
+                          fine_method="selected")
+
+    with pytest.raises(ValueError, match="Unsupported reduction backend"):
+        _channelize_block(voltages,
+                          fftlength=2,
+                          integration_factor=1,
+                          pol_mode=1,
+                          backend="bad")
+
+    with pytest.raises(ValueError, match="Unsupported polarization mode"):
+        _channelize_block(voltages,
+                          fftlength=2,
+                          integration_factor=1,
+                          pol_mode=2,
+                          backend="numpy")
+
+    assert _channelize_block(voltages[:1],
+                             fftlength=2,
+                             integration_factor=1,
+                             pol_mode=1,
+                             backend="numpy") is None
+    assert _channelize_block(voltages[:1],
+                             fftlength=2,
+                             integration_factor=1,
+                             pol_mode=1,
+                             backend="numpy",
+                             channel_indices=[0],
+                             fine_method="selected") is None
+    assert _channelize_block(voltages,
+                             fftlength=2,
+                             integration_factor=2,
+                             pol_mode=1,
+                             backend="numpy") is None
+    assert _channelize_block(voltages,
+                             fftlength=2,
+                             integration_factor=1,
+                             pol_mode=1,
+                             backend="numpy",
+                             channel_indices=[],
+                             fine_method="selected") is None
+    assert _channelize_block(np.ones((2, 1, 2), dtype=np.complex64),
+                             fftlength=2,
+                             integration_factor=2,
+                             pol_mode=-4,
+                             backend="numpy") is None
+
+
+def test_channelize_block_converts_non_numpy_backend_to_host(monkeypatch):
+    class FakeArrayModule:
+        __name__ = "fake"
+        fft = np.fft
+        newaxis = np.newaxis
+        pi = np.pi
+
+        @staticmethod
+        def asarray(array):
+            return np.asarray(array)
+
+        @staticmethod
+        def asnumpy(array):
+            return np.asarray(array)
+
+        @staticmethod
+        def abs(array):
+            return np.abs(array)
+
+    monkeypatch.setattr(channelize_module,
+                        "_get_array_module",
+                        lambda backend: FakeArrayModule)
+    voltages = np.ones((4, 1, 1), dtype=np.complex64)
+
+    reduced = _channelize_block(voltages,
+                                fftlength=2,
+                                integration_factor=1,
+                                pol_mode=1,
+                                backend="fake")
+
+    assert isinstance(reduced, np.ndarray)
+    assert reduced.dtype == np.float32
+
+
+def test_reduction_specs_reject_invalid_new_options():
+    base_kwargs = {
+        "fftlength": 8,
+        "integration_factor": 1,
+        "pol_mode": 1,
+        "output_format": "fil",
+    }
+
+    invalid_kwargs = [
+        {"fftlength": 0, "match": "fftlength"},
+        {"integration_factor": 0, "match": "integration_factor"},
+        {"pol_mode": 2, "match": "polarization"},
+        {"output_format": "bad", "match": "output format"},
+        {"backend": "bad", "match": "backend"},
+        {"accuracy": "bad", "match": "accuracy"},
+        {"accuracy": "approx_zoom", "match": "accuracy='exact'"},
+        {"coarse_method": "bad", "match": "coarse method"},
+        {"fine_method": "bad", "match": "fine method"},
+        {"start_chan": -1, "match": "start_chan"},
+        {"num_chans": 0, "match": "num_chans"},
+        {"frequency_range": (1.0, 2.0), "start_chan": 0, "match": "mutually exclusive"},
+        {"frequency_range": (1.0, 2.0, 3.0), "match": "exactly two"},
+    ]
+    for params in invalid_kwargs:
+        kwargs = dict(params)
+        match = kwargs.pop("match")
+        with pytest.raises(ValueError, match=match):
+            stg.voltage.RawReductionSpec(**{**base_kwargs, **kwargs})
+
+    spectrogram_base = {
+        "fftlength": 8,
+        "integration_factor": 1,
+        "pol_mode": 1,
+    }
+    for params in invalid_kwargs:
+        if "output_format" in params:
+            continue
+        kwargs = dict(params)
+        match = kwargs.pop("match")
+        with pytest.raises(ValueError, match=match):
+            stg.voltage.VoltageSpectrogramSpec(**{**spectrogram_base, **kwargs})
+
+
+def test_build_reduction_metadata_frequency_range_and_bounds():
+    input_spec = SimpleNamespace(
+        num_chans=4,
+        chan_bw=8.0,
+        tbin=0.5,
+        fch1=100.0,
+        ascending=True,
+    )
+    spec = stg.voltage.RawReductionSpec(fftlength=4,
+                                        integration_factor=2,
+                                        pol_mode=1,
+                                        output_format="fil",
+                                        frequency_range=(99.0, 105.0))
+
+    metadata = _build_reduction_metadata(input_spec, spec)
+
+    assert metadata.channel_start == 2
+    assert metadata.channel_stop == 5
+    assert metadata.total_fchans == 3
+    assert metadata.fch1_hz == pytest.approx(100.0)
+
+    out_of_range = stg.voltage.RawReductionSpec(fftlength=4,
+                                                integration_factor=2,
+                                                pol_mode=1,
+                                                output_format="fil",
+                                                frequency_range=(1.0, 2.0))
+    with pytest.raises(ValueError, match="does not overlap"):
+        _build_reduction_metadata(input_spec, out_of_range)
+
+    coarse_out_of_bounds = stg.voltage.RawReductionSpec(fftlength=4,
+                                                        integration_factor=2,
+                                                        pol_mode=1,
+                                                        output_format="fil",
+                                                        start_chan=4,
+                                                        num_chans=1)
+    with pytest.raises(ValueError, match="out of bounds"):
+        _build_reduction_metadata(input_spec, coarse_out_of_bounds)
+
+    conflicting = SimpleNamespace(start_chan=0,
+                                  num_chans=None,
+                                  frequency_range=(1.0, 2.0),
+                                  pol_mode=1,
+                                  fftlength=4,
+                                  integration_factor=2)
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        _build_reduction_metadata(input_spec, conflicting)
+
+
+def test_voltage_spectrogram_result_error_paths(tmp_path):
+    metadata = _ReductionMetadata(start_chan=0,
+                                  num_chans=1,
+                                  nifs=4,
+                                  df_hz=1.0,
+                                  dt_s=1.0,
+                                  fch1_hz=100.0,
+                                  ascending=True,
+                                  total_fchans=4)
+    result = stg.voltage.VoltageSpectrogramResult(
+        data=np.zeros((1, 4, 4), dtype=np.float32),
+        metadata=metadata,
+        spec=stg.voltage.VoltageSpectrogramSpec(fftlength=4,
+                                                integration_factor=1,
+                                                pol_mode=-4),
+        input_spec=SimpleNamespace(),
+    )
+
+    with pytest.raises(ValueError, match="to_frame only supports"):
+        result.to_frame()
+    with pytest.raises(ValueError, match="output_format must be supplied"):
+        result.write(tmp_path / "spectrogram.txt")
+
+
+def test_voltage_spectrogram_result_write_infers_supported_suffixes(monkeypatch, tmp_path):
+    class DummyWriter:
+        def __init__(self):
+            self.appended = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def append(self, data):
+            self.appended.append(data)
+
+    writers = []
+
+    def create_writer(*args, **kwargs):
+        writer = DummyWriter()
+        writers.append((writer, kwargs["output_format"]))
+        return writer
+
+    monkeypatch.setattr(spectrogram_module,
+                        "_build_filterbank_header",
+                        lambda *args, **kwargs: {})
+    monkeypatch.setattr(spectrogram_module, "_create_writer", create_writer)
+    metadata = _ReductionMetadata(start_chan=0,
+                                  num_chans=1,
+                                  nifs=1,
+                                  df_hz=1.0,
+                                  dt_s=1.0,
+                                  fch1_hz=100.0,
+                                  ascending=True,
+                                  total_fchans=4)
+    result = stg.voltage.VoltageSpectrogramResult(
+        data=np.zeros((1, 1, 4), dtype=np.float32),
+        metadata=metadata,
+        spec=stg.voltage.VoltageSpectrogramSpec(fftlength=4,
+                                                integration_factor=1,
+                                                pol_mode=1),
+        input_spec=SimpleNamespace(),
+    )
+
+    assert result.write(tmp_path / "spectrogram.fil") == tmp_path / "spectrogram.fil"
+    assert result.write(tmp_path / "spectrogram.h5") == tmp_path / "spectrogram.h5"
+    assert [output_format for _, output_format in writers] == ["fil", "h5"]
+    assert all(writer.appended for writer, _ in writers)
+
+
+def test_raw_reduction_no_output_error_paths(monkeypatch, tmp_path):
+    spec = stg.voltage.RawReductionSpec(fftlength=4,
+                                        integration_factor=1,
+                                        pol_mode=1,
+                                        output_format="fil")
+    monkeypatch.setattr(reduction_module,
+                        "_reduce_chunks",
+                        lambda input_path, spec, max_blocks=None: iter(()))
+
+    with pytest.raises(ValueError, match="No spectra were produced"):
+        reduction_module.reduce_raw(tmp_path / "missing.raw",
+                                    tmp_path / "missing.fil",
+                                    spec)
+    with pytest.raises(ValueError, match="No frame data"):
+        reduction_module.reduce_raw_to_frame(tmp_path / "missing.raw", spec)
+
+    full_stokes = stg.voltage.RawReductionSpec(fftlength=4,
+                                               integration_factor=1,
+                                               pol_mode=-4,
+                                               output_format="fil")
+    with pytest.raises(ValueError, match="only supports total-power"):
+        reduction_module.reduce_raw_to_frame(tmp_path / "missing.raw", full_stokes)
+
+
+def test_generate_voltage_spectrogram_raises_when_no_chunks(monkeypatch):
+    backend = SimpleNamespace(
+        num_chans=1,
+        num_pols=2,
+        num_bits=8,
+        chan_bw=8.0,
+        tbin=0.5,
+        fch1=100.0,
+        start_chan=0,
+        ascending=True,
+        input_num_blocks=None,
+        input_file_stem=None,
+        time_per_block=1.0,
+        num_branches=1,
+        get_num_blocks=lambda length: 1,
+    )
+    metadata = _ReductionMetadata(start_chan=0,
+                                  num_chans=1,
+                                  nifs=1,
+                                  df_hz=1.0,
+                                  dt_s=1.0,
+                                  fch1_hz=100.0,
+                                  ascending=True,
+                                  total_fchans=4)
+
+    monkeypatch.setattr(spectrogram_module,
+                        "_build_reduction_metadata",
+                        lambda input_spec, spec: metadata)
+    monkeypatch.setattr(spectrogram_module._RecordConfig,
+                        "from_values",
+                        lambda **kwargs: SimpleNamespace(length=1))
+    monkeypatch.setattr(spectrogram_module, "_resolve_num_blocks", lambda *args, **kwargs: 1)
+    monkeypatch.setattr(spectrogram_module, "_reset_recording_state", lambda backend: None)
+    monkeypatch.setattr(spectrogram_module, "_get_num_output_files", lambda backend, xp: 1)
+    monkeypatch.setattr(spectrogram_module,
+                        "_get_blocks_to_write",
+                        lambda backend, file_index, num_files: 1)
+    monkeypatch.setattr(spectrogram_module,
+                        "_collect_coarse_voltage_block",
+                        lambda *args, **kwargs: np.ones((4, 1, 2), dtype=np.complex64))
+    monkeypatch.setattr(spectrogram_module, "_channelize_block", lambda *args, **kwargs: None)
+
+    with pytest.raises(ValueError, match="No spectra were produced"):
+        spectrogram_module.generate_voltage_spectrogram(
+            backend,
+            stg.voltage.VoltageSpectrogramSpec(fftlength=4, integration_factor=1),
+            num_blocks=1,
+            length_mode="num_blocks",
+            verbose=False,
+            xp=np,
+        )
+
+
+def test_collect_coarse_voltage_block_requires_requantize_for_raw_input(monkeypatch):
+    backend = SimpleNamespace(num_chans=1,
+                              num_antennas=1,
+                              num_pols=2,
+                              input_file_stem="input")
+    metadata = SimpleNamespace(num_chans=1, start_chan=0)
+    spec = stg.voltage.VoltageSpectrogramSpec(fftlength=4,
+                                              integration_factor=1)
+    monkeypatch.setattr(spectrogram_module,
+                        "_plan_subblocks",
+                        lambda backend, obsnchan: SimpleNamespace(
+                            num_subblocks=1,
+                            total_time_samples=1,
+                            bytes_per_subblock=1,
+                        ))
+
+    with pytest.raises(ValueError, match="requantize=True"):
+        spectrogram_module._collect_coarse_voltage_block(
+            backend,
+            metadata=metadata,
+            spec=spec,
+            digitize=True,
+            requantize=False,
+            verbose=False,
+            xp=np,
+        )
+
+
+def test_to_host_array_uses_backend_asnumpy():
+    class FakeArrayModule:
+        @staticmethod
+        def asnumpy(array):
+            return np.asarray(array) + 1
+
+    assert np.array_equal(_to_host_array(np.array([1]), xp=FakeArrayModule), np.array([2]))
+    original = np.array([1])
+    assert _to_host_array(original, xp=np) is original
 
 
 def test_reduce_raw_to_frame_matches_existing_helper(tmp_path):

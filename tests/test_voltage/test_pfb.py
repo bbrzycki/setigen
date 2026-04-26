@@ -16,6 +16,14 @@ def test_filterbank():
     assert len(filterbank.tile_response(num_chans=64, fftlength=512)) == 64 * 512
 
 
+def test_filterbank_rejects_response_fftlength_not_multiple_of_taps():
+    filterbank = stg.voltage.PolyphaseFilterbank(num_taps=8,
+                                                 num_branches=64)
+
+    with pytest.raises(ValueError, match="must be a multiple"):
+        filterbank.get_response(fftlength=10)
+
+
 def test_pfb_voltages():
     antenna = stg.voltage.Antenna(sample_rate=3e9, 
                                   fch1=6e9,
@@ -126,4 +134,37 @@ def test_selected_coarse_channelize_drifting_tone_matches_full_slice():
 
     assert_allclose(selected, full[:, 1:3], rtol=1e-12, atol=1e-12)
 
-    
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"method": "bad"}, "method must be"),
+        ({"start_chan": -1}, "start_chan must be"),
+        ({"start_chan": 0, "num_chans": 0}, "out of bounds"),
+        ({"start_chan": 33, "num_chans": 1}, "out of bounds"),
+    ],
+)
+def test_channelize_rejects_invalid_selection(kwargs, message):
+    num_taps = 4
+    num_branches = 64
+    samples = np.ones(num_taps * num_branches * 4)
+    filterbank = stg.voltage.PolyphaseFilterbank(num_taps=num_taps,
+                                                 num_branches=num_branches)
+
+    with pytest.raises(ValueError, match=message):
+        filterbank.channelize(samples, cache=False, **kwargs)
+
+
+def test_pfb_frontend_rejects_unknown_method():
+    num_taps = 4
+    num_branches = 32
+    filterbank = stg.voltage.PolyphaseFilterbank(num_taps=num_taps,
+                                                 num_branches=num_branches)
+    samples = np.ones(num_taps * num_branches * 4)
+
+    with pytest.raises(ValueError, match="method must be"):
+        pfb_frontend(samples,
+                     filterbank.window,
+                     num_taps,
+                     num_branches,
+                     method="bad")

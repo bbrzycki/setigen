@@ -29,9 +29,10 @@ from ._frame.models import (
     _generate_sampled_noise,
 )
 from ._frame.io import (
-    _decode_bytestrings,
-    _encode_bytestrings,
-    _update_waterfall,
+    _check_waterfall,
+    _get_waterfall,
+    _save_fil,
+    _save_hdf5,
 )
 from ._frame.signal import (
     _finalize_signal,
@@ -767,8 +768,7 @@ class Frame(object):
         Returns:
             Waterfall representation of the frame.
         """
-        _update_waterfall(self)
-        return self.waterfall
+        return _get_waterfall(self)
     
     def check_waterfall(self) -> Any:
         """Return the updated attached waterfall when one exists.
@@ -777,9 +777,7 @@ class Frame(object):
             Updated waterfall object or `None` when the frame has no attached
             waterfall.
         """
-        if self.waterfall is None:
-            return None
-        return self.get_waterfall()
+        return _check_waterfall(self)
 
     def save_fil(self, filename: PathLike, max_load: int = 1) -> None:
         """Save frame data as a SIGPROC filterbank file.
@@ -788,10 +786,7 @@ class Frame(object):
             filename: Output `.fil` path.
             max_load: Maximum load parameter for a lazily created waterfall.
         """
-        _update_waterfall(self, filename=filename, max_load=max_load)
-        _encode_bytestrings(self)
-        self.waterfall.write_to_fil(filename)
-        _decode_bytestrings(self)
+        _save_fil(self, filename, max_load=max_load)
 
     def save_hdf5(self, filename: PathLike, max_load: int = 1) -> None:
         """Save frame data as an HDF5 waterfall file.
@@ -800,10 +795,7 @@ class Frame(object):
             filename: Output `.h5` path.
             max_load: Maximum load parameter for a lazily created waterfall.
         """
-        _update_waterfall(self, filename=filename, max_load=max_load)
-        _encode_bytestrings(self)
-        self.waterfall.write_to_hdf5(filename)
-        _decode_bytestrings(self)
+        _save_hdf5(self, filename, max_load=max_load)
 
     def save_h5(self, filename: PathLike, max_load: int = 1) -> None:
         """Save frame data as an HDF5 waterfall file.

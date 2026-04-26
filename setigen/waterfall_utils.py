@@ -5,6 +5,7 @@ import numpy as np
 from blimpy import Waterfall
 
 from ._typing import PathLike
+from ._frame.io import _close_waterfall_handles
 
 
 def max_freq(waterfall: PathLike | Waterfall) -> float:
@@ -44,15 +45,20 @@ def get_data(waterfall: PathLike | Waterfall, db: bool = False) -> np.ndarray:
     Raises:
         ValueError: If the waterfall input type is unsupported.
     """
-    if isinstance(waterfall, (str, PurePath)):
+    owns_waterfall = isinstance(waterfall, (str, PurePath))
+    if owns_waterfall:
         waterfall = Waterfall(waterfall)
     elif not isinstance(waterfall, Waterfall):
         raise ValueError('Invalid data file!')
 
-    if db:
-        return 10 * np.log10(waterfall.data[:, 0, :])
-
-    return waterfall.data[:, 0, :]
+    try:
+        data = waterfall.data[:, 0, :]
+        if db:
+            data = 10 * np.log10(data)
+        return np.array(data, copy=owns_waterfall)
+    finally:
+        if owns_waterfall:
+            _close_waterfall_handles(waterfall)
 
 
 def get_fs(waterfall: PathLike | Waterfall) -> np.ndarray:
@@ -67,16 +73,20 @@ def get_fs(waterfall: PathLike | Waterfall) -> np.ndarray:
     Raises:
         ValueError: If the waterfall input type is unsupported.
     """
-    if isinstance(waterfall, (str, PurePath)):
+    owns_waterfall = isinstance(waterfall, (str, PurePath))
+    if owns_waterfall:
         waterfall = Waterfall(waterfall, load_data=False)
     elif not isinstance(waterfall, Waterfall):
         raise ValueError('Invalid data file!')
 
-    fch1 = waterfall.header['fch1']
-    df = waterfall.header['foff']
-    fchans = waterfall.header['nchans']
-
-    return fch1 + np.arange(fchans) * df
+    try:
+        fch1 = waterfall.header['fch1']
+        df = waterfall.header['foff']
+        fchans = waterfall.header['nchans']
+        return fch1 + np.arange(fchans) * df
+    finally:
+        if owns_waterfall:
+            _close_waterfall_handles(waterfall)
 
 
 def get_ts(waterfall: PathLike | Waterfall) -> np.ndarray:
@@ -91,12 +101,16 @@ def get_ts(waterfall: PathLike | Waterfall) -> np.ndarray:
     Raises:
         ValueError: If the waterfall input type is unsupported.
     """
-    if isinstance(waterfall, (str, PurePath)):
+    owns_waterfall = isinstance(waterfall, (str, PurePath))
+    if owns_waterfall:
         waterfall = Waterfall(waterfall, load_data=False)
     elif not isinstance(waterfall, Waterfall):
         raise ValueError('Invalid data file!')
 
-    tsamp = waterfall.header['tsamp']
-    tchans = waterfall.container.selection_shape[0]
-
-    return np.arange(tchans) * tsamp
+    try:
+        tsamp = waterfall.header['tsamp']
+        tchans = waterfall.container.selection_shape[0]
+        return np.arange(tchans) * tsamp
+    finally:
+        if owns_waterfall:
+            _close_waterfall_handles(waterfall)

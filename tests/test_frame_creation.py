@@ -129,6 +129,27 @@ def test_axis_semantics():
     assert frame.get_drift_rate(0, 3, reference="centers") == pytest.approx(7.5)
 
 
+def test_integrated_frames_preserve_observational_context():
+    frame = stg.Frame(shape=(4, 8),
+                      t_start=123456,
+                      source_name="Target",
+                      data=np.ones((4, 8)))
+    frame.header = {"rawdatafile": "original.raw", "source_name": "Target"}
+    frame.add_metadata({"drift_rate": 1.25})
+
+    spectrum = stg.spectrum(frame, mode="sum")
+    timeseries = stg.timeseries(frame, mode="sum")
+
+    for derived in [spectrum, timeseries]:
+        assert derived.t_start == frame.t_start
+        assert derived.source_name == frame.source_name
+        assert derived.header == frame.header
+        assert derived.header is not frame.header
+        assert derived.metadata["drift_rate"] == frame.metadata["drift_rate"]
+        assert derived.metadata["fchans"] == derived.fchans
+        assert derived.metadata["tchans"] == derived.tchans
+
+
 def test_h5_ingestion_does_not_retain_live_waterfall(tmp_path):
     frame = stg.Frame(shape=(4, 8), seed=0)
     h5_path = tmp_path / "frame.h5"

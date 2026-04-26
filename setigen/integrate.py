@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from enum import Enum
 from typing import Any
 
@@ -54,6 +55,27 @@ def _resolve_integration_mode(mode: IntegrationMode | str) -> IntegrationMode:
     return IntegrationMode.MEAN
 
 
+def _copy_frame_context(source: Any, target: Any) -> None:
+    """Copy non-shape observational context between frame-like objects.
+
+    Args:
+        source: Original frame-like object.
+        target: Derived frame-like object to update.
+    """
+    metadata = copy.deepcopy(getattr(source, "metadata", {}))
+    try:
+        for key, value in source.get_params().items():
+            if metadata.get(key) == value:
+                metadata.pop(key)
+    except AttributeError:
+        pass
+    if metadata:
+        target.add_metadata(metadata)
+
+    if hasattr(source, "header"):
+        target.header = copy.deepcopy(source.header)
+
+
 def integrate(
     fr: Any,
     axis: IntegrationAxis | str | int = 't',
@@ -101,7 +123,9 @@ def integrate(
                                 fch1=fr.fmid,
                                 ascending=fr.ascending,
                                 data=data,
-                                seed=fr.rng)
+                                seed=fr.rng,
+                                t_start=fr.t_start,
+                                source_name=fr.source_name)
         else:
             # Spectrum
             new_fr = Spectrum(df=fr.df,
@@ -109,7 +133,10 @@ def integrate(
                               fch1=fr.fch1,
                               ascending=fr.ascending,
                               data=data,
-                              seed=fr.rng)
+                              seed=fr.rng,
+                              t_start=fr.t_start,
+                              source_name=fr.source_name)
+        _copy_frame_context(fr, new_fr)
         return new_fr
     else:
         return data.flatten()

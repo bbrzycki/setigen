@@ -63,7 +63,11 @@ To use GPU with setigen.voltage
 ``setigen.voltage``'s GPU acceleration is powered by CuPy 
 (https://docs.cupy.dev/en/stable/install.html). Installation is not required 
 to use vanilla |setigen| or the voltage module, but it is highly recommended 
-to accelerate voltage computations. While it isn't used directly by |setigen|, 
+to accelerate voltage computations. Enable it with
+``stg.voltage.set_backend('cupy')`` before constructing voltage objects. Use
+``stg.voltage.set_backend('numpy')`` to force CPU execution. The legacy
+``SETIGEN_ENABLE_GPU=1`` environment variable is still supported for existing
+scripts. While it isn't used directly by |setigen|,
 you may also find it helpful to install ``cusignal`` 
 (https://github.com/rapidsai/cusignal) for access to CUDA-enabled versions of 
 ``scipy`` functions when writing custom voltage signal source functions.

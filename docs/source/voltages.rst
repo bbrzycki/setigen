@@ -139,6 +139,61 @@ acceleration, and rawspec-style polarization semantics for ``pol_mode=1``,
 directly and are not wrapped in :class:`~setigen.frame.Frame`, which remains a
 2D total-power interface.
 
+Direct voltage spectrograms
+---------------------------
+
+When the desired product is a dynamic spectrum rather than a persistent RAW
+file, :meth:`~setigen.voltage.backend.RawVoltageBackend.to_spectrogram` can run
+the same exact voltage path and skip the intermediate RAW serialization step.
+The backend still generates voltage samples, applies the digitizer, coarse PFB,
+and complex requantizer, and then performs fine channelization and integration
+directly in Python.
+
+.. code-block:: python
+
+    spec = stg.voltage.VoltageSpectrogramSpec(
+        fftlength=1024,
+        integration_factor=4,
+        pol_mode=stg.voltage.PolarizationMode.TOTAL_POWER,
+        coarse_method='auto',
+        fine_method='auto',
+    )
+
+    result = rvb.to_spectrogram(spec,
+                                num_blocks=1,
+                                length_mode='num_blocks',
+                                verbose=False)
+    frame = result.to_frame()
+
+The ``coarse_method`` and ``fine_method`` options accept ``'auto'``,
+``'full'``, and ``'selected'``. Automatic selection is used only for exact
+methods that preserve the current channel response and FFT normalization. For
+small coarse-channel or fine-channel selections, ``'auto'`` may compute only
+the requested DFT bins; otherwise it falls back to the full FFT path.
+
+For targeted analysis, the direct spectrogram and RAW reduction APIs support
+frequency-region selection on the final fine-channel axis:
+
+.. code-block:: python
+
+    roi = stg.voltage.VoltageSpectrogramSpec(
+        fftlength=1024,
+        integration_factor=4,
+        frequency_range=(6001.0e6, 6001.5e6),
+        fine_method='selected',
+    )
+
+    frame = rvb.to_spectrogram(roi,
+                               num_blocks=1,
+                               length_mode='num_blocks',
+                               verbose=False).to_frame()
+
+The frequency range is mutually exclusive with ``start_chan`` and
+``num_chans``. Existing RAW generation remains available through
+:meth:`~setigen.voltage.backend.RawVoltageBackend.record`; direct spectrogram
+generation does not write a RAW file unless users separately call
+``record``.
+
 Using GPU acceleration
 ----------------------
 
@@ -149,17 +204,15 @@ to install CuPy, which performs the equivalent NumPy array operations on the
 GPU (https://docs.cupy.dev/en/stable/install.html). This is not necessary to 
 run raw voltage generation, but will highly accelerate the pipeline. 
 
-Once you have CuPy installed, to enable GPU acceleration, you must set 
-``SETIGEN_ENABLE_GPU`` to '1' in the shell or in Python via 
-``os.environ``. It can also be useful to set ``CUDA_VISIBLE_DEVICES`` 
-to specify which GPUs to use. The following enables GPU usage and specifies to 
-use the GPU indexed as 0.
+Once you have CuPy installed, enable GPU acceleration before constructing
+voltage objects. It can also be useful to set ``CUDA_VISIBLE_DEVICES`` to
+specify which GPUs to use. The following enables GPU usage and specifies to use
+the GPU indexed as 0.
 
 In Bash:
 
 .. code-block:: bash
 
-    export SETIGEN_ENABLE_GPU=1
     export CUDA_VISIBLE_DEVICES=0
     
 In Python:
@@ -167,8 +220,14 @@ In Python:
 .. code-block:: python
 
     import os
-    os.environ['SETIGEN_ENABLE_GPU'] = '1'
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+    import setigen as stg
+    stg.voltage.set_backend('cupy')
+
+The legacy ``SETIGEN_ENABLE_GPU=1`` environment variable is still supported for
+existing scripts. Use ``stg.voltage.set_backend('numpy')`` to force CPU
+execution.
     
 Details behind classes
 ----------------------
@@ -282,6 +341,15 @@ are:
 
 - ``num_taps`` controls the spectral profile of each individual coarse channel. The larger this is, the closer the spectral response gets to ideal.
 - ``num_branches`` controls the number of coarse channels. After the real FFT, we obtain ``num_branches / 2`` total coarse channels spanning the Nyquist range.
+
+The PFB frontend uses the original row-loop implementation by default for both
+NumPy and CuPy backends. A tap-vectorized frontend is available for local
+experiments by setting ``filterbank.frontend_method = 'vectorized'``, but it is
+not enabled automatically because it can increase temporary memory use and is
+not guaranteed to be faster for every backend or block size. This frontend
+choice is separate from ``coarse_method='auto'`` in direct spectrogram
+generation, which controls whether the coarse-channel FFT computes all coarse
+DFT bins or only selected output bins.
 
 Voltage backend
 ^^^^^^^^^^^^^^^

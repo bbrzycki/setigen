@@ -62,3 +62,18 @@ setigen.voltage.waterfall module
     :undoc-members:
     :show-inheritance:
 
+setigen.voltage.reduction module
+--------------------------------
+
+.. automodule:: setigen.voltage.reduction
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+setigen.voltage.spectrogram module
+----------------------------------
+
+.. automodule:: setigen.voltage.spectrogram
+    :members:
+    :undoc-members:
+    :show-inheritance:

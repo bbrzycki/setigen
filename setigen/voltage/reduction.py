@@ -38,7 +38,11 @@ class RawReductionSpec:
     output_format: Literal["fil", "h5"]
     start_chan: int | None = None
     num_chans: int | None = None
+    frequency_range: tuple[float, float] | None = None
     backend: Literal["auto", "numpy", "cupy"] = "auto"
+    accuracy: Literal["exact", "approx_zoom"] = "exact"
+    coarse_method: Literal["auto", "full", "selected"] = "auto"
+    fine_method: Literal["auto", "full", "selected"] = "auto"
 
     def __post_init__(self) -> None:
         """Validate reducer configuration.
@@ -56,10 +60,23 @@ class RawReductionSpec:
             raise ValueError(f"Unsupported output format '{self.output_format}'.")
         if self.backend not in ("auto", "numpy", "cupy"):
             raise ValueError(f"Unsupported reduction backend '{self.backend}'.")
+        if self.accuracy not in ("exact", "approx_zoom"):
+            raise ValueError(f"Unsupported accuracy mode '{self.accuracy}'.")
+        if self.accuracy != "exact":
+            raise ValueError("RAW reduction currently supports only accuracy='exact'.")
+        if self.coarse_method not in ("auto", "full", "selected"):
+            raise ValueError(f"Unsupported coarse method '{self.coarse_method}'.")
+        if self.fine_method not in ("auto", "full", "selected"):
+            raise ValueError(f"Unsupported fine method '{self.fine_method}'.")
         if self.start_chan is not None and self.start_chan < 0:
             raise ValueError("start_chan must be non-negative.")
         if self.num_chans is not None and self.num_chans <= 0:
             raise ValueError("num_chans must be positive.")
+        if self.frequency_range is not None:
+            if self.start_chan is not None or self.num_chans is not None:
+                raise ValueError("frequency_range is mutually exclusive with start_chan/num_chans.")
+            if len(self.frequency_range) != 2:
+                raise ValueError("frequency_range must contain exactly two frequency bounds.")
 
 
 def _reduce_chunks(
@@ -83,6 +100,9 @@ def _reduce_chunks(
     metadata = _build_reduction_metadata(input_spec, spec)
 
     for data_chunk in _iter_raw_data_blocks(input_spec, max_blocks=max_blocks):
+        channel_indices = None
+        if metadata.channel_start != 0 or metadata.channel_stop != metadata.num_chans * spec.fftlength:
+            channel_indices = np.arange(metadata.channel_start, metadata.channel_stop)
         voltages = _decode_raw_block(
             data_chunk,
             num_bits=input_spec.num_bits,
@@ -97,6 +117,8 @@ def _reduce_chunks(
             integration_factor=spec.integration_factor,
             pol_mode=spec.pol_mode,
             backend=spec.backend,
+            channel_indices=channel_indices,
+            fine_method=spec.fine_method,
         )
         if reduced is not None and reduced.shape[0] > 0:
             yield reduced, input_spec, metadata

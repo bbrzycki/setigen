@@ -1,13 +1,3 @@
-import os
-
-GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
-if GPU_FLAG == '1':
-    try:
-        import cupy as xp
-    except ImportError:
-        import numpy as xp
-else:
-    import numpy as xp
 import numpy as np
 
 from tqdm import tqdm
@@ -18,6 +8,7 @@ from setigen.voltage import raw_utils
 from setigen.voltage import polyphase_filterbank
 from setigen.voltage import quantization
 from setigen.voltage import antenna as v_antenna
+from setigen.voltage._array_backend import xp
 from setigen.voltage._backend.headers import (
     _read_next_block,
 )
@@ -420,6 +411,52 @@ class RawVoltageBackend(object):
                       record_config=record_config,
                       header_dict=header_dict,
                       xp=xp)
+
+    def to_spectrogram(
+        self,
+        spec: Any,
+        obs_length: float | None = None,
+        num_blocks: int | None = None,
+        length_mode: str = "obs_length",
+        digitize: bool = True,
+        requantize: bool = True,
+        verbose: bool = True,
+    ) -> Any:
+        """Generate a reduced spectrogram directly from this backend.
+
+        This follows the same voltage path as :meth:`record` through sample
+        generation, digitization, coarse PFB channelization, and requantization,
+        then reduces directly to a spectrogram without packing, writing,
+        reading, or decoding an intermediate RAW file.
+
+        Args:
+            spec: :class:`setigen.voltage.VoltageSpectrogramSpec` instance.
+            obs_length: Observation length in seconds when using
+                ``length_mode="obs_length"``.
+            num_blocks: Number of backend blocks when using
+                ``length_mode="num_blocks"``.
+            length_mode: Strategy for interpreting the supplied observation
+                length.
+            digitize: Whether to quantize input voltages before the PFB.
+            requantize: Whether to quantize complex post-PFB voltages.
+            verbose: Whether to emit progress output.
+
+        Returns:
+            :class:`setigen.voltage.VoltageSpectrogramResult`.
+        """
+        from setigen.voltage.spectrogram import generate_voltage_spectrogram
+
+        return generate_voltage_spectrogram(
+            self,
+            spec,
+            obs_length=obs_length,
+            num_blocks=num_blocks,
+            length_mode=length_mode,
+            digitize=digitize,
+            requantize=requantize,
+            verbose=verbose,
+            xp=xp,
+        )
                     
              
 def get_block_size(num_antennas: int = 1,

@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-import os
+from typing import Literal
 
-GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
-if GPU_FLAG == '1':
-    try:
-        import cupy as xp
-    except ImportError:
-        import numpy as xp
-else:
-    import numpy as xp
-    
 import scipy.signal
 
 from setigen._typing import SeedLike
+from ._array_backend import xp
 
 
 class PolyphaseFilterbank(object):
@@ -30,6 +22,8 @@ class PolyphaseFilterbank(object):
         self.num_taps = num_taps
         self.num_branches = num_branches
         self.window_fn = window_fn
+        self.frontend_method = "reference"
+        self.max_frontend_working_set_bytes = 512 * 1024**2
         
         self.cache = None
         
@@ -100,33 +94,78 @@ class PolyphaseFilterbank(object):
         return xp.tile(xp.concatenate([response[::-1], response]), 
                        num_chans)
 
-    def channelize(self, x: xp.ndarray, cache: bool = True) -> xp.ndarray:
+    def channelize(self,
+                   x: xp.ndarray,
+                   cache: bool = True,
+                   start_chan: int = 0,
+                   num_chans: int | None = None,
+                   method: Literal["auto", "full", "selected"] = "auto") -> xp.ndarray:
         """Channelize input voltages with the PFB and a normalized FFT.
 
         Args:
             x: Input voltage array.
             cache: Whether to retain overlap samples between calls.
+            start_chan: First coarse channel to return.
+            num_chans: Number of coarse channels to return. Defaults to all
+                positive-frequency channels from ``start_chan`` onward.
+            method: Coarse-channel transform method. ``"full"`` computes the
+                full FFT then slices, ``"selected"`` computes only requested
+                DFT bins, and ``"auto"`` selects the exact cheaper path for
+                small channel selections.
 
         Returns:
             Post-FFT complex voltages.
+
+        Raises:
+            ValueError: If the selected channel range or method is invalid.
         """
+        if method not in ("auto", "full", "selected"):
+            raise ValueError("method must be one of 'auto', 'full', or 'selected'.")
+        if start_chan < 0:
+            raise ValueError("start_chan must be non-negative.")
+        max_chans = self.num_branches // 2
+        if num_chans is None:
+            num_chans = max_chans - start_chan
+        if num_chans <= 0 or start_chan + num_chans > max_chans:
+            raise ValueError("Selected coarse channel range is out of bounds.")
+
         if cache:
             # Cache last section of data, which is excluded in PFB step
             if self.cache is not None:
                 x = xp.concatenate([self.cache, x])
             self.cache = x[-self.num_taps*self.num_branches:]
         
-        x = pfb_frontend(x, self.window, self.num_taps, self.num_branches)
-        X_pfb = xp.fft.fft(x, 
+        x = pfb_frontend(
+            x,
+            self.window,
+            self.num_taps,
+            self.num_branches,
+            method=self.frontend_method,
+            max_working_set_bytes=self.max_frontend_working_set_bytes,
+        )
+
+        if method == "auto":
+            selected_limit = min(8, max(1, self.num_branches // 64))
+            method = "selected" if num_chans <= selected_limit else "full"
+
+        if method == "selected":
+            bins = xp.arange(start_chan, start_chan + num_chans)
+            sample_idx = xp.arange(self.num_branches)
+            twiddle = xp.exp(
+                -2j * xp.pi * sample_idx[:, xp.newaxis] * bins[xp.newaxis, :] / self.num_branches
+            )
+            return (x @ twiddle) / self.num_branches**0.5
+
+        X_pfb = xp.fft.fft(x,
                            self.num_branches,
                            axis=1)[:, 0:self.num_branches//2] / self.num_branches**0.5
-        return X_pfb
+        return X_pfb[:, start_chan:start_chan + num_chans]
     
     
-def pfb_frontend(x: xp.ndarray,
-                 pfb_window: xp.ndarray,
-                 num_taps: int,
-                 num_branches: int) -> xp.ndarray:
+def pfb_frontend_reference(x: xp.ndarray,
+                           pfb_window: xp.ndarray,
+                           num_taps: int,
+                           num_branches: int) -> xp.ndarray:
     """Apply the polyphase frontend windowing operation.
 
     Args:
@@ -152,6 +191,52 @@ def pfb_frontend(x: xp.ndarray,
     for t in range(0, (W - 1) * num_taps):
         x_weighted = x_p[t:t+num_taps, :] * h_p
         x_summed[t, :] = xp.sum(x_weighted, axis=0)
+    return x_summed
+
+
+def pfb_frontend(x: xp.ndarray,
+                 pfb_window: xp.ndarray,
+                 num_taps: int,
+                 num_branches: int,
+                 method: Literal["auto", "reference", "vectorized"] = "auto",
+                 max_working_set_bytes: int | None = 512 * 1024**2) -> xp.ndarray:
+    """Apply the vectorized polyphase frontend windowing operation.
+
+    Args:
+        x: Input voltage array.
+        pfb_window: PFB window coefficients.
+        num_taps: Number of PFB taps.
+        num_branches: Number of PFB branches.
+        method: Frontend implementation method. ``"reference"`` uses the
+            original row loop, ``"vectorized"`` loops over taps, and
+            ``"auto"`` uses the conservative reference loop. Users can request
+            ``"vectorized"`` explicitly for workloads where it is faster.
+        max_working_set_bytes: Optional memory budget for the auto selector.
+
+    Returns:
+        Voltage array after PFB weighting.
+
+    Raises:
+        ValueError: If the frontend method is unsupported.
+    """
+    if method not in ("auto", "reference", "vectorized"):
+        raise ValueError("method must be one of 'auto', 'reference', or 'vectorized'.")
+
+    W = int(len(x) / num_taps / num_branches)
+    output_rows = (W - 1) * num_taps
+    if method == "auto":
+        # Keep auto conservative: the reference loop has the lowest peak
+        # temporary memory and no backend-dependent performance assumptions.
+        method = "reference"
+    if method == "reference":
+        return pfb_frontend_reference(x, pfb_window, num_taps, num_branches)
+
+    x_p = x[:W*num_taps*num_branches].reshape((W * num_taps, num_branches))
+    h_p = pfb_window.reshape((num_taps, num_branches))
+
+    x_summed = xp.zeros((output_rows, num_branches))
+    for tap in range(num_taps):
+        x_summed += x_p[tap:tap + output_rows, :] * h_p[tap, :]
     return x_summed
 
 

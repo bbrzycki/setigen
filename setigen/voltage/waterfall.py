@@ -1,18 +1,8 @@
 from __future__ import annotations
 
-import os
-
-GPU_FLAG = os.getenv('SETIGEN_ENABLE_GPU', '0')
-if GPU_FLAG == '1':
-    try:
-        import cupy as xp
-    except ImportError:
-        import numpy as xp
-else:
-    import numpy as xp
-    
 import numpy as np
 
+from ._array_backend import xp
 from ._reduction.channelize import _channelize_block
 from ._reduction.decoder import _decode_raw_block
 from ._reduction.input import _resolve_raw_input

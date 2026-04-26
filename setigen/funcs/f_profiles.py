@@ -17,6 +17,20 @@ from setigen._typing import FrequencyProfile
 from setigen.funcs import func_utils
 
 
+def _with_profile_metadata(profile: FrequencyProfile, **metadata: float | bool | str) -> FrequencyProfile:
+    """Attach setigen-specific support metadata to a frequency profile.
+
+    Args:
+        profile: Frequency-profile callable to annotate.
+        **metadata: Metadata describing finite support or cutoff parameters.
+
+    Returns:
+        The same frequency-profile callable.
+    """
+    profile._setigen_profile_metadata = metadata
+    return profile
+
+
 class WidthMode(str, Enum):
     """Supported width interpretations for sinc-squared profiles."""
 
@@ -53,7 +67,9 @@ def box_f_profile(width: float | u.Quantity) -> FrequencyProfile:
 
     def f_profile(f, f_center):
         return (np.abs(f - f_center) < width / 2).astype(int)
-    return f_profile
+    return _with_profile_metadata(f_profile,
+                                  finite_support=True,
+                                  half_width=width / 2)
 
 
 def gaussian_f_profile(width: float | u.Quantity) -> FrequencyProfile:
@@ -71,7 +87,10 @@ def gaussian_f_profile(width: float | u.Quantity) -> FrequencyProfile:
 
     def f_profile(f, f_center):
         return func_utils.gaussian(f, f_center, sigma)
-    return f_profile
+    return _with_profile_metadata(f_profile,
+                                  finite_support=False,
+                                  profile_type="gaussian",
+                                  sigma=sigma)
 
 
 def multiple_gaussian_f_profile(width: float | u.Quantity) -> FrequencyProfile:
@@ -92,7 +111,11 @@ def multiple_gaussian_f_profile(width: float | u.Quantity) -> FrequencyProfile:
         return func_utils.gaussian(f, f_center - 100, sigma) / 4 \
             + func_utils.gaussian(f, f_center, sigma) \
             + func_utils.gaussian(f, f_center + 100, sigma) / 4
-    return f_profile
+    return _with_profile_metadata(f_profile,
+                                  finite_support=False,
+                                  profile_type="multiple_gaussian",
+                                  sigma=sigma,
+                                  max_offset=100)
 
 
 def lorentzian_f_profile(width: float | u.Quantity) -> FrequencyProfile:
@@ -109,7 +132,10 @@ def lorentzian_f_profile(width: float | u.Quantity) -> FrequencyProfile:
 
     def f_profile(f, f_center):
         return func_utils.lorentzian(f, f_center, gamma)
-    return f_profile
+    return _with_profile_metadata(f_profile,
+                                  finite_support=False,
+                                  profile_type="lorentzian",
+                                  gamma=gamma)
 
 
 def voigt_f_profile(g_width: float | u.Quantity, l_width: float | u.Quantity) -> FrequencyProfile:
@@ -131,7 +157,11 @@ def voigt_f_profile(g_width: float | u.Quantity, l_width: float | u.Quantity) ->
 
     def f_profile(f, f_center):
         return func_utils.voigt(f, f_center, sigma, gamma) / func_utils.voigt(f_center, f_center, sigma, gamma)
-    return f_profile
+    return _with_profile_metadata(f_profile,
+                                  finite_support=False,
+                                  profile_type="voigt",
+                                  sigma=sigma,
+                                  gamma=gamma)
 
 
 def sinc2_f_profile(
@@ -165,4 +195,7 @@ def sinc2_f_profile(
                             0)**2
         else:
             return np.sinc((f - f_center) / zero_crossing)**2
-    return f_profile
+    return _with_profile_metadata(f_profile,
+                                  finite_support=trunc,
+                                  profile_type="sinc2",
+                                  half_width=zero_crossing)

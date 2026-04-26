@@ -182,10 +182,11 @@ class Cadence(collections.abc.MutableSequence):
             *args: Positional arguments forwarded to `Frame.add_signal()`.
             **kwargs: Keyword arguments forwarded to `Frame.add_signal()`.
         """
+        base_t_offset = kwargs.pop("t_offset", 0)
         for frame in self.frames:
-            frame.ts += frame.t_start - self.t_start
-            frame.add_signal(*args, **kwargs)
-            frame.ts -= frame.t_start - self.t_start
+            frame.add_signal(*args,
+                             t_offset=base_t_offset + frame.t_start - self.t_start,
+                             **kwargs)
         
     def apply(self, func: Callable[[_frame.Frame], Any]) -> list[Any]:
         """Apply a function to each frame in the cadence.
@@ -224,6 +225,7 @@ class Cadence(collections.abc.MutableSequence):
         c_frame.ts = np.concatenate([frame.ts + frame.t_start 
                                       for frame in self.frames],
                                      axis=0)
+        c_frame._update_noise_frame_stats()
         return c_frame
 
     def save_pickle(self, filename: PathLike) -> None:

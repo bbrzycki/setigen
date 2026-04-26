@@ -1,18 +1,23 @@
 import pytest
+import pickle
 
 import numpy as np
 from numpy.testing import assert_allclose
 import setigen as stg
 from astropy.time import Time
 from pathlib import Path
+import blimpy as bl
 
 
 def test_frame_copy_mjd():
     frame = stg.Frame(shape=(16, 256), mjd=60000)
     assert frame.t_start == pytest.approx(1677283200.0)
+    assert frame.waterfall is None
 
     frame.add_noise_from_obs()
     frame2 = frame.copy()
+    assert frame.waterfall is None
+    assert frame2.waterfall is None
     assert_allclose(frame.data, frame2.data)
 
 
@@ -108,3 +113,53 @@ def test_waterfall_path_selection_kwargs():
                              f_stop=subset_stop)
 
     assert subset_frame.fchans < full_frame.fchans
+
+
+def test_axis_semantics():
+    frame = stg.Frame(tchans=3, fchans=4, dt=2, df=10, fch1=40)
+
+    assert_allclose(frame.frequency_centers, frame.fs)
+    assert_allclose(frame.frequency_edges, np.array([5, 15, 25, 35, 45]))
+    assert_allclose(frame.time_starts, np.array([0, 2, 4]))
+    assert_allclose(frame.time_centers, np.array([1, 3, 5]))
+    assert_allclose(frame.time_edges, np.array([0, 2, 4, 6]))
+    assert_allclose(frame.ts_ext, frame.time_edges)
+
+    assert frame.get_drift_rate(0, 3) == pytest.approx(5)
+    assert frame.get_drift_rate(0, 3, reference="centers") == pytest.approx(7.5)
+
+
+def test_h5_ingestion_does_not_retain_live_waterfall(tmp_path):
+    frame = stg.Frame(shape=(4, 8), seed=0)
+    h5_path = tmp_path / "frame.h5"
+    frame.save_hdf5(h5_path)
+
+    loaded = stg.Frame(waterfall=h5_path)
+    assert loaded.waterfall is None
+    assert loaded.header is not None
+
+    loaded.copy()
+    pickle.dumps(loaded)
+
+    adapter = loaded.get_waterfall()
+    assert not hasattr(adapter.container, "h5")
+    assert loaded.check_waterfall() is adapter
+
+
+def test_waterfall_object_ingestion_does_not_mutate_source_h5(tmp_path):
+    frame = stg.Frame(shape=(4, 8), seed=0)
+    h5_path = tmp_path / "frame.h5"
+    frame.save_hdf5(h5_path)
+
+    waterfall = bl.Waterfall(str(h5_path))
+    try:
+        assert hasattr(waterfall.container, "h5")
+        loaded = stg.Frame(waterfall=waterfall)
+        assert loaded.waterfall is None
+        assert hasattr(waterfall.container, "h5")
+
+        sliced = loaded.get_slice(2, 6)
+        assert sliced.shape == (4, 4)
+        assert hasattr(waterfall.container, "h5")
+    finally:
+        waterfall.container.h5.close()

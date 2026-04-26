@@ -145,6 +145,7 @@ def test_ordered_cadence():
 
 def test_basic_cadence_injection(cadence_setup):
     cad = copy.deepcopy(cadence_setup)
+    original_ts = [frame.ts.copy() for frame in cad]
     cad.apply(lambda fr: fr.add_noise(1))
     cad[0::2].add_signal(stg.constant_path(f_start=cad[0].get_frequency(index=128),
                                            drift_rate=0.1),
@@ -157,6 +158,24 @@ def test_basic_cadence_injection(cadence_setup):
         assert np.max(stg.integrate(cad[i])) > 1.25
     for i in range(1, 6, 2):
         assert np.max(stg.integrate(cad[i])) < 1.11
+    for frame, ts in zip(cad, original_ts):
+        assert_allclose(frame.ts, ts)
+
+
+def test_cadence_add_signal_does_not_mutate_times_on_error(cadence_setup):
+    cad = copy.deepcopy(cadence_setup)
+    original_ts = [frame.ts.copy() for frame in cad]
+
+    def bad_path(t):
+        raise RuntimeError("bad path")
+
+    with pytest.raises(RuntimeError, match="bad path"):
+        cad.add_signal(bad_path,
+                       stg.constant_t_profile(level=1),
+                       stg.box_f_profile(width=cad[0].df))
+
+    for frame, ts in zip(cad, original_ts):
+        assert_allclose(frame.ts, ts)
 
 
 def test_consolidate_preserves_frame_order_and_time_offsets():

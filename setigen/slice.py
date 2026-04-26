@@ -31,7 +31,9 @@ def get_slice(fr: Frame, l: int, r: int) -> Frame:
                         fr.ascending,
                         s_data,
                         metadata=fr.metadata,
-                        waterfall=fr.check_waterfall(),
-                        seed=fr.rng)
+                        seed=fr.rng,
+                        t_start=fr.t_start,
+                        source_name=fr.source_name,
+                        header=fr.header)
 
     return s_fr

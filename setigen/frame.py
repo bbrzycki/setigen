@@ -40,6 +40,7 @@ from ._frame.signal import (
     _normalize_path,
     _normalize_t_profile,
     _render_signal,
+    _resolve_auto_bounding_range,
     _resolve_bounding_indices,
 )
 
@@ -113,6 +114,9 @@ class Frame(object):
         metadata: dict[str, Any] | None = None,
         waterfall: Any = None,
         seed: SeedLike = None,
+        t_start: float | None = None,
+        source_name: str | None = None,
+        header: dict[str, Any] | None = None,
     ) -> "Frame":
         """Build a frame directly from an in-memory data array.
 
@@ -125,11 +129,19 @@ class Frame(object):
             metadata: Optional metadata to attach to the frame.
             waterfall: Optional associated waterfall object.
             seed: Random seed or generator.
+            t_start: Optional Unix start time.
+            source_name: Optional source name.
+            header: Optional filterbank-style header metadata.
 
         Returns:
             Frame populated with the supplied data.
         """
         tchans, fchans = data.shape
+        init_kwargs = {}
+        if t_start is not None:
+            init_kwargs["t_start"] = t_start
+        if source_name is not None:
+            init_kwargs["source_name"] = source_name
         frame = cls(fchans=fchans,
                     tchans=tchans,
                     df=df,
@@ -137,9 +149,12 @@ class Frame(object):
                     fch1=fch1,
                     ascending=ascending,
                     data=data,
-                    seed=seed)
+                    seed=seed,
+                    **init_kwargs)
         if metadata is not None:
             frame.add_metadata(dict(metadata))
+        if header is not None:
+            frame.header = copy.deepcopy(header)
 
         _attach_loaded_waterfall(frame, waterfall)
         return frame
@@ -222,11 +237,14 @@ class Frame(object):
             Independent frame copy.
         """
         c_frame = copy.deepcopy(self)
-        # Note that since the __getstate__ function is overwritten, we need to
-        # add back the waterfall object.
-        waterfall = self.get_waterfall()
-        if waterfall is not None:
-            c_frame.waterfall = copy.deepcopy(waterfall)
+        # Since __getstate__ excludes transient Waterfall adapters, preserve an
+        # already-created in-memory adapter when it is safe to copy. Never create
+        # a Waterfall as a side effect of copying.
+        if self.waterfall is not None:
+            try:
+                c_frame.waterfall = copy.deepcopy(self.waterfall)
+            except Exception:
+                c_frame.waterfall = None
         return c_frame
 
     def __getstate__(self) -> dict[str, Any]:
@@ -286,7 +304,37 @@ class Frame(object):
     @property 
     def ts_ext(self) -> np.ndarray:
         """Return the time axis extended by one final endpoint sample."""
-        return np.append(self.ts, self.ts[-1] + self.dt)
+        return self.time_edges
+
+    @property
+    def frequency_centers(self) -> np.ndarray:
+        """Return frequency-channel center coordinates in Hz."""
+        return self.fs
+
+    @property
+    def frequency_edges(self) -> np.ndarray:
+        """Return frequency-channel edge coordinates in Hz."""
+        return np.linspace(self.fmin - self.df / 2,
+                          self.fmax + self.df / 2,
+                          self.fchans + 1)
+
+    @property
+    def time_starts(self) -> np.ndarray:
+        """Return time-bin start coordinates in seconds."""
+        return self.ts
+
+    @property
+    def time_centers(self) -> np.ndarray:
+        """Return time-bin center coordinates in seconds."""
+        return self.ts + self.dt / 2
+
+    @property
+    def time_edges(self) -> np.ndarray:
+        """Return time-bin edge coordinates in seconds."""
+        return np.linspace(0,
+                          self.tchans * self.dt,
+                          self.tchans + 1,
+                          endpoint=True)
 
     @property
     def mean(self) -> float:
@@ -423,7 +471,10 @@ class Frame(object):
                    doppler_smearing: bool = False,
                    t_subsamples: int = 10,
                    f_subsamples: int = 10,
-                   smearing_subsamples: int = 10) -> np.ndarray:
+                   smearing_subsamples: int = 10,
+                   t_offset: float = 0,
+                   auto_bounding: bool = False,
+                   truncate_below: float | None = None) -> np.ndarray:
         """Add a synthetic signal to the frame.
 
         Args:
@@ -442,10 +493,32 @@ class Frame(object):
             t_subsamples: Number of time subsamples per bin.
             f_subsamples: Number of frequency subsamples per bin.
             smearing_subsamples: Number of substeps used for Doppler smearing.
+            t_offset: Time offset applied when evaluating callable time profiles
+                and paths. This is primarily used for cadence-level injections.
+            auto_bounding: Whether to infer a conservative frequency bounding
+                range for known built-in frequency profiles.
+            truncate_below: Optional relative power cutoff for supported
+                infinite-support profiles when `auto_bounding` is enabled.
 
         Returns:
             Two-dimensional signal array that was added to the frame.
         """
+        if doppler_smearing and smearing_subsamples < 1:
+            raise ValueError("smearing_subsamples must be at least 1 when doppler_smearing=True")
+
+        if auto_bounding and bounding_f_range is None:
+            bounding_f_range, path = _resolve_auto_bounding_range(
+                self,
+                path,
+                f_profile,
+                integrate_path=integrate_path,
+                integrate_f_profile=integrate_f_profile,
+                doppler_smearing=doppler_smearing,
+                t_subsamples=t_subsamples,
+                t_offset=t_offset,
+                truncate_below=truncate_below,
+            )
+
         bounding_min, bounding_max = _resolve_bounding_indices(self, bounding_f_range)
 
         restricted_fs, restricted_fchans = _get_restricted_fs(
@@ -461,7 +534,8 @@ class Frame(object):
                                             restricted_fs,
                                             t_profile,
                                             integrate_t_profile=integrate_t_profile,
-                                            t_subsamples=t_subsamples)
+                                            t_subsamples=t_subsamples,
+                                            t_offset=t_offset)
 
         resolved_path = _normalize_path(self,
                                         restricted_fs,
@@ -469,7 +543,8 @@ class Frame(object):
                                         integrate_path=integrate_path,
                                         doppler_smearing=doppler_smearing,
                                         t_subsamples=t_subsamples,
-                                        smearing_subsamples=smearing_subsamples)
+                                        smearing_subsamples=smearing_subsamples,
+                                        t_offset=t_offset)
 
         bp_profile_ff = _normalize_bp_profile(self, restricted_fs, bp_profile)
 
@@ -578,17 +653,32 @@ class Frame(object):
             raise ValueError('You must add noise in the image to return SNR!')
         return intensity * np.sqrt(self.tchans) / self.noise_std
 
-    def get_drift_rate(self, start_index: int, stop_index: int) -> float:
+    def get_drift_rate(self,
+                       start_index: int,
+                       stop_index: int,
+                       reference: str = "edges") -> float:
         """Calculate drift rate from pixel coordinates.
 
         Args:
             start_index: Starting frequency index.
             stop_index: Ending frequency index.
+            reference: Time reference convention. ``"edges"`` preserves the
+                historical convention that spans the full integrated
+                observation length. ``"centers"`` uses the distance between the
+                representative time labels of the first and last rows.
 
         Returns:
             Drift rate in Hz/s.
         """
-        return (stop_index - start_index) * self.df / (self.tchans * self.dt)
+        if reference in {"edges", "edge", "time_edges", "integration"}:
+            duration = self.tchans * self.dt
+        elif reference in {"centers", "center", "time_centers", "labels"}:
+            if self.tchans < 2:
+                raise ValueError("center-referenced drift rates require at least two time bins")
+            duration = (self.tchans - 1) * self.dt
+        else:
+            raise ValueError("reference must be 'edges' or 'centers'")
+        return (stop_index - start_index) * self.df / duration
 
     def get_info(self) -> dict[str, Any]:
         """Return the full frame attribute dictionary.
@@ -657,10 +747,19 @@ class Frame(object):
     @utils._copy_docstring(slice.get_slice)
     def get_slice(self, *args: Any, **kwargs: Any) -> Any:
         return slice.get_slice(self, *args, **kwargs)
-        
-    # @utils._copy_docstring(frame_utils.integrate)
-    # def integrate(self, *args, **kwargs):
-    #     return frame_utils.integrate(self, *args, **kwargs)
+
+    def integrate(self, *args: Any, **kwargs: Any) -> Any:
+        """Integrate frame data over time or frequency.
+
+        Args:
+            *args: Positional arguments forwarded to `setigen.integrate()`.
+            **kwargs: Keyword arguments forwarded to `setigen.integrate()`.
+
+        Returns:
+            Integrated array, `Spectrum`, or `TimeSeries`.
+        """
+        from .integrate import integrate
+        return integrate(self, *args, **kwargs)
         
     def get_waterfall(self) -> Any:
         """Return the current frame as an updated waterfall object.

@@ -16,7 +16,7 @@ def max_freq(waterfall: PathLike | Waterfall) -> float:
     Returns:
         Maximum frequency in the data.
     """
-    return np.sort(get_fs(waterfall))[-1]
+    return np.max(get_fs(waterfall))
 
 
 def min_freq(waterfall: PathLike | Waterfall) -> float:
@@ -28,7 +28,7 @@ def min_freq(waterfall: PathLike | Waterfall) -> float:
     Returns:
         Minimum frequency in the data.
     """
-    return np.sort(get_fs(waterfall))[0]
+    return np.min(get_fs(waterfall))
 
 
 def get_data(waterfall: PathLike | Waterfall, db: bool = False) -> np.ndarray:
@@ -76,7 +76,7 @@ def get_fs(waterfall: PathLike | Waterfall) -> np.ndarray:
     df = waterfall.header['foff']
     fchans = waterfall.header['nchans']
 
-    return np.arange(fch1, fch1 + fchans * df, df)
+    return fch1 + np.arange(fchans) * df
 
 
 def get_ts(waterfall: PathLike | Waterfall) -> np.ndarray:
@@ -99,4 +99,4 @@ def get_ts(waterfall: PathLike | Waterfall) -> np.ndarray:
     tsamp = waterfall.header['tsamp']
     tchans = waterfall.container.selection_shape[0]
 
-    return np.arange(0, tchans * tsamp, tsamp)
+    return np.arange(tchans) * tsamp

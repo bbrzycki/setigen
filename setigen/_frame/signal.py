@@ -17,6 +17,153 @@ class _ResolvedSignalPath:
     dpath_tt: np.ndarray | None = None
 
 
+def _get_profile_support_half_width(
+    f_profile: FrequencyProfile,
+    truncate_below: float | None,
+) -> float | None:
+    """Resolve an auto-bounding half-width for a frequency profile.
+
+    Args:
+        f_profile: Frequency-profile callable.
+        truncate_below: Optional relative power cutoff for infinite-support
+            profiles.
+
+    Returns:
+        Half-width in Hz when a scientifically explicit support can be
+        determined, otherwise `None`.
+
+    Raises:
+        ValueError: If `truncate_below` is outside the open interval `(0, 1)`.
+    """
+    metadata = getattr(f_profile, "_setigen_profile_metadata", {})
+    if metadata.get("finite_support", False):
+        return float(metadata["half_width"])
+
+    if truncate_below is None:
+        return None
+    if not 0 < truncate_below < 1:
+        raise ValueError("truncate_below must be between 0 and 1")
+
+    profile_type = metadata.get("profile_type")
+    if profile_type == "gaussian":
+        return float(metadata["sigma"] * np.sqrt(-2 * np.log(truncate_below)))
+    if profile_type == "multiple_gaussian":
+        gaussian_width = metadata["sigma"] * np.sqrt(-2 * np.log(truncate_below))
+        return float(metadata["max_offset"] + gaussian_width)
+    if profile_type == "lorentzian":
+        return float(metadata["gamma"] * np.sqrt(1 / truncate_below - 1))
+    return None
+
+
+def _evaluate_path_values(
+    frame: Any,
+    path: FrequencyPathInput,
+    *,
+    integrate_path: bool = False,
+    doppler_smearing: bool = False,
+    t_subsamples: int = 10,
+    t_offset: float = 0,
+) -> np.ndarray:
+    """Evaluate a path on the time coordinates needed for rendering.
+
+    Args:
+        frame: Frame instance that defines the time axis.
+        path: Callable, array, or scalar signal path.
+        integrate_path: Whether to oversample in time before averaging the path.
+        doppler_smearing: Whether to include one extra time edge sample.
+        t_subsamples: Number of time subsamples per bin.
+        t_offset: Time offset applied when evaluating callable paths.
+
+    Returns:
+        Path values in Hz, with one extra value when Doppler smearing is active.
+
+    Raises:
+        TypeError: If the path type is unsupported.
+        ValueError: If an array-valued path has the wrong shape.
+    """
+    tchans_eff = frame.tchans + int(doppler_smearing)
+
+    if callable(path):
+        if integrate_path:
+            new_ts = np.linspace(0,
+                                 tchans_eff * frame.dt,
+                                 tchans_eff * t_subsamples,
+                                 endpoint=False) + t_offset
+            values = path(new_ts)
+            if not isinstance(values, np.ndarray):
+                values = np.repeat(values, tchans_eff * t_subsamples)
+            return np.mean(np.reshape(values, (tchans_eff, t_subsamples)), axis=1)
+
+        ts = frame.time_edges if doppler_smearing else frame.ts
+        values = path(ts + t_offset)
+        if not isinstance(values, np.ndarray):
+            values = np.full(tchans_eff, values)
+        return values
+
+    if isinstance(path, (list, np.ndarray)):
+        values = np.array(path)
+        if doppler_smearing:
+            if values.shape != frame.ts_ext.shape:
+                raise ValueError(f"To Doppler smear power, must provide path array with {frame.tchans + 1} values")
+        elif values.shape != frame.ts.shape:
+            raise ValueError(f"Shape of path array is {values.shape} != {frame.ts.shape}.")
+        return values
+
+    if isinstance(path, (int, float)):
+        return np.full(tchans_eff, path)
+
+    raise TypeError("path is not a function, array, or float.")
+
+
+def _resolve_auto_bounding_range(
+    frame: Any,
+    path: FrequencyPathInput,
+    f_profile: FrequencyProfile,
+    *,
+    integrate_path: bool = False,
+    integrate_f_profile: bool = False,
+    doppler_smearing: bool = False,
+    t_subsamples: int = 10,
+    t_offset: float = 0,
+    truncate_below: float | None = None,
+) -> tuple[tuple[float, float] | None, FrequencyPathInput]:
+    """Resolve an optional auto-bounding range and reusable path values.
+
+    Args:
+        frame: Frame instance that defines the axes.
+        path: Callable, array, or scalar signal path.
+        f_profile: Frequency-profile callable.
+        integrate_path: Whether path integration is enabled.
+        integrate_f_profile: Whether frequency-profile integration is enabled.
+        doppler_smearing: Whether Doppler smearing is enabled.
+        t_subsamples: Number of time subsamples per bin.
+        t_offset: Time offset applied when evaluating callable paths.
+        truncate_below: Optional relative power cutoff for infinite-support
+            profiles.
+
+    Returns:
+        Tuple of optional bounding frequency range and path input to use for
+        rendering. Callable paths are replaced by evaluated path arrays when a
+        range is resolved, preserving stochastic path consistency.
+    """
+    half_width = _get_profile_support_half_width(f_profile, truncate_below)
+    if half_width is None:
+        return None, path
+
+    path_values = _evaluate_path_values(frame,
+                                        path,
+                                        integrate_path=integrate_path,
+                                        doppler_smearing=doppler_smearing,
+                                        t_subsamples=t_subsamples,
+                                        t_offset=t_offset)
+    padding = half_width + frame.df / 2
+    if integrate_f_profile:
+        padding += frame.df / 2
+
+    return (float(np.min(path_values) - padding),
+            float(np.max(path_values) + padding)), path_values
+
+
 def _resolve_bounding_indices(
     frame: Any,
     bounding_f_range: tuple[Any, Any] | None,
@@ -71,7 +218,8 @@ def _normalize_t_profile(frame: Any,
                          t_profile: TimeProfileInput,
                          *,
                          integrate_t_profile: bool = False,
-                         t_subsamples: int = 10) -> np.ndarray:
+                         t_subsamples: int = 10,
+                         t_offset: float = 0) -> np.ndarray:
     """Normalize a time profile into a time-frequency grid.
 
     Args:
@@ -93,14 +241,14 @@ def _normalize_t_profile(frame: Any,
             new_ts = np.linspace(0,
                                  frame.tchans * frame.dt,
                                  frame.tchans * t_subsamples,
-                                 endpoint=False)
+                                 endpoint=False) + t_offset
             y = t_profile(new_ts)
             if not isinstance(y, np.ndarray):
                 y = np.repeat(y, frame.tchans * t_subsamples)
             t_profile = np.mean(np.reshape(y, (frame.tchans, t_subsamples)),
                                 axis=1)
         else:
-            t_profile = t_profile(frame.ts)
+            t_profile = t_profile(frame.ts + t_offset)
     elif isinstance(t_profile, (list, np.ndarray)):
         t_profile = np.array(t_profile)
         if t_profile.shape != frame.ts.shape:
@@ -157,7 +305,8 @@ def _normalize_path(frame: Any,
                     integrate_path: bool = False,
                     doppler_smearing: bool = False,
                     t_subsamples: int = 10,
-                    smearing_subsamples: int = 10) -> _ResolvedSignalPath:
+                    smearing_subsamples: int = 10,
+                    t_offset: float = 0) -> _ResolvedSignalPath:
     """Normalize a signal path into render-ready arrays.
 
     Args:
@@ -177,33 +326,12 @@ def _normalize_path(frame: Any,
         TypeError: If the path type is unsupported.
         ValueError: If an array-valued path has the wrong shape.
     """
-    # Generate one extra time sample for frequency-smearing calculations.
-    tchans_eff = frame.tchans + int(doppler_smearing)
-
-    if callable(path):
-        if integrate_path:
-            new_ts = np.linspace(0,
-                                 tchans_eff * frame.dt,
-                                 tchans_eff * t_subsamples,
-                                 endpoint=False)
-            f = path(new_ts)
-            if not isinstance(f, np.ndarray):
-                f = np.repeat(f, tchans_eff * t_subsamples)
-            path = np.mean(np.reshape(f, (tchans_eff, t_subsamples)), axis=1)
-        else:
-            ts = frame.ts_ext if doppler_smearing else frame.ts
-            path = path(ts)
-    elif isinstance(path, (list, np.ndarray)):
-        path = np.array(path)
-        if doppler_smearing:
-            if path.shape != frame.ts_ext.shape:
-                raise ValueError(f"To Doppler smear power, must provide path array with {frame.tchans + 1} values")
-        elif path.shape != frame.ts.shape:
-            raise ValueError(f"Shape of path array is {path.shape} != {frame.ts.shape}.")
-    elif isinstance(path, (int, float)):
-        path = np.full(tchans_eff, path)
-    else:
-        raise TypeError("path is not a function, array, or float.")
+    path = _evaluate_path_values(frame,
+                                 path,
+                                 integrate_path=integrate_path,
+                                 doppler_smearing=doppler_smearing,
+                                 t_subsamples=t_subsamples,
+                                 t_offset=t_offset)
 
     _, path_tt = np.meshgrid(restricted_fs, path[:frame.tchans])
 

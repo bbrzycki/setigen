@@ -66,8 +66,10 @@ def dedrift(fr: Frame, drift_rate: float | None = None) -> Frame:
                          fr.ascending,
                          tr_data,
                          metadata=fr.metadata,
-                         waterfall=fr.check_waterfall(),
-                         seed=fr.rng)
+                         seed=fr.rng,
+                         t_start=fr.t_start,
+                         source_name=fr.source_name,
+                         header=fr.header)
 #     if dd_fr.waterfall is not None and 'source_name' in dd_fr.waterfall.header:
 #         dd_fr.waterfall.header['source_name'] += '_dedrifted'
     return dd_fr

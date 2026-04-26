@@ -1,3 +1,5 @@
+import importlib.util
+
 import numpy as np
 from numpy.testing import assert_allclose
 import pytest
@@ -8,6 +10,19 @@ import setigen as stg
 from setigen.voltage._reduction.channelize import _channelize_block
 from setigen.voltage._reduction.decoder import _decode_raw_block
 from setigen.voltage.reduction import _reduce_chunks
+
+
+def _require_cupy_device():
+    if importlib.util.find_spec("cupy") is None:
+        pytest.skip("CuPy is not installed.")
+    cupy = pytest.importorskip("cupy")
+    try:
+        device_count = cupy.cuda.runtime.getDeviceCount()
+    except Exception as exc:
+        pytest.skip(f"CuPy CUDA runtime is unavailable: {exc}")
+    if device_count < 1:
+        pytest.skip("No CUDA devices available.")
+    return cupy
 
 
 def _make_backend(*,
@@ -391,6 +406,33 @@ def test_direct_spectrogram_matches_raw_roundtrip_total_power(tmp_path):
 
     assert direct_frame.data.shape == raw_frame.data.shape
     assert_allclose(direct_frame.data, raw_frame.data)
+
+
+def test_direct_spectrogram_cupy_backend_smoke():
+    _require_cupy_device()
+    try:
+        stg.voltage.set_backend("cupy")
+        backend = _make_backend(num_pols=2,
+                                num_bits=8,
+                                num_chans=4,
+                                fftlength=8,
+                                tchans_per_block=8)
+        spec = stg.voltage.VoltageSpectrogramSpec(fftlength=8,
+                                                  integration_factor=1,
+                                                  pol_mode=1,
+                                                  backend="cupy",
+                                                  coarse_method="full",
+                                                  fine_method="full")
+
+        result = backend.to_spectrogram(spec,
+                                        num_blocks=1,
+                                        length_mode="num_blocks",
+                                        verbose=False)
+
+        assert result.data.shape == (8, 1, 32)
+        assert np.isfinite(result.data).all()
+    finally:
+        stg.voltage.set_backend("numpy")
 
 
 def test_direct_spectrogram_frequency_range_matches_full_direct():

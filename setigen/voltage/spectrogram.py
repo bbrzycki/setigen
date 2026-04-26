@@ -198,6 +198,14 @@ def _make_direct_input_spec(backend: Any) -> Any:
     )
 
 
+def _to_host_array(array: Any, *, xp: Any) -> Any:
+    """Return an array on the host, copying from CuPy when needed."""
+    try:
+        return xp.asnumpy(array)
+    except AttributeError:
+        return array
+
+
 def _collect_coarse_voltage_block(
     backend: Any,
     *,
@@ -299,7 +307,7 @@ def _collect_coarse_voltage_block(
                     row_offset:row_offset + v.shape[0],
                     local_c_idx,
                     pol,
-                ] = np.asarray(v, dtype=np.complex64)
+                ] = np.asarray(_to_host_array(v, xp=xp), dtype=np.complex64)
         row_offset += 0 if rows_written is None else rows_written
 
     return block_voltages[:row_offset]

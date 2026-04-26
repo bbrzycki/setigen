@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import time
 from collections.abc import Iterable
 
@@ -40,7 +39,7 @@ def run_benchmark(
 
     print(
         "backend={backend} taps={taps} branches={branches} windows={windows} repeats={repeats}".format(
-            backend="cupy" if os.getenv("SETIGEN_ENABLE_GPU") == "1" else "numpy",
+            backend=stg.voltage.get_backend(),
             taps=num_taps,
             branches=num_branches,
             windows=windows,
@@ -92,8 +91,10 @@ def main() -> None:
     parser.add_argument("--counts", default="1,2,4,8,16,64")
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--backend", choices=("auto", "numpy", "cupy"), default="auto")
     args = parser.parse_args()
 
+    stg.voltage.set_backend(args.backend)
     run_benchmark(
         num_taps=args.num_taps,
         num_branches=args.num_branches,

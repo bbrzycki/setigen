@@ -3,7 +3,14 @@ import numpy as np
 from numpy.testing import assert_allclose
 import pytest
 
+from astropy import units as u
 import setigen as stg
+from setigen._frame import file_mutation
+from setigen._frame.context import _copy_frame_context, _finalize_derived_frame
+from setigen._frame.io import _close_waterfall_handles, _has_live_h5_handle
+from setigen._frame.signal import _get_profile_support_half_width
+from setigen._spectrogram import copy_spectrogram, open_spectrogram
+from setigen._spectrogram.fil import _HEADER_KEYWORD_TYPES, _dtype_from_nbits, _read_keyword
 
 
 def _write_frame(frame, path):
@@ -271,3 +278,333 @@ def test_file_backed_spectrum_and_timeseries_match_eager(tmp_path, suffix):
     assert_allclose(backed_timeseries.data, eager_timeseries.data)
     assert backed_spectrum.metadata["derived"]["source_bounds"]["frequency_index_range"] == (4, 20)
     assert backed_timeseries.metadata["derived"]["source_bounds"]["time_index_range"] == (2, 7)
+
+
+def test_file_backed_frame_data_and_noise_guardrails(tmp_path):
+    source_path = tmp_path / "source.h5"
+    frame = stg.Frame(tchans=4, fchans=8, df=2, dt=1, fch1=6e9)
+    frame.data[:] = np.arange(np.prod(frame.shape)).reshape(frame.shape)
+    frame.save_hdf5(source_path)
+
+    with pytest.raises(ValueError, match="mode='r'"):
+        stg.Frame.open(source_path, mode="w")
+
+    with stg.Frame.open_copy(source_path, tmp_path / "copy.h5") as backed:
+        assert_allclose(backed.copy().data, frame.data)
+        assert_allclose(backed.data, frame.data)
+
+        backed.data = None
+        assert backed._data is None
+        with pytest.raises(ValueError, match="Data shape"):
+            backed.data = np.zeros((1, 1))
+
+        replacement = np.full(frame.shape, 5, dtype=np.float32)
+        backed.data = replacement
+        assert_allclose(backed.data, replacement)
+
+        backed._update_noise_frame_stats()
+        assert backed.noise_stats is None
+        with pytest.raises(NotImplementedError, match="add_noise"):
+            backed.add_noise(1)
+        with pytest.raises(NotImplementedError, match="add_noise_from_obs"):
+            backed.add_noise_from_obs()
+
+
+def test_frame_noise_bounds_and_range_edges():
+    frame = stg.Frame(tchans=4, fchans=16, df=2, dt=1, fch1=6e9, ascending=True)
+    frame.data[:] = np.arange(np.prod(frame.shape)).reshape(frame.shape)
+
+    stats = frame.estimate_noise_stats(
+        bounding_f_range=(frame.get_frequency(-50), frame.get_frequency(-40)),
+        config=stg.NoiseEstimationConfig(context_width=2, guard_width=0),
+    )
+    assert stats.context_bounds == (0, 3)
+
+    stats = frame.estimate_noise_stats(
+        path=frame.get_frequency(5),
+        config=stg.NoiseEstimationConfig(context_width=2 * frame.df,
+                                         guard_width=0,
+                                         width_unit="Hz"),
+    )
+    assert stats.context_bounds == (3, 8)
+
+    with pytest.raises(ValueError, match="requires path and f_profile"):
+        frame.estimate_noise_stats(auto_bounding=True)
+    with pytest.raises(ValueError, match="empty"):
+        frame.estimate_noise_stats(f_index_range=(2, 2))
+    with pytest.raises(ValueError, match="guard removed all"):
+        frame.estimate_noise_stats(
+            bounding_f_range=(frame.get_frequency(5), frame.get_frequency(6)),
+            config=stg.NoiseEstimationConfig(context_width=0, guard_width=10),
+        )
+
+    sub = frame.read_frame(f_range=(frame.frequency_edges[2] * u.Hz,
+                                    frame.frequency_edges[5] * u.Hz),
+                           t_range=(1 * u.s, 3 * u.s))
+    assert_allclose(sub.data, frame.data[1:3, 2:5])
+    assert sub.fch1 == frame.fs[2]
+
+    with pytest.raises(ValueError, match="empty"):
+        frame.read_frame(f_index_range=(3, 3))
+
+
+def test_frame_misc_edge_contracts():
+    frame = stg.Frame(tchans=4, fchans=8, df=1, dt=2, fch1=6e9)
+    assert frame.get_intensity(10, noise_stats=(0, 2)) == pytest.approx(10)
+    assert frame.get_snr(10, noise_stats=(0, 2)) == pytest.approx(10)
+    assert frame.get_drift_rate(0, 2, reference="centers") == pytest.approx(1 / 3)
+    with pytest.raises(ValueError, match="at least two"):
+        stg.Frame(tchans=1, fchans=8).get_drift_rate(0, 1, reference="centers")
+    with pytest.raises(ValueError, match="reference"):
+        frame.get_drift_rate(0, 1, reference="bad")
+    assert_allclose(frame.integrate(), np.zeros(frame.fchans))
+
+    class BadWaterfall:
+        def __deepcopy__(self, memo):
+            raise RuntimeError("no copy")
+
+    frame.waterfall = BadWaterfall()
+    assert frame.copy().waterfall is None
+
+
+def test_integration_edge_contracts(tmp_path):
+    data = np.arange(12, dtype=np.float32).reshape(3, 4)
+    array_like = data.tolist()
+    assert_allclose(stg.integrate(array_like, axis="frequency", mode="sum"), np.sum(data, axis=1))
+    assert_allclose(stg.integrate(array_like, axis=1, mode="mean"), np.mean(data, axis=1))
+
+    with pytest.raises(ValueError, match="Frame-like"):
+        stg.integrate(array_like, f_index_range=(0, 1))
+    with pytest.raises(TypeError, match="Frame-like"):
+        stg.integrate(array_like, as_frame=True)
+
+    frame = stg.Frame(tchans=3, fchans=4, df=1, dt=1, fch1=6e9, data=data)
+    with pytest.raises(ValueError, match="empty"):
+        stg.integrate(frame, f_index_range=(2, 2))
+    assert_allclose(stg.integrate(frame, axis="frequency"), np.mean(data, axis=1))
+
+    source_path = tmp_path / "integrate_source.h5"
+    frame.save_hdf5(source_path)
+    with stg.Frame.open(source_path) as backed:
+        assert_allclose(backed.spectrum(mode="mean").data, np.mean(data, axis=0, keepdims=True))
+        with pytest.raises(ValueError, match="max_chunk_bytes"):
+            backed.spectrum(max_chunk_bytes=0)
+
+
+def test_signal_support_metadata_and_callable_paths():
+    assert _get_profile_support_half_width(stg.gaussian_f_profile(width=10), None) is None
+    assert _get_profile_support_half_width(stg.multiple_gaussian_f_profile(width=10), 1e-3) > 100
+    assert _get_profile_support_half_width(stg.lorentzian_f_profile(width=10), 1e-3) > 0
+    assert _get_profile_support_half_width(stg.voigt_f_profile(10, 10), 1e-3) is None
+
+    frame = stg.Frame(tchans=4, fchans=64, df=1, dt=1, fch1=6e9 + 32)
+    frame.add_signal(path=lambda ts: 6e9,
+                     t_profile=1,
+                     f_profile=stg.gaussian_f_profile(width=3),
+                     auto_bounding=True)
+    assert np.max(frame.data) > 0
+
+    frame.zero_data()
+    frame.add_signal(path=lambda ts: 6e9,
+                     t_profile=1,
+                     f_profile=stg.box_f_profile(width=3),
+                     integrate_path=True,
+                     auto_bounding=True)
+    assert np.max(frame.data) > 0
+
+
+def test_file_mutation_private_edge_helpers(tmp_path):
+    frame = stg.Frame(tchans=4, fchans=8, df=1, dt=1, fch1=6e9, ascending=True)
+    chunk = file_mutation._ChunkFrameView(
+        frame,
+        t_start_index=1,
+        tchans=2,
+        f_start_index=2,
+        f_stop_index=6,
+        data=np.zeros((2, 4)),
+    )
+    assert chunk.get_index(6e9 + 3) == 1
+    assert file_mutation._slice_time_input(5, t_start=0, t_stop=1, full_tchans=4) == 5
+    mismatched = np.arange(3)
+    assert file_mutation._slice_time_input(mismatched,
+                                           t_start=0,
+                                           t_stop=1,
+                                           full_tchans=4) is mismatched
+    assert file_mutation._evaluate_t_profile_values(frame, 3) == 3
+    assert_allclose(
+        file_mutation._evaluate_t_profile_values(frame,
+                                                 lambda ts: 2,
+                                                 integrate_t_profile=True,
+                                                 t_subsamples=2),
+        np.full(frame.tchans, 2),
+    )
+    assert_allclose(file_mutation._evaluate_t_profile_values(frame, lambda ts: 4),
+                    np.full(frame.tchans, 4))
+    assert file_mutation._choose_chunk_tchans(frame,
+                                              affected_fchans=8,
+                                              max_chunk_bytes=None,
+                                              chunk_tchans=2) == 2
+    with pytest.raises(ValueError, match="chunk_tchans"):
+        file_mutation._choose_chunk_tchans(frame,
+                                           affected_fchans=8,
+                                           max_chunk_bytes=None,
+                                           chunk_tchans=0)
+    with pytest.raises(ValueError, match="max_chunk_bytes"):
+        file_mutation._choose_chunk_tchans(frame,
+                                           affected_fchans=8,
+                                           max_chunk_bytes=0,
+                                           chunk_tchans=None)
+
+    source_path = tmp_path / "source.h5"
+    frame.save_hdf5(source_path)
+    with stg.Frame.open_copy(source_path, tmp_path / "out.h5") as backed:
+        with pytest.raises(ValueError, match="smearing_subsamples"):
+            backed.add_signal(path=stg.constant_path(frame.get_frequency(4), drift_rate=0),
+                              t_profile=1,
+                              f_profile=stg.box_f_profile(width=frame.df),
+                              doppler_smearing=True,
+                              smearing_subsamples=0)
+        empty = backed.add_signal(path=stg.constant_path(frame.get_frequency(4), drift_rate=0),
+                                  t_profile=1,
+                                  f_profile=stg.box_f_profile(width=frame.df),
+                                  bounding_f_range=(frame.get_frequency(-10),
+                                                    frame.get_frequency(-9)))
+        assert empty.time_chunks == 0
+
+        result = backed.add_signal(path=lambda ts: frame.get_frequency(4),
+                                   t_profile=1,
+                                   f_profile=stg.box_f_profile(width=frame.df),
+                                   bounding_f_range=(frame.get_frequency(3),
+                                                     frame.get_frequency(5)))
+        assert result.time_chunks > 0
+
+
+def test_private_context_and_io_helpers():
+    class SourceNoParams:
+        metadata = {"science": "kept", "file_backed": True}
+        header = None
+        shape = (1, 1)
+
+    class Target:
+        def __init__(self):
+            self.metadata = {}
+            self.header = {"source_name": "T",
+                           "tsamp": 1,
+                           "tstart": 1,
+                           "nchans": 1,
+                           "nifs": 1,
+                           "fch1": 1,
+                           "foff": 1}
+            self.source_name = "Target"
+            self.dt = 2
+            self.t_start = 0
+            self.fchans = 1
+            self.fch1 = 6e9
+            self.df = 1
+            self.ascending = True
+
+        def add_metadata(self, metadata):
+            self.metadata.update(metadata)
+
+    target = Target()
+    _finalize_derived_frame(SourceNoParams(), target, operation="unit")
+    assert target.metadata["science"] == "kept"
+    assert target.metadata["derived"]["operation"] == "unit"
+
+    copied = Target()
+    _copy_frame_context(SourceNoParams(), copied)
+    assert copied.metadata["science"] == "kept"
+
+    class BadClose:
+        def close(self):
+            raise RuntimeError("close failed")
+
+    class BadId:
+        @property
+        def valid(self):
+            raise RuntimeError("invalid")
+
+    class Container:
+        h5 = BadClose()
+
+    class Waterfall:
+        container = Container()
+
+    _close_waterfall_handles(Waterfall())
+    Waterfall.container.h5.id = BadId()
+    assert _has_live_h5_handle(Waterfall()) is True
+
+
+def test_spectrogram_backend_edge_contracts(tmp_path):
+    with pytest.raises(ValueError, match="Unsupported"):
+        open_spectrogram(tmp_path / "bad.txt")
+
+    source = tmp_path / "source.h5"
+    stg.Frame(tchans=2, fchans=4).save_hdf5(source)
+    copied = tmp_path / "copied.h5"
+    copy_spectrogram(source, copied)
+    with pytest.raises(FileExistsError):
+        copy_spectrogram(source, copied)
+
+    with open_spectrogram(source) as backend:
+        assert backend.shape == (2, 4)
+    backend = open_spectrogram(source)
+    backend.__exit__(None, None, None)
+
+    with open_spectrogram(source) as backend:
+        with pytest.raises(IndexError, match="frequency"):
+            backend.read_region(0, 1, -1, 1)
+        with pytest.raises(IndexError, match="time"):
+            backend.read_region(-1, 1, 0, 1)
+        with pytest.raises(OSError, match="read-only"):
+            backend.write_region(0, 0, np.zeros((1, 1)))
+
+    with open_spectrogram(source, mode="r+") as backend:
+        with pytest.raises(ValueError, match="two-dimensional"):
+            backend.write_region(0, 0, np.zeros(4))
+        with pytest.raises(IndexError, match="time"):
+            backend.write_region(-1, 0, np.zeros((1, 1)))
+        state = backend.__getstate__()
+        assert state["_h5"] is None
+        assert state["_dataset"] is None
+
+    fil_source = tmp_path / "source.fil"
+    stg.Frame(tchans=2, fchans=4).save_fil(fil_source)
+    with open_spectrogram(fil_source) as backend:
+        with pytest.raises(IndexError, match="frequency"):
+            backend.read_region(0, 1, -1, 1)
+        with pytest.raises(IndexError, match="time"):
+            backend.read_region(-1, 1, 0, 1)
+        with pytest.raises(OSError, match="read-only"):
+            backend.write_region(0, 0, np.zeros((1, 1)))
+
+    with open_spectrogram(fil_source, mode="r+") as backend:
+        with pytest.raises(ValueError, match="two-dimensional"):
+            backend.write_region(0, 0, np.zeros(4))
+        with pytest.raises(IndexError, match="time"):
+            backend.write_region(-1, 0, np.zeros((1, 1)))
+        with pytest.raises(IndexError, match="frequency"):
+            backend.write_region(0, 0, np.zeros((1, 5)))
+        backend._disk_frequency_slice = lambda f_start, f_stop: (0, 1, False)
+        with pytest.raises(ValueError, match="width"):
+            backend.write_region(0, 0, np.zeros((1, 2)))
+
+    bad = tmp_path / "bad.fil"
+    bad.write_bytes((10).to_bytes(4, "little") + b"HEADER_END")
+    with pytest.raises(RuntimeError, match="valid"):
+        open_spectrogram(bad)
+
+    with pytest.raises(ValueError, match="Unsupported"):
+        _dtype_from_nbits(4)
+
+    import io
+    with pytest.raises(RuntimeError, match="Unexpected end"):
+        _read_keyword(io.BytesIO(b""))
+    old = _HEADER_KEYWORD_TYPES["machine_id"]
+    _HEADER_KEYWORD_TYPES["machine_id"] = "bad"
+    try:
+        keyword = len("machine_id").to_bytes(4, "little") + b"machine_id"
+        with pytest.raises(RuntimeError, match="Unsupported"):
+            _read_keyword(io.BytesIO(keyword))
+    finally:
+        _HEADER_KEYWORD_TYPES["machine_id"] = old

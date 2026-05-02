@@ -5,6 +5,7 @@ from numpy.testing import assert_allclose
 
 from astropy import units as u
 import setigen as stg
+from setigen.noise import estimate_array_noise_stats
 
 
 def test_noise():
@@ -85,6 +86,26 @@ def test_noise():
                                  x_min_array=[0, 0],
                                  share_index=True,
                                  noise_type="gaussian")
+
+    for kwargs, match in [
+        ({"sigma": 0}, "sigma"),
+        ({"maxiters": 0}, "maxiters"),
+        ({"context_width": -1}, "context_width"),
+        ({"guard_width": -1}, "guard_width"),
+        ({"width_unit": "pixels"}, "width_unit"),
+        ({"combine": "per_time"}, "combine"),
+    ]:
+        with pytest.raises(ValueError, match=match):
+            stg.NoiseEstimationConfig(**kwargs)
+
+    with pytest.raises(ValueError, match="empty"):
+        estimate_array_noise_stats([])
+
+    robust = estimate_array_noise_stats([1, 2, 100],
+                                        config=stg.NoiseEstimationConfig(method="median_mad"))
+    assert robust.mean == 2
+    assert robust.std == pytest.approx(1.4826)
+    assert stg.NoiseStats(mean=0, std=1, n_samples=1, method="test").tchans is None
 
 
 def test_injection_options():

@@ -23,6 +23,7 @@ from ._backend.pipeline import (
 )
 from ._backend.recording import _RecordConfig, _resolve_num_blocks
 from ._reduction.channelize import _channelize_block
+from ._reduction.frame_context import _frame_context_kwargs
 from ._reduction.metadata import _ReductionMetadata, _build_reduction_metadata
 from ._reduction.writers import _build_filterbank_header, _create_writer
 from .reduction import PolarizationMode
@@ -124,6 +125,9 @@ class VoltageSpectrogramResult:
                 "integration_factor": self.spec.integration_factor,
                 "source": "voltage_backend",
             },
+            **_frame_context_kwargs(self.input_spec,
+                                    self.metadata,
+                                    pol_mode=self.spec.pol_mode),
         )
 
     def write(

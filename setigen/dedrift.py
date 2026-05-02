@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from ._frame.context import _finalize_derived_frame, _source_bounds_metadata
 from .frame import Frame
 
 
@@ -65,9 +66,24 @@ def dedrift(fr: Frame, drift_rate: float | None = None) -> Frame:
                          fch1, 
                          fr.ascending,
                          tr_data,
-                         metadata=fr.metadata,
-                         waterfall=fr.check_waterfall(),
-                         seed=fr.rng)
+                         seed=fr.rng,
+                         t_start=fr.t_start,
+                         source_name=fr.source_name)
+    _finalize_derived_frame(
+        fr,
+        dd_fr,
+        operation="dedrift",
+        product_type="frame",
+        source_bounds=_source_bounds_metadata(
+            fr,
+            f_index_range=(0, fr.fchans),
+            t_index_range=(0, fr.tchans),
+        ),
+        extra_metadata={
+            "drift_rate": float(drift_rate),
+            "max_frequency_offset": int(max_offset),
+        },
+    )
 #     if dd_fr.waterfall is not None and 'source_name' in dd_fr.waterfall.header:
 #         dd_fr.waterfall.header['source_name'] += '_dedrifted'
     return dd_fr

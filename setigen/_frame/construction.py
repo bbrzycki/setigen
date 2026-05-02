@@ -15,6 +15,7 @@ from blimpy import Waterfall
 
 from .. import waterfall_utils
 from .. import unit_utils
+from .io import _close_waterfall_handles
 
 
 @dataclass(frozen=True)
@@ -35,8 +36,7 @@ class _SyntheticFrameSpec:
 class _WaterfallLoadSpec:
     """Normalized specification for loading a frame from a waterfall."""
 
-    waterfall: Waterfall
-    header: object
+    header: dict[str, Any]
     df: float
     dt: float
     fch1: float
@@ -156,16 +156,18 @@ def _normalize_waterfall_init(
     """
     kwargs = {} if kwargs is None else kwargs
 
+    owns_waterfall = False
     if isinstance(waterfall, pathlib.PurePath):
         waterfall = str(waterfall)
     if isinstance(waterfall, str):
         waterfall = Waterfall(waterfall,
                               f_start=kwargs.get("f_start"),
                               f_stop=kwargs.get("f_stop"))
+        owns_waterfall = True
     elif not isinstance(waterfall, Waterfall):
         raise FileNotFoundError(f"Unsupported data type: {type(waterfall)}")
 
-    header = waterfall.header
+    header = copy.deepcopy(waterfall.header)
     tchans, _, fchans = waterfall.container.selection_shape
     shape = (tchans, fchans)
 
@@ -181,13 +183,18 @@ def _normalize_waterfall_init(
 
     t_start = Time(header["tstart"], format="mjd").unix
     source_name = header["source_name"]
+    if isinstance(source_name, bytes):
+        source_name = source_name.decode()
 
     data = waterfall_utils.get_data(waterfall)
     if not ascending:
         data = data[:, ::-1]
+    data = np.array(data, copy=True)
 
-    return _WaterfallLoadSpec(waterfall=waterfall,
-                              header=header,
+    if owns_waterfall:
+        _close_waterfall_handles(waterfall)
+
+    return _WaterfallLoadSpec(header=header,
                               df=df,
                               dt=dt,
                               fch1=fch1,
@@ -269,15 +276,15 @@ def _initialize_frame_from_spec(
     frame.data = spec.data
 
     if isinstance(spec, _WaterfallLoadSpec):
-        frame.waterfall = spec.waterfall
-        frame.header = spec.header
+        frame.waterfall = None
+        frame.header = copy.deepcopy(spec.header)
     else:
         frame.waterfall = None
         frame.header = None
 
 
 def _attach_loaded_waterfall(frame: Any, waterfall: Waterfall | None) -> None:
-    """Attach a deepcopy of a loaded waterfall to a frame.
+    """Attach serializable header metadata from a loaded waterfall to a frame.
 
     Args:
         frame: Frame instance to update.
@@ -285,8 +292,4 @@ def _attach_loaded_waterfall(frame: Any, waterfall: Waterfall | None) -> None:
     """
     if waterfall is None:
         return
-    try:
-        del waterfall.container.h5
-    except AttributeError:
-        pass
-    frame.waterfall = copy.deepcopy(waterfall)
+    frame.header = copy.deepcopy(waterfall.header)

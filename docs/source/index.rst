@@ -17,7 +17,7 @@ Welcome to setigen's documentation!
     :scale: 75
 
 |setigen|_ is a Python library for generating and injecting artificial
-narrow-band signals into radio requency data. |setigen|_ interfaces
+narrow-band signals into radio frequency data. |setigen|_ interfaces
 primarily with two types of data: spectrograms or dynamic spectra, saved in 
 two-dimensional NumPy arrays or filterbank files (``.fil`` extension), 
 and raw voltages (GUPPI RAW files). Both data formats are instrumental to 
@@ -46,9 +46,12 @@ Table of Contents
    getting_started
    basics
    frame_methods
+   file_backed_frames
+   frame_products
    advanced
    cadences
    voltages
+   array_backends
    setigen
    setigen.voltage
 

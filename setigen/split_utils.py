@@ -8,6 +8,7 @@ from blimpy import Waterfall
 from typing import Iterator
 
 from ._typing import PathLike
+from ._frame.io import _close_waterfall_handles
 
 
 def split_waterfall_generator(
@@ -32,10 +33,13 @@ def split_waterfall_generator(
     """
 
     info_wf = Waterfall(waterfall_fn, load_data=False)
-    fch1 = info_wf.header['fch1']
-    nchans = info_wf.header['nchans']
-    df = info_wf.header['foff']
-    tchans_tot = info_wf.container.selection_shape[0]
+    try:
+        fch1 = info_wf.header['fch1']
+        nchans = info_wf.header['nchans']
+        df = info_wf.header['foff']
+        tchans_tot = info_wf.container.selection_shape[0]
+    finally:
+        _close_waterfall_handles(info_wf)
 
     if f_shift is None:
         f_shift = fchans
@@ -58,7 +62,10 @@ def split_waterfall_generator(
                               t_start=0,
                               t_stop=tchans)
 
-        yield waterfall
+        try:
+            yield waterfall
+        finally:
+            _close_waterfall_handles(waterfall)
 
         f_start += f_shift * df
         f_stop += f_shift * df

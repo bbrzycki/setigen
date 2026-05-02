@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ._frame.context import _finalize_derived_frame, _source_bounds_metadata
+
 if TYPE_CHECKING:
     from .frame import Frame
 
@@ -30,8 +32,19 @@ def get_slice(fr: Frame, l: int, r: int) -> Frame:
                         fch1, 
                         fr.ascending,
                         s_data,
-                        metadata=fr.metadata,
-                        waterfall=fr.check_waterfall(),
-                        seed=fr.rng)
+                        seed=fr.rng,
+                        t_start=fr.t_start,
+                        source_name=fr.source_name)
+    _finalize_derived_frame(
+        fr,
+        s_fr,
+        operation="slice",
+        product_type="frame",
+        source_bounds=_source_bounds_metadata(
+            fr,
+            f_index_range=(l, r),
+            t_index_range=(0, fr.tchans),
+        ),
+    )
 
     return s_fr

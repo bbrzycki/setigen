@@ -40,7 +40,17 @@ class Spectrum(frame.Frame):
             **kwargs: Additional frame-construction keyword arguments.
         """
         if "tchans" in kwargs:
-            assert kwargs.pop("tchans") == 1
+            tchans = kwargs.pop("tchans")
+            if tchans != 1:
+                raise ValueError("Spectrum requires tchans=1")
+        if data is not None:
+            data = np.asarray(data)
+            if data.ndim == 1:
+                data = data[np.newaxis, :]
+            elif data.ndim != 2 or data.shape[0] != 1:
+                raise ValueError("Spectrum data must be one-dimensional or have shape (1, fchans)")
+            if fchans is None:
+                fchans = data.shape[1]
         frame.Frame.__init__(self,
                              fchans=fchans,
                              tchans=1,

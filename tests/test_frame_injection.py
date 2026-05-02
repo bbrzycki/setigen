@@ -5,12 +5,17 @@ from numpy.testing import assert_allclose
 
 from astropy import units as u
 import setigen as stg
+from setigen.noise import estimate_array_noise_stats
 
 
 def test_noise():
     frame = stg.Frame(shape=(16, 256), seed=0)
     frame.add_noise(0, 1, noise_type="gaussian")
     assert frame.get_noise_stats() == (0, 1)
+    assert frame.noise_stats.as_tuple() == (0, 1)
+
+    with pytest.raises(ValueError, match="method"):
+        stg.NoiseEstimationConfig(method="bad")
 
     gaussian_frame = stg.Frame(shape=(16, 256), seed=0)
     normal_frame = stg.Frame(shape=(16, 256), seed=0)
@@ -81,6 +86,26 @@ def test_noise():
                                  x_min_array=[0, 0],
                                  share_index=True,
                                  noise_type="gaussian")
+
+    for kwargs, match in [
+        ({"sigma": 0}, "sigma"),
+        ({"maxiters": 0}, "maxiters"),
+        ({"context_width": -1}, "context_width"),
+        ({"guard_width": -1}, "guard_width"),
+        ({"width_unit": "pixels"}, "width_unit"),
+        ({"combine": "per_time"}, "combine"),
+    ]:
+        with pytest.raises(ValueError, match=match):
+            stg.NoiseEstimationConfig(**kwargs)
+
+    with pytest.raises(ValueError, match="empty"):
+        estimate_array_noise_stats([])
+
+    robust = estimate_array_noise_stats([1, 2, 100],
+                                        config=stg.NoiseEstimationConfig(method="median_mad"))
+    assert robust.mean == 2
+    assert robust.std == pytest.approx(1.4826)
+    assert stg.NoiseStats(mean=0, std=1, n_samples=1, method="test").tchans is None
 
 
 def test_injection_options():
@@ -161,6 +186,55 @@ def test_injection_options():
         frame.add_signal(path={"bad": "path"},
                          t_profile=1,
                          f_profile=stg.box_f_profile(width=frame.df))
+
+
+def test_constant_signal_doppler_smearing_handles_signed_and_zero_drift():
+    for drift_rate in [0, 1, -1]:
+        frame = stg.Frame(shape=(16, 256), seed=0)
+        frame.add_constant_signal(frame.get_frequency(frame.fchans // 2),
+                                  drift_rate=drift_rate * frame.unit_drift_rate,
+                                  level=1,
+                                  width=frame.df,
+                                  f_profile_type="box",
+                                  doppler_smearing=True)
+        assert np.max(frame.data) > 0
+
+    frame = stg.Frame(shape=(16, 256), seed=0)
+    with pytest.raises(ValueError, match="smearing_subsamples"):
+        frame.add_signal(path=frame.get_frequency(frame.fchans // 2),
+                         t_profile=1,
+                         f_profile=stg.box_f_profile(width=frame.df),
+                         doppler_smearing=True,
+                         smearing_subsamples=0)
+
+
+def test_add_signal_auto_bounding_for_known_profiles():
+    kwargs = dict(path=stg.constant_path(f_start=6e9, drift_rate=0),
+                  t_profile=1,
+                  f_profile=stg.box_f_profile(width=10))
+
+    full = stg.Frame(tchans=4, fchans=256, df=1, dt=1, fch1=6e9 + 128)
+    auto = stg.Frame(tchans=4, fchans=256, df=1, dt=1, fch1=6e9 + 128)
+    full.add_signal(**kwargs)
+    auto.add_signal(**kwargs, auto_bounding=True)
+    assert_allclose(auto.data, full.data)
+
+    full = stg.Frame(tchans=4, fchans=256, df=1, dt=1, fch1=6e9 + 128)
+    auto = stg.Frame(tchans=4, fchans=256, df=1, dt=1, fch1=6e9 + 128)
+    gaussian_kwargs = dict(path=stg.constant_path(f_start=6e9, drift_rate=0),
+                           t_profile=1,
+                           f_profile=stg.gaussian_f_profile(width=10))
+    full.add_signal(**gaussian_kwargs)
+    auto.add_signal(**gaussian_kwargs,
+                    auto_bounding=True,
+                    truncate_below=1e-3)
+    assert np.count_nonzero(auto.data) < np.count_nonzero(full.data)
+    assert np.max(auto.data) == pytest.approx(np.max(full.data))
+
+    with pytest.raises(ValueError, match="truncate_below"):
+        auto.add_signal(**gaussian_kwargs,
+                        auto_bounding=True,
+                        truncate_below=2)
     
 
 def test_injection_tools(tmp_path):
@@ -185,6 +259,9 @@ def test_injection_tools(tmp_path):
 
     frame.add_noise(1)
     assert frame.get_snr(intensity=100) == pytest.approx(4039.801975344831)
+    stats = frame.estimate_noise_stats()
+    intensity = frame.get_intensity(snr=10, noise_stats=stats)
+    assert frame.get_snr(intensity=intensity, noise_stats=stats) == pytest.approx(10)
     assert isinstance(frame.get_info(), dict)
 
     frame.add_constant_signal(frame.get_frequency(frame.fchans//2),

@@ -386,5 +386,5 @@ def _build_constant_signal_kwargs(
         "bounding_f_range": (frame.get_frequency(bounding_min_index),
                               frame.get_frequency(bounding_max_index)),
         "doppler_smearing": config.doppler_smearing,
-        "smearing_subsamples": int(np.ceil(config.drift_rate / frame.unit_drift_rate)),
+        "smearing_subsamples": max(1, int(np.ceil(abs(config.drift_rate / frame.unit_drift_rate)))),
     }

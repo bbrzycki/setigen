@@ -2,10 +2,11 @@ from __future__ import absolute_import, division, print_function
 
 from setigen._version import __version__
 
-from setigen.frame import Frame, params_from_backend
+from setigen.frame import Frame, frame_params_from_backend, params_from_backend
 from setigen.cadence import Cadence, OrderedCadence
 from setigen.spectrum import Spectrum
 from setigen.timeseries import TimeSeries
+from setigen.noise import NoiseEstimationConfig, NoiseStats
     
 from setigen.utils import db, array
 from setigen.unit_utils import cast_value, get_value
@@ -44,11 +45,14 @@ from setigen.split_utils import (
 __all__ = [
     "__version__",
     "Frame",
+    "frame_params_from_backend",
     "params_from_backend",
     "Cadence",
     "OrderedCadence",
     "Spectrum",
     "TimeSeries",
+    "NoiseEstimationConfig",
+    "NoiseStats",
     "db",
     "array",
     "cast_value",

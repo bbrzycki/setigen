@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import pathlib
 import pickle
 from typing import Any
@@ -8,6 +9,139 @@ import numpy as np
 
 from blimpy import Waterfall
 from blimpy.io import sigproc
+
+
+def _close_waterfall_handles(waterfall: Any) -> None:
+    """Close live file handles owned by a blimpy waterfall when present.
+
+    Args:
+        waterfall: Waterfall-like object to inspect.
+    """
+    h5 = getattr(getattr(waterfall, "container", None), "h5", None)
+    if h5 is None:
+        return
+    try:
+        h5.close()
+    except Exception:
+        pass
+
+
+def _has_live_h5_handle(waterfall: Any) -> bool:
+    """Return whether a waterfall is backed by a live HDF5 file handle.
+
+    Args:
+        waterfall: Waterfall-like object to inspect.
+
+    Returns:
+        Whether the object owns a currently valid HDF5 file handle.
+    """
+    h5 = getattr(getattr(waterfall, "container", None), "h5", None)
+    if h5 is None:
+        return False
+    try:
+        return bool(h5.id.valid)
+    except Exception:
+        return True
+
+
+def _base_filterbank_header() -> dict[str, Any]:
+    """Return a packaged filterbank header template.
+
+    Returns:
+        Deep-copied SIGPROC-compatible header template.
+    """
+    path = pathlib.Path(__file__).resolve().parents[1] / "assets" / "sample.fil"
+    waterfall = Waterfall(str(path), load_data=False)
+    header = copy.deepcopy(waterfall.header)
+    _close_waterfall_handles(waterfall)
+    return header
+
+
+def _frame_waterfall_header(frame: Any) -> dict[str, Any]:
+    """Build a blimpy-compatible header from frame metadata.
+
+    Args:
+        frame: Frame instance providing scientific metadata.
+
+    Returns:
+        Header dictionary suitable for constructing a Waterfall adapter.
+    """
+    header = _base_filterbank_header()
+    if getattr(frame, "header", None) is not None:
+        header.update(copy.deepcopy(frame.header))
+
+    header.update({
+        "source_name": frame.source_name,
+        "tsamp": frame.dt,
+        "tstart": frame.mjd,
+        "nchans": frame.fchans,
+        "nifs": 1,
+        "fch1": frame.fch1 * 1e-6,
+        "foff": frame.df * (1 if frame.ascending else -1) * 1e-6,
+    })
+    header.setdefault("rawdatafile", "Synthetic")
+    header.setdefault("nbits", 32)
+    return header
+
+
+def _frame_waterfall_data(frame: Any) -> np.ndarray:
+    """Return frame data in blimpy's time/IF/frequency layout.
+
+    Args:
+        frame: Frame instance providing data and orientation metadata.
+
+    Returns:
+        Three-dimensional data array with shape ``(time, if, frequency)``.
+    """
+    data = frame.data[:, np.newaxis, :]
+    if not frame.ascending:
+        data = data[:, :, ::-1]
+    return data
+
+
+def _sync_waterfall_adapter(waterfall: Waterfall, frame: Any) -> Waterfall:
+    """Synchronize an existing in-memory waterfall adapter with a frame.
+
+    Args:
+        waterfall: Existing in-memory Waterfall adapter.
+        frame: Frame instance whose current state should be reflected.
+
+    Returns:
+        The same Waterfall adapter after metadata and data synchronization.
+    """
+    header = _frame_waterfall_header(frame)
+    data = _frame_waterfall_data(frame)
+
+    waterfall.header.clear()
+    waterfall.header.update(header)
+    waterfall.file_header = waterfall.header
+    waterfall.data = data
+
+    waterfall.n_ints_in_file = frame.tchans
+    waterfall.selection_shape = data.shape
+    waterfall.n_channels_in_file = frame.fchans
+    waterfall.file_shape = data.shape
+    waterfall.file_size_bytes = frame.tchans * frame.fchans * header["nbits"] / 8
+
+    container = waterfall.container
+    container.header = waterfall.header
+    container.n_channels_in_file = frame.fchans
+    container._n_bytes = int(header["nbits"] / 8)
+    if header["foff"] < 0:
+        container.f_end = header["fch1"]
+        container.f_begin = container.f_end + frame.fchans * header["foff"]
+    else:
+        container.f_begin = header["fch1"]
+        container.f_end = container.f_begin + frame.fchans * header["foff"]
+    container.f_start = container.f_begin
+    container.f_stop = container.f_end
+    container.t_begin = 0
+    container.t_end = frame.tchans
+    container.t_start = 0
+    container.t_stop = frame.tchans
+    container.selection_shape = data.shape
+    container.n_ints_in_file = frame.tchans
+    return waterfall
 
 
 def _create_synthetic_waterfall(frame: Any, *, max_load: int = 1) -> Waterfall:
@@ -20,42 +154,10 @@ def _create_synthetic_waterfall(frame: Any, *, max_load: int = 1) -> Waterfall:
     Returns:
         Synthetic waterfall object configured for the frame.
     """
-    path = pathlib.Path(__file__).resolve().parents[1] / "assets" / "sample.fil"
-    waterfall = Waterfall(str(path), max_load=max_load)
-    waterfall.header["source_name"] = frame.source_name
-    waterfall.header["rawdatafile"] = "Synthetic"
-
-    container_attr = {
-        "t_begin": 0,
-        "t_end": frame.tchans,
-        "file_size_bytes": frame.tchans * frame.fchans * waterfall.header["nbits"] / 8,
-        "n_channels_in_file": frame.fchans,
-        "n_ints_in_file": frame.tchans,
-        "file_shape": (frame.tchans, 1, frame.fchans),
-        "f_end": frame.fmax * 1e-6,
-        "f_begin": frame.fmin * 1e-6,
-        "f_stop": frame.fmax * 1e-6,
-        "f_start": frame.fmin * 1e-6,
-        "t_start": 0,
-        "t_stop": frame.tchans,
-        "selection_shape": (frame.tchans, 1, frame.fchans),
-        "chan_start_idx": 0,
-        "chan_stop_idx": frame.fchans,
-    }
-    for key, value in container_attr.items():
-        setattr(waterfall.container, key, value)
-
-    wat_attr = {
-        "n_channels_in_file": frame.fchans,
-        "n_ints_in_file": frame.tchans,
-        "file_shape": (frame.tchans, 1, frame.fchans),
-        "file_size_bytes": frame.tchans * frame.fchans * waterfall.header["nbits"] / 8,
-        "selection_shape": (frame.tchans, 1, frame.fchans),
-    }
-    for key, value in wat_attr.items():
-        setattr(waterfall, key, value)
-
-    return waterfall
+    del max_load
+    waterfall = Waterfall(header_dict=_frame_waterfall_header(frame),
+                          data_array=_frame_waterfall_data(frame))
+    return _sync_waterfall_adapter(waterfall, frame)
 
 
 def _update_waterfall(
@@ -71,25 +173,10 @@ def _update_waterfall(
         filename: Optional output filename to attach to the waterfall container.
         max_load: Maximum load parameter for a lazily created waterfall.
     """
-    if frame.waterfall is None:
+    if frame.waterfall is None or _has_live_h5_handle(frame.waterfall):
         frame.waterfall = _create_synthetic_waterfall(frame, max_load=max_load)
-
-    frame.waterfall.data = frame.data[:, np.newaxis, :]
-    if not frame.ascending:
-        frame.waterfall.data = frame.waterfall.data[:, :, ::-1]
-
-    header_attr = {
-        "tsamp": frame.dt,
-        "tstart": frame.mjd,
-        "nchans": frame.fchans,
-        "fch1": frame.fch1 * 1e-6,
-    }
-    if frame.ascending:
-        header_attr["foff"] = frame.df * 1e-6
     else:
-        header_attr["foff"] = frame.df * -1e-6
-    frame.waterfall.header.update(header_attr)
-    frame.waterfall.file_header.update(header_attr)
+        _sync_waterfall_adapter(frame.waterfall, frame)
 
     if filename is not None:
         frame.waterfall.container.filename = str(pathlib.Path(filename).resolve())
@@ -155,8 +242,10 @@ def _save_fil(frame: Any, filename: str | pathlib.Path, *, max_load: int = 1) ->
     """
     _update_waterfall(frame, filename=filename, max_load=max_load)
     _encode_bytestrings(frame)
-    frame.waterfall.write_to_fil(filename)
-    _decode_bytestrings(frame)
+    try:
+        frame.waterfall.write_to_fil(filename)
+    finally:
+        _decode_bytestrings(frame)
 
 
 def _save_hdf5(frame: Any, filename: str | pathlib.Path, *, max_load: int = 1) -> None:
@@ -169,8 +258,10 @@ def _save_hdf5(frame: Any, filename: str | pathlib.Path, *, max_load: int = 1) -
     """
     _update_waterfall(frame, filename=filename, max_load=max_load)
     _encode_bytestrings(frame)
-    frame.waterfall.write_to_hdf5(filename)
-    _decode_bytestrings(frame)
+    try:
+        frame.waterfall.write_to_hdf5(filename)
+    finally:
+        _decode_bytestrings(frame)
 
 
 def _save_npy(frame: Any, filename: str | pathlib.Path) -> None:

@@ -17,6 +17,7 @@ from ._reduction import (
     _iter_raw_data_blocks,
     _resolve_raw_input,
 )
+from ._reduction.frame_context import _frame_context_kwargs
 from ._reduction.writers import _build_filterbank_header
 
 
@@ -229,4 +230,5 @@ def reduce_raw_to_frame(
             "fftlength": spec.fftlength,
             "integration_factor": spec.integration_factor,
         },
+        **_frame_context_kwargs(input_spec, metadata, pol_mode=spec.pol_mode),
     )

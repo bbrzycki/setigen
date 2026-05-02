@@ -19,6 +19,11 @@ As it implies, if you set the ``db`` flag to True, it will express
 the intensities in terms of decibels. This can help visualize data a little better,
 depending on the application.
 
+For file-backed frames, ``get_data()`` and ``frame.data`` materialize the full
+backing file. Use :meth:`setigen.frame.Frame.read_frame` when you only need a
+bounded region of a large observation. See :doc:`file_backed_frames` for the
+large-file workflow.
+
 Plotting frames
 ---------------
 
@@ -108,6 +113,17 @@ This function is a wrapper for :func:`setigen.frame_utils.integrate`, with the s
 ``axis`` parameter can be either 't' or 0 to integrate along the time axis, or 'f' or 
 1 to integrate along the frequency axis. The ``mode`` parameter can be either 'mean' or
 'sum' to determine the manner of integration.
+
+When ``as_frame=True``, time integration returns a
+:class:`setigen.spectrum.Spectrum` with shape ``(1, fchans)``, while frequency
+integration returns a :class:`setigen.timeseries.TimeSeries` with shape
+``(tchans, 1)``. These products preserve frame context such as source name,
+start time, headers, and custom metadata. For detailed semantics and metadata
+guidance, see :doc:`frame_products`.
+
+For file-backed frames, ``mean`` and ``sum`` spectra and time series are
+computed in chunks. The returned ``Spectrum`` or ``TimeSeries`` is eager and
+contains derived-product metadata describing the source region and reducer.
 
 Frame slicing
 -------------

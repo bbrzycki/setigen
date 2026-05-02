@@ -38,7 +38,17 @@ class TimeSeries(frame.Frame):
             **kwargs: Additional frame-construction keyword arguments.
         """
         if "fchans" in kwargs:
-            assert kwargs.pop("fchans") == 1
+            fchans = kwargs.pop("fchans")
+            if fchans != 1:
+                raise ValueError("TimeSeries requires fchans=1")
+        if data is not None:
+            data = np.asarray(data)
+            if data.ndim == 1:
+                data = data[:, np.newaxis]
+            elif data.ndim != 2 or data.shape[1] != 1:
+                raise ValueError("TimeSeries data must be one-dimensional or have shape (tchans, 1)")
+            if tchans is None:
+                tchans = data.shape[0]
         frame.Frame.__init__(self,
                              fchans=1,
                              tchans=tchans,

@@ -242,8 +242,10 @@ def _save_fil(frame: Any, filename: str | pathlib.Path, *, max_load: int = 1) ->
     """
     _update_waterfall(frame, filename=filename, max_load=max_load)
     _encode_bytestrings(frame)
-    frame.waterfall.write_to_fil(filename)
-    _decode_bytestrings(frame)
+    try:
+        frame.waterfall.write_to_fil(filename)
+    finally:
+        _decode_bytestrings(frame)
 
 
 def _save_hdf5(frame: Any, filename: str | pathlib.Path, *, max_load: int = 1) -> None:
@@ -256,8 +258,10 @@ def _save_hdf5(frame: Any, filename: str | pathlib.Path, *, max_load: int = 1) -
     """
     _update_waterfall(frame, filename=filename, max_load=max_load)
     _encode_bytestrings(frame)
-    frame.waterfall.write_to_hdf5(filename)
-    _decode_bytestrings(frame)
+    try:
+        frame.waterfall.write_to_hdf5(filename)
+    finally:
+        _decode_bytestrings(frame)
 
 
 def _save_npy(frame: Any, filename: str | pathlib.Path) -> None:

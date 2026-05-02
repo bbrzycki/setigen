@@ -5,6 +5,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 import pytest
 from astropy import units as u
+from astropy.time import Time
 from blimpy import Waterfall
 
 import setigen as stg
@@ -698,6 +699,9 @@ def test_reduce_raw_to_frame_matches_existing_helper(tmp_path):
 
     assert frame.data.shape == helper.shape
     assert_allclose(frame.data, helper)
+    assert frame.header is not None
+    assert frame.source_name == frame.header["source_name"]
+    assert frame.t_start == pytest.approx(Time(frame.header["tstart"], format="mjd").unix)
 
 
 def test_reduce_raw_channel_subset_matches_full_coarse_slice(tmp_path):
@@ -845,6 +849,9 @@ def test_direct_spectrogram_matches_raw_roundtrip_total_power(tmp_path):
 
     assert direct_frame.data.shape == raw_frame.data.shape
     assert_allclose(direct_frame.data, raw_frame.data)
+    assert direct_frame.header is not None
+    assert direct_frame.source_name == direct_frame.header["source_name"]
+    assert direct_frame.t_start == pytest.approx(Time(direct_frame.header["tstart"], format="mjd").unix)
 
 
 def test_direct_spectrogram_cupy_backend_smoke():

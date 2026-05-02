@@ -44,33 +44,32 @@ If you have a 2D Numpy array of spectrogram data, you may alternatively use
                                 dt=18.253611008*u.s,
                                 fch1=6095.214842353016*u.MHz,
                                 ascending=False,
-                                data)
+                                data=data)
                       
-If you know the parameters behind the data generation, and not necessarily the 
-actual frame resolution, you may use :func:`setigen.frame.Frame.from_backend_params`:
+If you know the backend parameters behind the data generation, you can derive
+the common frame-axis values and expand them into standard ``Frame`` creation.
+This keeps the backend-derived values explicit while leaving ``fch1`` attached
+to the slice or frequency reference you are actually using:
 
 .. code-block:: Python
 
-    frame = stg.Frame.from_backend_params(fchans=1024,
-                                          obs_length=300,
-                                          sample_rate=3e9,
-                                          num_branches=1024,
-                                          fftlength=1048576,
-                                          int_factor=51,
-                                          fch1=6*u.GHz,
-                                          ascending=False,
-                                          data=None)
+    frame_params = stg.frame_params_from_backend(obs_length=300,
+                                                 sample_rate=3e9,
+                                                 num_branches=1024,
+                                                 fftlength=1048576,
+                                                 int_factor=51)
+
+    frame = stg.Frame(fchans=1024,
+                      fch1=6*u.GHz,
+                      ascending=False,
+                      **frame_params)
                                           
-where ``obs_length`` is the integration period, ``sample_rate`` is the 
-sampling rate in Hz, code:`num_branches` is the branches in the polyphase 
-filterbank, code:`fftlength` is the number of fine channels per coarse channel, 
+where ``obs_length`` is the integration period, ``sample_rate`` is the
+sampling rate in Hz, ``num_branches`` is the branches in the polyphase
+filterbank, ``fftlength`` is the number of fine channels per coarse channel,
 and ``int_factor`` is the integration factor used in data reduction. Note 
 that ``int_factor`` is set to determine the number of time bins in the 
-frame. You may also set the ``data`` parameter to include existing 2D data, 
-from which ``fchans`` will be automatically inferred. Since multiple 
-``int_factor`` values may correspond to the same number of time bins, for 
-clarity we do not also infer ``int_factor`` just from the dimensions of the 
-data.
+frame.
 
 Finally, you can construct a frame directly from a ``.fil``/``.h5`` file or Waterfall object:
 
@@ -87,6 +86,11 @@ Alternately:
     
     frame_wf = stg.Frame.from_waterfall(wf)
     frame_path = stg.Frame.from_waterfall(wf_path)
+
+This constructor eagerly loads the selected data into memory. For many-GB
+observations, prefer the file-backed APIs documented in
+:doc:`file_backed_frames`, especially ``Frame.open()`` for inspection and
+``Frame.open_copy()`` for safe writable injection.
     
     
 Adding a basic signal

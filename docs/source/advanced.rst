@@ -308,6 +308,55 @@ To do this, we can use :func:`~setigen.sample_from_obs.get_parameter_distributio
 This will iterate over an entire filterbank file, estimating the noise statistics
 and returning them as numpy arrays.
 
+Local noise statistics for SNR
+------------------------------
+
+For signal injection into real observations, the most useful SNR reference is
+often local in frequency, not global across the whole observation. Coarse-channel
+structure, bandpass variation, and PFB scalloping can change the apparent noise
+level across the band. :class:`setigen.NoiseEstimationConfig` makes that choice
+explicit:
+
+.. code-block:: Python
+
+    config = stg.NoiseEstimationConfig(
+        method="sigma_clip",
+        sigma=3,
+        maxiters=5,
+        context_width=2048,
+        guard_width=64,
+        width_unit="channels",
+    )
+
+    stats = frame.estimate_noise_stats(
+        path=stg.constant_path(f_start=frame.get_frequency(512),
+                               drift_rate=2*u.Hz/u.s),
+        f_profile=stg.gaussian_f_profile(width=40*u.Hz),
+        auto_bounding=True,
+        truncate_below=1e-3,
+        config=config,
+    )
+
+    level = frame.get_intensity(snr=20, noise_stats=stats)
+
+The context window provides nearby samples for the estimate. The guard window
+excludes the signal neighborhood so the injected signal does not define its own
+noise. Sigma clipping is the default because it is consistent with existing
+frame noise behavior while rejecting bright outliers.
+
+For thin narrowband signals, keep signal rendering bounds and noise-estimation
+context separate. The signal may only need a small number of channels for
+mutation, while SNR calibration should use a wider local context with an
+excluded guard region. This gives the estimator enough samples to reject
+pre-existing narrowband contamination and to follow local bandpass/PFB response
+better than a global observation-wide statistic. The current file-backed
+implementation uses a rectangular local context for efficient contiguous reads;
+see :doc:`file_backed_frames` for the chunking and noise-context details.
+
+For file-backed observations, explicit local ranges are required so noise
+estimation does not accidentally scan a full many-GB product. See
+:doc:`file_backed_frames` for examples.
+
 
 Creating an injected synthetic signal dataset using observations
 ----------------------------------------------------------------

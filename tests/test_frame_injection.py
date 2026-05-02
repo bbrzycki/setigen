@@ -11,6 +11,10 @@ def test_noise():
     frame = stg.Frame(shape=(16, 256), seed=0)
     frame.add_noise(0, 1, noise_type="gaussian")
     assert frame.get_noise_stats() == (0, 1)
+    assert frame.noise_stats.as_tuple() == (0, 1)
+
+    with pytest.raises(ValueError, match="method"):
+        stg.NoiseEstimationConfig(method="bad")
 
     gaussian_frame = stg.Frame(shape=(16, 256), seed=0)
     normal_frame = stg.Frame(shape=(16, 256), seed=0)
@@ -234,6 +238,9 @@ def test_injection_tools(tmp_path):
 
     frame.add_noise(1)
     assert frame.get_snr(intensity=100) == pytest.approx(4039.801975344831)
+    stats = frame.estimate_noise_stats()
+    intensity = frame.get_intensity(snr=10, noise_stats=stats)
+    assert frame.get_snr(intensity=intensity, noise_stats=stats) == pytest.approx(10)
     assert isinstance(frame.get_info(), dict)
 
     frame.add_constant_signal(frame.get_frequency(frame.fchans//2),

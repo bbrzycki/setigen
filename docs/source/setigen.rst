@@ -44,6 +44,22 @@ setigen.timeseries module
     :members:
     :undoc-members:
     :show-inheritance:
+
+setigen.noise module
+--------------------
+
+.. automodule:: setigen.noise
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+setigen.integrate module
+------------------------
+
+.. automodule:: setigen.integrate
+    :members:
+    :undoc-members:
+    :show-inheritance:
     
 setigen.dedrift module
 ----------------------

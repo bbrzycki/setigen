@@ -227,7 +227,8 @@ In Python:
 
 The legacy ``SETIGEN_ENABLE_GPU=1`` environment variable is still supported for
 existing scripts. Use ``stg.voltage.set_backend('numpy')`` to force CPU
-execution.
+execution. See :doc:`array_backends` for the shared backend vocabulary and the
+intended package-wide policy.
     
 Details behind classes
 ----------------------

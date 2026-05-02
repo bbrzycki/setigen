@@ -178,12 +178,13 @@ def _get_frame_frequency_edges(frame: Frame,
     Returns:
         Lower and upper plot edges for the frequency axis.
     """
+    frequency_edges = frame.frequency_edges
     if axis_spec.frequency_kind is _FrequencyAxisKind.FMID:
-        return frame.fmin - frame.fmid - frame.df / 2, frame.fmax - frame.fmid + frame.df / 2
+        return frequency_edges[0] - frame.fmid, frequency_edges[-1] - frame.fmid
     if axis_spec.frequency_kind is _FrequencyAxisKind.FMIN:
-        return -frame.df / 2, frame.fmax - frame.fmin + frame.df / 2
+        return frequency_edges[0] - frame.fmin, frequency_edges[-1] - frame.fmin
     if axis_spec.frequency_kind is _FrequencyAxisKind.FABS:
-        return frame.fmin - frame.df / 2, frame.fmax + frame.df / 2
+        return frequency_edges[0], frequency_edges[-1]
     return -1 / 2, frame.fchans - 1 / 2
 
 
@@ -199,7 +200,7 @@ def _get_frame_time_edges(frame: Frame,
         Lower and upper plot edges for the time axis.
     """
     if axis_spec.uses_time_units:
-        return 0, frame.tchans * frame.dt
+        return frame.time_edges[0], frame.time_edges[-1]
     return -1 / 2, frame.tchans - 1 / 2
 
 

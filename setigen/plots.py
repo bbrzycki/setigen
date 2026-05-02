@@ -27,6 +27,10 @@ def plot_frame(frame: Any,
                minor_ticks: bool=False,
                grid: bool=False,
                swap_axes: bool=False,
+               f_range: tuple[Any, Any] | None = None,
+               t_range: tuple[Any, Any] | None = None,
+               f_index_range: tuple[int, int] | None = None,
+               t_index_range: tuple[int, int] | None = None,
                **kwargs: Any) -> Any:
     """Plot frame spectrogram data.
 
@@ -40,13 +44,23 @@ def plot_frame(frame: Any,
         minor_ticks: Whether to enable minor ticks.
         grid: Whether to draw the major-tick grid.
         swap_axes: Whether to swap frequency and time axes.
+        f_range: Optional frequency range to read before plotting.
+        t_range: Optional time range to read before plotting.
+        f_index_range: Optional half-open frequency index range to plot.
+        t_index_range: Optional half-open time index range to plot.
         **kwargs: Additional `matplotlib.pyplot.imshow()` keyword arguments.
 
     Returns:
         Spectrogram image artist.
     """
+    if any(value is not None for value in (f_range, t_range, f_index_range, t_index_range)):
+        frame = frame.read_frame(f_range=f_range,
+                                 t_range=t_range,
+                                 f_index_range=f_index_range,
+                                 t_index_range=t_index_range)
+
     # Scale intensity if necessary (log vs. linear)
-    data = frame.data
+    data = frame.get_data()
     if db:
         data = utils.db(data)
 
